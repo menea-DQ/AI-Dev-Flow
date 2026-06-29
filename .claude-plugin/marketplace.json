@@ -5,7 +5,7 @@
   "plugins": [
     {
       "name": "ai-dev-flow",
-      "source": ".",
+      "source": "./",
       "description": "Processo AI-assistito human-in-the-loop: skill di processo, hook di qualità, installer per-progetto."
     }
   ]

@@ -57,7 +57,7 @@ non vengono toccati.
 ```
 AI-Dev-Flow/                     radice = marketplace + plugin
 ├── .claude-plugin/
-│   ├── marketplace.json         dichiara il marketplace e il plugin (source ".")
+│   ├── marketplace.json         dichiara il marketplace e il plugin (source "./")
 │   └── plugin.json              manifest del plugin
 ├── README.md                    questo file
 ├── VERSION                      versione semantica

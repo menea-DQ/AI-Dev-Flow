@@ -23,7 +23,7 @@
 ```
 AI-Dev-Flow/                         radice = marketplace + plugin
 ├── .claude-plugin/
-│   ├── marketplace.json             dichiara il marketplace e il plugin (source ".")
+│   ├── marketplace.json             dichiara il marketplace e il plugin (source "./")
 │   └── plugin.json                  manifest del plugin (name, version, hooks)
 ├── README.md
 ├── VERSION                          0.0.1
@@ -114,9 +114,10 @@ entrambi in `.claude-plugin/`.
 
 **Perché così.** `skills/` e `agents/` sono **auto-scoperti** dal plugin (basta la cartella e il
 frontmatter), quindi non serve dichiararli nel manifest; gli hook invece sono dichiarati col campo
-`hooks`. La sorgente del plugin nel marketplace è `"."` perché il plugin sta alla radice del repo
-(pattern "repo = singolo plugin"). Se un domani servisse ospitare più plugin, basta spostare ciascuno
-in una sottocartella e usare `source: "./plugins/<nome>"`.
+`hooks`. La sorgente del plugin nel marketplace è `"./"` (il path relativo DEVE iniziare con `./`;
+`"."` viene rifiutato dallo schema): `"./"` indica il plugin alla radice del repo, pattern
+"repo = singolo plugin". Se un domani servisse ospitare più plugin, basta spostare ciascuno in una
+sottocartella e usare `source: "./plugins/<nome>"`.
 
 ---
 
