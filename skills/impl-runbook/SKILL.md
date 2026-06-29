@@ -19,8 +19,11 @@ Cosa fare:
    NON ricaricare tutta la repo.
 3. NON modificare i file di test (sono read-only per te: li ha scritti il sub-agent test-author).
    Se ritieni che un test sia sbagliato rispetto alla spec, NON modificarlo: segnalalo all'utente.
-4. Applica il principio di essenzialità (Ponytail, se attivo): scrivi solo il codice necessario,
-   riusa stdlib/feature native/dipendenze esistenti prima di aggiungere codice nuovo.
+4. Essenzialità via Ponytail: il plugin Ponytail (abilitato per-progetto dall'install quando
+   flow.config.tokenEconomy.ponytail ≠ "off") inietta il ruleset che fa scrivere solo il codice
+   necessario. All'inizio del lavoro allinea la modalità a flow.config con `/ponytail <modalità>`
+   (lite|full|ultra). Principio comunque valido: riusa stdlib/feature native/dipendenze esistenti
+   prima di aggiungere codice nuovo.
 5. Al termine, prepara un diff chiaro per il GATE UMANO 3.
 
 Output: l'implementazione + un diff leggibile.

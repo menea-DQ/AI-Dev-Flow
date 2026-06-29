@@ -51,6 +51,14 @@ in variabili d'ambiente (vedi [`connectors/.env.example`](connectors/.env.exampl
 connettore (o aggiungerne uno, es. Jira) si tocca solo `flow.config`, senza reimplementare nulla.
 Vedi [`connectors/README.md`](connectors/README.md) per il contratto.
 
+## Essenzialità del codice (Ponytail)
+
+Il kit non reimplementa l'essenzialità: si appoggia al plugin esterno
+[Ponytail](https://github.com/DietrichGebert/ponytail) (un ruleset che fa scrivere solo il codice
+necessario). Quando `flow.config.tokenEconomy.ponytail` ≠ `"off"`, l'install **abilita Ponytail
+per-progetto** insieme al kit (stesso meccanismo `enabledPlugins`/`extraKnownMarketplaces`). La
+modalità (`lite`|`full`|`ultra`) segue quel flag; l'impl-runbook la allinea con `/ponytail <modalità>`.
+
 ## Cambiare le impostazioni di un progetto
 
 Invoca la skill `flow-settings`: «cambia come si fanno i test», «aggiungi una convenzione di progetto»,

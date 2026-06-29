@@ -31,6 +31,9 @@ const MARKER_START = '<!-- ai-dev-flow:start -->';
 const MARKER_END = '<!-- ai-dev-flow:end -->';
 const PLUGIN_NAME = 'ai-dev-flow';
 const MARKETPLACE_NAME = 'ai-dev-flow';
+const PONYTAIL_PLUGIN_NAME = 'ponytail';
+const PONYTAIL_MARKETPLACE_NAME = 'ponytail';
+const PONYTAIL_REPO = 'DietrichGebert/ponytail';
 
 function parseArguments(argv) {
   const parsed = { force: false };
@@ -251,7 +254,7 @@ async function run() {
     await installer.createFile(join(projectRoot, 'flow.config.json'), `${JSON.stringify(mergedConfig, null, 2)}\n`);
     manifest.createdFiles.push({ relPath: 'flow.config.json', userContent: true });
 
-    manifest.settings = await enablePluginForProject(installer, projectRoot, kitRoot);
+    manifest.settings = await enablePluginsForProject(installer, projectRoot, kitRoot, mergedConfig);
     const agentInstructions = await installAgentInstructions(installer, kitRoot, projectRoot);
     if (agentInstructions.agentMd.fileCreatedByUs) {
       manifest.createdFiles.push({ relPath: 'AGENT.md', userContent: true });
@@ -296,16 +299,30 @@ async function run() {
   }
 }
 
-async function enablePluginForProject(installer, projectRoot, kitRoot) {
+async function enablePluginsForProject(installer, projectRoot, kitRoot, mergedConfig) {
   const settingsPath = join(projectRoot, '.claude', 'settings.json');
   const settingsExisted = await pathExists(settingsPath);
   const settings = (await readJsonIfPresent(settingsPath)) ?? {};
-
-  const pluginKey = `${PLUGIN_NAME}@${MARKETPLACE_NAME}`;
   settings.enabledPlugins ??= {};
-  settings.enabledPlugins[pluginKey] = true;
   settings.extraKnownMarketplaces ??= {};
+
+  const enabledPluginKeys = [];
+  const marketplaceNames = [];
+
+  const ourPluginKey = `${PLUGIN_NAME}@${MARKETPLACE_NAME}`;
+  settings.enabledPlugins[ourPluginKey] = true;
   settings.extraKnownMarketplaces[MARKETPLACE_NAME] ??= { source: kitMarketplaceSource(kitRoot) };
+  enabledPluginKeys.push(ourPluginKey);
+  marketplaceNames.push(MARKETPLACE_NAME);
+
+  const ponytailMode = mergedConfig?.tokenEconomy?.ponytail ?? 'off';
+  if (ponytailMode !== 'off') {
+    const ponytailPluginKey = `${PONYTAIL_PLUGIN_NAME}@${PONYTAIL_MARKETPLACE_NAME}`;
+    settings.enabledPlugins[ponytailPluginKey] = true;
+    settings.extraKnownMarketplaces[PONYTAIL_MARKETPLACE_NAME] ??= { source: { source: 'github', repo: PONYTAIL_REPO } };
+    enabledPluginKeys.push(ponytailPluginKey);
+    marketplaceNames.push(PONYTAIL_MARKETPLACE_NAME);
+  }
 
   const serialized = `${JSON.stringify(settings, null, 2)}\n`;
   if (settingsExisted) {
@@ -313,10 +330,8 @@ async function enablePluginForProject(installer, projectRoot, kitRoot) {
   } else {
     await installer.createFile(settingsPath, serialized);
   }
-  const source = settings.extraKnownMarketplaces[MARKETPLACE_NAME].source;
-  const sourceLabel = source.source === 'github' ? `github:${source.repo}` : `directory:${source.path}`;
-  console.log(`Abilitato il plugin SOLO in questo progetto (.claude/settings.json, marketplace ${sourceLabel}).`);
-  return { relPath: '.claude/settings.json', fileCreatedByUs: !settingsExisted, pluginKey, marketplaceName: MARKETPLACE_NAME };
+  console.log(`Abilitati SOLO in questo progetto: ${enabledPluginKeys.join(', ')} (modalità Ponytail: ${ponytailMode}).`);
+  return { relPath: '.claude/settings.json', fileCreatedByUs: !settingsExisted, enabledPluginKeys, marketplaceNames };
 }
 
 async function installAgentInstructions(installer, kitRoot, projectRoot) {

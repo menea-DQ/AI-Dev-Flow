@@ -344,7 +344,9 @@ Funzionanti e testati. Sintesi di `install.mjs`:
   i glob `*/`).
 - Crea `flow.config.json` (template + `--decisions`), `flow.lock.json` (con hash, contesti e **manifest**).
 - **Abilita il plugin SOLO nel progetto**: scrive `enabledPlugins` + `extraKnownMarketplaces` nel
-  `.claude/settings.json` (sorgente `github` dedotta dal remote del kit, o `directory` locale).
+  `.claude/settings.json` (sorgente `github` dedotta dal remote del kit, o `directory` locale). Se
+  `tokenEconomy.ponytail` ≠ `"off"`, abilita per-progetto anche il plugin **Ponytail**
+  (`github DietrichGebert/ponytail`) per l'essenzialità del codice — non lo reimplementa.
 - Crea `AGENT.md` (se assente) e inietta il blocco delimitato in `CLAUDE.md` preservando il preesistente.
 - Crea un `architecture.md` per contesto acconsentito; inizializza il changelog.
 - **Transazionale**: traccia file creati/modificati; a errore esegue il rollback completo.

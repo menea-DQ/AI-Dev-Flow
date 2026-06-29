@@ -22,7 +22,7 @@ import { join, resolve } from 'node:path';
 
 const MARKER_START = '<!-- ai-dev-flow:start -->';
 const MARKER_END = '<!-- ai-dev-flow:end -->';
-const DEFAULT_SETTINGS = { relPath: '.claude/settings.json', fileCreatedByUs: false, pluginKey: 'ai-dev-flow@ai-dev-flow', marketplaceName: 'ai-dev-flow' };
+const DEFAULT_SETTINGS = { relPath: '.claude/settings.json', fileCreatedByUs: false, enabledPluginKeys: ['ai-dev-flow@ai-dev-flow'], marketplaceNames: ['ai-dev-flow'] };
 
 function parseArguments(argv) {
   const parsed = { purge: false };
@@ -134,14 +134,20 @@ async function disablePluginInSettings(projectRoot, settingsDescriptor, removed)
     return;
   }
   const settings = await readJsonIfPresent(settingsPath);
+  const pluginKeys = settingsDescriptor.enabledPluginKeys ?? (settingsDescriptor.pluginKey ? [settingsDescriptor.pluginKey] : []);
+  const marketplaceNames = settingsDescriptor.marketplaceNames ?? (settingsDescriptor.marketplaceName ? [settingsDescriptor.marketplaceName] : []);
   if (settings.enabledPlugins) {
-    delete settings.enabledPlugins[settingsDescriptor.pluginKey];
+    for (const pluginKey of pluginKeys) {
+      delete settings.enabledPlugins[pluginKey];
+    }
     if (Object.keys(settings.enabledPlugins).length === 0) {
       delete settings.enabledPlugins;
     }
   }
   if (settings.extraKnownMarketplaces) {
-    delete settings.extraKnownMarketplaces[settingsDescriptor.marketplaceName];
+    for (const marketplaceName of marketplaceNames) {
+      delete settings.extraKnownMarketplaces[marketplaceName];
+    }
     if (Object.keys(settings.extraKnownMarketplaces).length === 0) {
       delete settings.extraKnownMarketplaces;
     }
