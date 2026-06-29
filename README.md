@@ -74,6 +74,11 @@ AI-Dev-Flow/                     radice = marketplace + plugin
 └── project-files/               template di config e lock per-progetto
 ```
 
+## Documentazione di design
+
+In [`docs/`](docs/) trovi il documento di revisione (architettura + razionale), la presentazione per
+la direzione e i diagrammi di processo (`.drawio`).
+
 ## Versione
 
 Vedi [`VERSION`](VERSION). Versionamento semantico.

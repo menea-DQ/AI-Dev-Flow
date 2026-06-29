@@ -1,0 +1,625 @@
+<mxfile host="Electron">
+  <diagram name="Pagina-1" id="-5Ss3T0OQB19rGfAQPOi">
+    <mxGraphModel dx="2598" dy="1873" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2700" pageHeight="1700" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=26;fontColor=#0F172A;" value="&lt;b&gt;Processo AI-Dev Flow — Definizione + Implementazione (Human-in-the-loop)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="42" width="2580" x="60" y="24" as="geometry" />
+        </mxCell>
+        <mxCell id="sub" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=14;fontColor=#475569;" value="Azzurro: Automazione AI&amp;nbsp;&amp;nbsp;·&amp;nbsp;&amp;nbsp;Arancio: Gate UMANO&amp;nbsp;&amp;nbsp;·&amp;nbsp;&amp;nbsp;Verde: Agente/Loop dedicato&amp;nbsp;&amp;nbsp;·&amp;nbsp;&amp;nbsp;Viola: Knowledge Store&amp;nbsp;&amp;nbsp;·&amp;nbsp;&amp;nbsp;Rosso: Sistema esterno" vertex="1">
+          <mxGeometry height="24" width="2580" x="60" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="banner" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=13;fontColor=#5C4D00;" value="STRATO AGNOSTICO — processo, artefatti (.md versionati) e regole NON dipendono dal tool&amp;nbsp;&amp;nbsp;&amp;nbsp;◆&amp;nbsp;&amp;nbsp;&amp;nbsp;STRATO ADATTATORE — Hook/Skill di Claude Code isolati in una cartella sottile, sostituibile se cambi strumento" vertex="1">
+          <mxGeometry height="40" width="2580" x="60" y="108" as="geometry" />
+        </mxCell>
+        <mxCell id="ph0" parent="1" style="swimlane;startSize=38;whiteSpace=wrap;html=1;fillColor=#F0F4F8;strokeColor=#94A3B8;fontSize=16;fontStyle=1;fontColor=#1E293B;verticalAlign=top;align=center;horizontal=1;" value="FASE 0 · INTAKE" vertex="1">
+          <mxGeometry height="700" width="500" x="60" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="in_ticket" parent="ph0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=13;fontColor=#7A1E1E;" value="Ticketing System (Productive)&lt;br&gt;CR / BUG — via API" vertex="1">
+          <mxGeometry height="60" width="190" x="40" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="in_help" parent="ph0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=13;fontColor=#7A1E1E;" value="Helpdesk&lt;br&gt;contesto cliente — via API" vertex="1">
+          <mxGeometry height="60" width="190" x="270" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="in_norm" parent="ph0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontColor=#1E293B;" value="Normalizzazione richiesta&lt;br&gt;estrae tipo, priorità, riferimenti" vertex="1">
+          <mxGeometry height="60" width="420" x="40" y="165" as="geometry" />
+        </mxCell>
+        <mxCell id="in_mech" parent="ph0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#CBD5E1;fontSize=12;fontColor=#475569;dashed=1;align=left;spacingLeft=10;" value="◦ MCP: connettore Productive / Helpdesk (read)&lt;br&gt;◦ Skill: «intake-parser» (template richiesta)" vertex="1">
+          <mxGeometry height="48" width="420" x="40" y="245" as="geometry" />
+        </mxCell>
+        <mxCell id="in_dec" parent="ph0" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=13;fontColor=#7A5C00;" value="Tipo?" vertex="1">
+          <mxGeometry height="80" width="120" x="190" y="330" as="geometry" />
+        </mxCell>
+        <mxCell id="in_cr" parent="ph0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;fontColor=#1E4620;" value="Ramo CR / Evolutiva" vertex="1">
+          <mxGeometry height="55" width="190" x="40" y="455" as="geometry" />
+        </mxCell>
+        <mxCell id="in_bug" parent="ph0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;fontColor=#1E4620;" value="Ramo BUG" vertex="1">
+          <mxGeometry height="55" width="190" x="270" y="455" as="geometry" />
+        </mxCell>
+        <mxCell id="in_note" parent="ph0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#E6D26B;fontSize=12;fontColor=#5C4D00;align=left;spacingLeft=10;" value="L&#39;intake produce solo un «contesto richiesta» minimale.&lt;br&gt;Niente lettura della codebase qui → risparmio token." vertex="1">
+          <mxGeometry height="60" width="420" x="40" y="555" as="geometry" />
+        </mxCell>
+        <mxCell id="ph1" parent="1" style="swimlane;startSize=38;whiteSpace=wrap;html=1;fillColor=#F0F4F8;strokeColor=#94A3B8;fontSize=16;fontStyle=1;fontColor=#1E293B;verticalAlign=top;align=center;horizontal=1;" value="FASE 1 · DEFINIZIONE SPECIFICA  (tecnico-funzionale)" vertex="1">
+          <mxGeometry height="1000" width="540" x="680" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="d_retr" parent="ph1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontColor=#1E293B;" value="Retrieval mirato del contesto&lt;br&gt;legge solo i moduli rilevanti" vertex="1">
+          <mxGeometry height="60" width="290" x="40" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ks_code" parent="ph1" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=12;fontColor=#4A235A;" value="Codebase" vertex="1">
+          <mxGeometry height="70" width="65" x="370" y="56" as="geometry" />
+        </mxCell>
+        <mxCell id="ks_constr" parent="ph1" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontColor=#4A235A;" value="Constraint&lt;br&gt;progetto" vertex="1">
+          <mxGeometry height="70" width="60" x="455" y="56" as="geometry" />
+        </mxCell>
+        <mxCell id="d_mech1" parent="ph1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#CBD5E1;fontSize=12;fontColor=#475569;dashed=1;align=left;spacingLeft=10;" value="◦ MCP: codebase index / ricerca semantica&lt;br&gt;◦ Skill: «spec-context»&amp;nbsp;&amp;nbsp;◦ retrieval + cache = meno token" vertex="1">
+          <mxGeometry height="48" width="290" x="40" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="d_valid" parent="ph1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontColor=#1E293B;" value="Validatore di Specifica&lt;br&gt;confronta richiesta · codebase · constraint" vertex="1">
+          <mxGeometry height="60" width="290" x="40" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="ks_chlog" parent="ph1" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontColor=#4A235A;" value="Changelog /&lt;br&gt;Log decisioni" vertex="1">
+          <mxGeometry height="75" width="65" x="370" y="216" as="geometry" />
+        </mxCell>
+        <mxCell id="ks_spec" parent="ph1" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontColor=#4A235A;" value="Spec Store&lt;br&gt;(interfaccia&lt;br&gt;logica)" vertex="1">
+          <mxGeometry height="75" width="60" x="455" y="216" as="geometry" />
+        </mxCell>
+        <mxCell id="d_interview" parent="ph1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontColor=#1E293B;" value="Intervista sui buchi&lt;br&gt;domande SOLO dove la spec è incompleta" vertex="1">
+          <mxGeometry height="60" width="290" x="40" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="d_qa" parent="ph1" style="html=1;shape=mxgraph.veeam.checked_doc;fillColor=#97D077;strokeColor=#5E8C2E;verticalLabelPosition=bottom;verticalAlign=top;fontSize=12;fontColor=#1E4620;" value="Registro&lt;br&gt;Q&amp;amp;A" vertex="1">
+          <mxGeometry height="60" width="50" x="395" y="345" as="geometry" />
+        </mxCell>
+        <mxCell id="d_gate1" parent="ph1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=13;fontStyle=1;fontColor=#7A4100;" value="GATE UMANO 1&lt;br&gt;Approvi la SPECIFICA?" vertex="1">
+          <mxGeometry height="60" width="290" x="40" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="d_dec1" parent="ph1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=13;fontColor=#7A5C00;" value="OK?" vertex="1">
+          <mxGeometry height="60" width="100" x="385" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="d_impact" parent="ph1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontColor=#1E293B;" value="Impact analysis sul changelog&lt;br&gt;la CR rompe scelte deliberate passate?" vertex="1">
+          <mxGeometry height="60" width="290" x="40" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="d_specfinal" parent="ph1" style="html=1;shape=mxgraph.veeam.checked_doc;fillColor=#97D077;strokeColor=#5E8C2E;verticalLabelPosition=bottom;verticalAlign=top;fontSize=12;fontColor=#1E4620;" value="SPECIFICA&lt;br&gt;validata" vertex="1">
+          <mxGeometry height="65" width="55" x="390" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="d_save" parent="ph1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontColor=#1E293B;" value="Salvataggio + link al task&lt;br&gt;scrive su Spec Store, aggiorna task" vertex="1">
+          <mxGeometry height="60" width="290" x="40" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="d_mech2" parent="ph1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#CBD5E1;fontSize=12;fontColor=#475569;dashed=1;align=left;spacingLeft=10;" value="◦ Hook: on-spec-approved → commit nel repo&lt;br&gt;◦ MCP: Productive (write task ref)" vertex="1">
+          <mxGeometry height="48" width="290" x="40" y="790" as="geometry" />
+        </mxCell>
+        <mxCell id="d_note" parent="ph1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#E6D26B;fontSize=12;fontColor=#5C4D00;align=left;spacingLeft=10;" value="Loop di raffinamento: se rifiuti, torna all&#39;intervista coi tuoi commenti. Max giri = MAX_REFINE." vertex="1">
+          <mxGeometry height="55" width="475" x="40" y="860" as="geometry" />
+        </mxCell>
+        <mxCell id="d_bridge" parent="ph1" style="text;html=1;align=center;verticalAlign=middle;fontSize=12;fontColor=#B85450;fontStyle=2;" value="↓ Ramo BUG&lt;br&gt;(vedi sotto)" vertex="1">
+          <mxGeometry height="40" width="290" x="40" y="925" as="geometry" />
+        </mxCell>
+        <mxCell id="ph2" parent="1" style="swimlane;startSize=38;whiteSpace=wrap;html=1;fillColor=#F0F4F8;strokeColor=#94A3B8;fontSize=16;fontStyle=1;fontColor=#1E293B;verticalAlign=top;align=center;horizontal=1;" value="FASE 2 · IMPLEMENTAZIONE" vertex="1">
+          <mxGeometry height="1000" width="540" x="1340" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="im_load" parent="ph2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontColor=#1E293B;" value="Carica SPECIFICA approvata&lt;br&gt;MCP: read Spec Store" vertex="1">
+          <mxGeometry height="55" width="440" x="50" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="im_plan" parent="ph2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontColor=#1E293B;" value="Piano di implementazione&lt;br&gt;approccio · file toccati · rischi" vertex="1">
+          <mxGeometry height="60" width="440" x="50" y="155" as="geometry" />
+        </mxCell>
+        <mxCell id="im_gate2" parent="ph2" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=13;fontStyle=1;fontColor=#7A4100;" value="GATE UMANO 2&lt;br&gt;Approvi il PIANO?" vertex="1">
+          <mxGeometry height="60" width="300" x="120" y="255" as="geometry" />
+        </mxCell>
+        <mxCell id="im_dec2" parent="ph2" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=13;fontColor=#7A5C00;" value="OK?" vertex="1">
+          <mxGeometry height="60" width="100" x="220" y="355" as="geometry" />
+        </mxCell>
+        <mxCell id="im_code" parent="ph2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontColor=#1E293B;" value="Sviluppo software&lt;br&gt;Agente IMPLEMENTAZIONE — non tocca i test" vertex="1">
+          <mxGeometry height="65" width="440" x="50" y="455" as="geometry" />
+        </mxCell>
+        <mxCell id="im_mech" parent="ph2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#CBD5E1;fontSize=12;fontColor=#475569;dashed=1;align=left;spacingLeft=10;" value="◦ Skill: «impl-runbook» (convenzioni)&lt;br&gt;◦ Hook: pre-edit guard sui file di test (read-only)&lt;br&gt;◦ contesto = spec + piano, non tutta la repo" vertex="1">
+          <mxGeometry height="58" width="440" x="50" y="540" as="geometry" />
+        </mxCell>
+        <mxCell id="im_gate3" parent="ph2" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=13;fontStyle=1;fontColor=#7A4100;" value="GATE UMANO 3 (rapido)&lt;br&gt;Occhiata al diff" vertex="1">
+          <mxGeometry height="55" width="300" x="120" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="im_note" parent="ph2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#E6D26B;fontSize=12;fontColor=#5C4D00;align=left;spacingLeft=10;" value="Separazione agenti: l&#39;implementatore vede spec + piano + codice, NON la logica con cui i test sono stati derivati." vertex="1">
+          <mxGeometry height="55" width="440" x="50" y="700" as="geometry" />
+        </mxCell>
+        <mxCell id="im_div" parent="ph2" style="line;strokeColor=#CBD5E1;strokeWidth=1;html=1;" value="" vertex="1">
+          <mxGeometry height="10" width="440" x="50" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="t_agent" parent="ph2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;fontColor=#1E4620;" value="Agente TEST (isolato)&lt;br&gt;deriva i test dal contratto, alla cieca rispetto al codice" vertex="1">
+          <mxGeometry height="65" width="320" x="50" y="810" as="geometry" />
+        </mxCell>
+        <mxCell id="t_suite" parent="ph2" style="html=1;shape=mxgraph.veeam.checked_doc;fillColor=#97D077;strokeColor=#5E8C2E;verticalLabelPosition=bottom;verticalAlign=top;fontSize=12;fontColor=#1E4620;" value="Suite test&lt;br&gt;(unit + integr.)" vertex="1">
+          <mxGeometry height="65" width="50" x="420" y="810" as="geometry" />
+        </mxCell>
+        <mxCell id="t_note" parent="ph2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#E6D26B;fontSize=12;fontColor=#5C4D00;align=left;spacingLeft=10;" value="Anti teaching-to-the-test: l&#39;implementatore NON può alterare questi test (Hook pre-edit guard). Vede SOLO la spec." vertex="1">
+          <mxGeometry height="55" width="440" x="50" y="900" as="geometry" />
+        </mxCell>
+        <mxCell id="ph3" parent="1" style="swimlane;startSize=38;whiteSpace=wrap;html=1;fillColor=#F0F4F8;strokeColor=#94A3B8;fontSize=16;fontStyle=1;fontColor=#1E293B;verticalAlign=top;align=center;horizontal=1;" value="FASE 3 · QUALITÀ — selezione test in base a COSA è cambiato" vertex="1">
+          <mxGeometry height="710" width="600" x="2000" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="q_diff" parent="ph3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontColor=#1E293B;" value="Analisi del cambiamento&lt;br&gt;classifica il diff: ETL? FE? API? Query?" vertex="1">
+          <mxGeometry height="60" width="300" x="40" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="q_router" parent="ph3" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=13;fontColor=#7A5C00;" value="Test&lt;br&gt;Router" vertex="1">
+          <mxGeometry height="80" width="120" x="420" y="58" as="geometry" />
+        </mxCell>
+        <mxCell id="q_mech" parent="ph3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#CBD5E1;fontSize=12;fontColor=#475569;dashed=1;align=left;spacingLeft=10;" value="◦ Skill: «test-selector» (mappa area → test)&lt;br&gt;◦ Hook: post-implementation trigger&lt;br&gt;◦ esegue SOLO i test pertinenti → risparmio" vertex="1">
+          <mxGeometry height="58" width="300" x="40" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="q_nrt" parent="ph3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;fontColor=#1E4620;" value="NRT (Non-Regression)&lt;br&gt;+ snapshot dati pre/post" vertex="1">
+          <mxGeometry height="60" width="240" x="40" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="q_e2e" parent="ph3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;fontColor=#1E4620;" value="E2E (Playwright)" vertex="1">
+          <mxGeometry height="60" width="240" x="310" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="q_unit" parent="ph3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;fontColor=#1E4620;" value="Unit / Integration" vertex="1">
+          <mxGeometry height="55" width="240" x="40" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="q_proj" parent="ph3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;fontColor=#1E4620;" value="Test Specifici di Progetto" vertex="1">
+          <mxGeometry height="55" width="240" x="310" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="q_specv" parent="ph3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;fontColor=#1E4620;" value="Test Validazione Specifica" vertex="1">
+          <mxGeometry height="55" width="240" x="40" y="385" as="geometry" />
+        </mxCell>
+        <mxCell id="q_backup" parent="ph3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontColor=#1E293B;" value="Valutatore Backup fonti dato&lt;br&gt;se ETL/sync/query → snapshot PRIMA" vertex="1">
+          <mxGeometry height="60" width="300" x="40" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="ks_db" parent="ph3" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=12;fontColor=#4A235A;" value="Database /&lt;br&gt;Other Sources" vertex="1">
+          <mxGeometry height="70" width="110" x="420" y="455" as="geometry" />
+        </mxCell>
+        <mxCell id="q_res" parent="ph3" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=13;fontColor=#7A5C00;" value="Tutti i test&lt;br&gt;selezionati&lt;br&gt;passano?" vertex="1">
+          <mxGeometry height="80" width="200" x="110" y="560" as="geometry" />
+        </mxCell>
+        <mxCell id="q_note" parent="ph3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#E6D26B;fontSize=12;fontColor=#5C4D00;align=left;spacingLeft=10;" value="ETL → NRT (+snapshot)&amp;nbsp;·&amp;nbsp;Frontend → E2E&amp;nbsp;·&amp;nbsp;API/logica → Unit+Integration&amp;nbsp;·&amp;nbsp;trasversale → combinazione.&lt;br&gt;Non si esegue ciò che non è impattato." vertex="1">
+          <mxGeometry height="55" width="510" x="40" y="640" as="geometry" />
+        </mxCell>
+        <mxCell id="phbug" parent="1" style="swimlane;startSize=38;whiteSpace=wrap;html=1;fillColor=#FBE5E5;strokeColor=#B85450;fontSize=15;fontStyle=1;fontColor=#7A1E1E;verticalAlign=top;align=center;horizontal=1;" value="RAMO BUG · riproduzione + test rosso (TDD da regressione)" vertex="1">
+          <mxGeometry height="220" width="540" x="60" y="970" as="geometry" />
+        </mxCell>
+        <mxCell id="bg_repro" parent="phbug" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;fontColor=#1E4620;" value="Riproduzione bug&lt;br&gt;isola caso minimo, usa changelog" vertex="1">
+          <mxGeometry height="60" width="280" x="40" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="bg_red" parent="phbug" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;fontColor=#1E4620;" value="Test che FALLISCE (red)&lt;br&gt;cattura il bug" vertex="1">
+          <mxGeometry height="60" width="150" x="360" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="bg_note" parent="phbug" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#E6D26B;fontSize=12;fontColor=#5C4D00;align=left;spacingLeft=10;" value="Il red-test entra stabilmente nella suite NRT: garantisce che il bug non ritorni. Il changelog aiuta a individuare quale evolutiva l&#39;ha introdotto." vertex="1">
+          <mxGeometry height="60" width="470" x="40" y="135" as="geometry" />
+        </mxCell>
+        <mxCell id="ph4" parent="1" style="swimlane;startSize=38;whiteSpace=wrap;html=1;fillColor=#F0F4F8;strokeColor=#94A3B8;fontSize=16;fontStyle=1;fontColor=#1E293B;verticalAlign=top;align=center;horizontal=1;" value="FASE 4 · CHIUSURA" vertex="1">
+          <mxGeometry height="280" width="600" x="2000" y="990" as="geometry" />
+        </mxCell>
+        <mxCell id="c_doc" parent="ph4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontColor=#1E293B;" value="Aggiornamento documentazione&lt;br&gt;doc + CHANGELOG con scelta e perché" vertex="1">
+          <mxGeometry height="60" width="300" x="40" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="c_chlog" parent="ph4" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontColor=#4A235A;" value="Changelog /&lt;br&gt;Log decisioni&lt;br&gt;(scrittura)" vertex="1">
+          <mxGeometry height="75" width="100" x="420" y="51" as="geometry" />
+        </mxCell>
+        <mxCell id="c_docf" parent="ph4" style="whiteSpace=wrap;html=1;shape=mxgraph.basic.document;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontColor=#1E4620;" value="Documentazione" vertex="1">
+          <mxGeometry height="70" width="120" x="40" y="145" as="geometry" />
+        </mxCell>
+        <mxCell id="c_task" parent="ph4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontColor=#1E293B;" value="Update Task Status&lt;br&gt;Productive → Done / Review" vertex="1">
+          <mxGeometry height="60" width="320" x="200" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="c_mech" parent="ph4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#CBD5E1;fontSize=12;fontColor=#475569;dashed=1;align=left;spacingLeft=10;" value="◦ Hook: on-tests-green → trigger doc + changelog&lt;br&gt;◦ MCP: Productive (write status)" vertex="1">
+          <mxGeometry height="40" width="480" x="40" y="235" as="geometry" />
+        </mxCell>
+        <mxCell id="leg" parent="1" style="swimlane;startSize=38;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#94A3B8;fontSize=16;fontStyle=1;fontColor=#0F172A;verticalAlign=top;align=center;horizontal=1;" value="LEGENDA MECCANISMI — quando usare cosa" vertex="1">
+          <mxGeometry height="508" width="710" x="60" y="1290" as="geometry" />
+        </mxCell>
+        <mxCell id="lk0" parent="leg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontStyle=1;fontColor=#1E293B;" value="AGENT" vertex="1">
+          <mxGeometry height="45" width="120" x="30" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="lv0" parent="leg" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#334155;" value="ragionamento autonomo su un task: definire spec, pianificare, implementare, derivare test." vertex="1">
+          <mxGeometry height="45" width="305" x="165" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="lk1" parent="leg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;fontStyle=1;fontColor=#1E293B;" value="LOOP" vertex="1">
+          <mxGeometry height="45" width="120" x="30" y="115" as="geometry" />
+        </mxCell>
+        <mxCell id="lv1" parent="leg" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#334155;" value="ciclo iterativo: con gate umano (raffina spec/piano) o macchina (red → green → refactor)." vertex="1">
+          <mxGeometry height="45" width="305" x="165" y="115" as="geometry" />
+        </mxCell>
+        <mxCell id="lk2" parent="leg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=13;fontStyle=1;fontColor=#1E293B;" value="MCP" vertex="1">
+          <mxGeometry height="45" width="120" x="30" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="lv2" parent="leg" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#334155;" value="connessione a sistemi e dati: Productive, Helpdesk, codebase index, Spec Store, DB, Playwright." vertex="1">
+          <mxGeometry height="45" width="305" x="165" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="lk3" parent="leg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=13;fontStyle=1;fontColor=#1E293B;" value="SKILL" vertex="1">
+          <mxGeometry height="45" width="120" x="30" y="225" as="geometry" />
+        </mxCell>
+        <mxCell id="lv3" parent="leg" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#334155;" value="procedura riusabile e versionata: intake-parser, spec-context, impl-runbook, test-selector." vertex="1">
+          <mxGeometry height="45" width="305" x="165" y="225" as="geometry" />
+        </mxCell>
+        <mxCell id="lk4" parent="leg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=13;fontStyle=1;fontColor=#1E293B;" value="HOOK" vertex="1">
+          <mxGeometry height="45" width="120" x="30" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="lv4" parent="leg" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#334155;" value="automazione deterministica su evento: on-spec-approved, pre-edit guard, post-impl, on-tests-green." vertex="1">
+          <mxGeometry height="45" width="305" x="165" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="lk5" parent="leg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=13;fontStyle=1;fontColor=#1E293B;" value="GATE UMANO" vertex="1">
+          <mxGeometry height="45" width="120" x="30" y="335" as="geometry" />
+        </mxCell>
+        <mxCell id="lv5" parent="leg" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#334155;" value="i 3 controlli: (1) Spec  (2) Piano  (3) Diff rapido. Tu resti il decisore." vertex="1">
+          <mxGeometry height="45" width="305" x="165" y="335" as="geometry" />
+        </mxCell>
+        <mxCell id="lk6" parent="leg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEA;strokeColor=#B85450;fontSize=12;fontStyle=1;fontColor=#7A1E1E;align=left;spacingLeft=12;verticalAlign=middle;" value="RISPARMIO TOKEN — retrieval mirato · cache di contesto · test solo su ciò che cambia · modelli diversi per task · regole deterministiche dove possibile." vertex="1">
+          <mxGeometry height="70" width="440" x="30" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="e01" edge="1" parent="1" source="in_ticket" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="in_norm" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="310" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e02" edge="1" parent="1" source="in_help" style="rounded=1;html=1;dashed=1;strokeColor=#94A3B8;edgeStyle=orthogonalEdgeStyle;curved=0;" target="in_norm" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="310" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e03" edge="1" parent="1" source="in_norm" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="in_dec" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="536" y="385" />
+              <mxPoint x="536" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e04" edge="1" parent="1" source="in_dec" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="in_cr" value="CR">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="310" y="673" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e05" edge="1" parent="1" source="in_dec" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="in_bug" value="BUG">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="425" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="in_cr" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="d_retr" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="195" y="502" />
+              <mxPoint x="600" y="502" />
+              <mxPoint x="600" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="d_retr" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="d_valid" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1026" y="280" />
+              <mxPoint x="1026" y="440" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e13" edge="1" parent="1" source="ks_code" style="rounded=1;html=1;dashed=1;strokeColor=#94A3B8;edgeStyle=orthogonalEdgeStyle;curved=0;" target="d_valid" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1029" y="281" />
+              <mxPoint x="1029" y="440" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e14" edge="1" parent="1" source="ks_constr" style="rounded=1;html=1;dashed=1;strokeColor=#94A3B8;edgeStyle=orthogonalEdgeStyle;curved=0;" target="d_valid" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1165" y="361" />
+              <mxPoint x="1032" y="361" />
+              <mxPoint x="1032" y="440" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e15" edge="1" parent="1" source="ks_chlog" style="rounded=1;html=1;dashed=1;strokeColor=#94A3B8;edgeStyle=orthogonalEdgeStyle;curved=0;" target="d_valid" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1030" y="444" />
+              <mxPoint x="1030" y="440" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e16" edge="1" parent="1" source="d_valid" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="d_interview" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e17" edge="1" parent="1" source="d_interview" style="rounded=1;html=1;dashed=1;strokeColor=#5E8C2E;edgeStyle=orthogonalEdgeStyle;curved=0;" target="d_qa" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1051" y="560" />
+              <mxPoint x="1051" y="565" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e18" edge="1" parent="1" source="d_interview" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="d_gate1" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e19" edge="1" parent="1" source="d_gate1" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="d_dec1" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1a" edge="1" parent="1" source="d_dec1" style="rounded=1;html=1;dashed=1;strokeColor=#D79B00;strokeWidth=2.5;edgeStyle=orthogonalEdgeStyle;curved=0;" target="d_interview" value="NO · raffina">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1026" y="670" />
+              <mxPoint x="1026" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1b" edge="1" parent="1" source="d_dec1" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="d_impact" value="SI">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1048" y="670" />
+              <mxPoint x="1048" y="800" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1c" edge="1" parent="1" source="d_impact" style="rounded=1;html=1;dashed=1;strokeColor=#5E8C2E;edgeStyle=orthogonalEdgeStyle;curved=0;" target="d_specfinal" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1051" y="800" />
+              <mxPoint x="1051" y="803" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1d" edge="1" parent="1" source="d_impact" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="d_save" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1e" edge="1" parent="1" source="d_save" style="rounded=1;html=1;dashed=1;strokeColor=#5E8C2E;edgeStyle=orthogonalEdgeStyle;curved=0;" target="ks_spec" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1037" y="930" />
+              <mxPoint x="1037" y="515" />
+              <mxPoint x="1165" y="515" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e21" edge="1" parent="1" source="d_specfinal" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="im_load" value="SPEC">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1281" y="803" />
+              <mxPoint x="1281" y="278" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e22" edge="1" parent="1" source="im_load" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="im_plan" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e23" edge="1" parent="1" source="im_plan" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="im_gate2" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e24" edge="1" parent="1" source="im_gate2" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="im_dec2" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e25" edge="1" parent="1" source="im_dec2" style="rounded=1;html=1;dashed=1;strokeColor=#D79B00;strokeWidth=2.5;edgeStyle=orthogonalEdgeStyle;curved=0;" target="im_plan" value="NO">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1444" y="575" />
+              <mxPoint x="1444" y="425" />
+              <mxPoint x="1610" y="425" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e26" edge="1" parent="1" source="im_dec2" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="im_code" value="SI">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e27" edge="1" parent="1" source="im_code" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="im_gate3" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1846" y="678" />
+              <mxPoint x="1846" y="838" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="et2" edge="1" parent="1" source="t_agent" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="t_suite" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="et3" edge="1" parent="1" source="t_suite" style="rounded=1;html=1;dashed=1;strokeColor=#94A3B8;edgeStyle=orthogonalEdgeStyle;curved=0;" target="im_code" value="i test devono passare">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1860" y="1033" />
+              <mxPoint x="1860" y="678" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e31" edge="1" parent="1" source="im_gate3" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="q_diff" value="diff">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1937" y="838" />
+              <mxPoint x="1937" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e32" edge="1" parent="1" source="q_diff" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="q_router" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2380" y="280" />
+              <mxPoint x="2380" y="288" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e33" edge="1" parent="1" source="q_router" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="q_nrt" value="ETL/dati">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2480" y="404" />
+              <mxPoint x="2160" y="404" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e34" edge="1" parent="1" source="q_router" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="q_e2e" value="FE">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2480" y="394" />
+              <mxPoint x="2430" y="394" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e35" edge="1" parent="1" source="q_router" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="q_unit" value="logica">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2480" y="404" />
+              <mxPoint x="2024" y="404" />
+              <mxPoint x="2024" y="528" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e36" edge="1" parent="1" source="q_router" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="q_proj" value="area spec.">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2566" y="288" />
+              <mxPoint x="2566" y="528" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e37" edge="1" parent="1" source="q_nrt" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="q_backup" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2010" y="450" />
+              <mxPoint x="2010" y="680" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e38" edge="1" parent="1" source="q_backup" style="rounded=1;html=1;dashed=1;strokeColor=#94A3B8;edgeStyle=orthogonalEdgeStyle;curved=0;" target="ks_db" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e39" edge="1" parent="1" source="q_backup" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="q_res" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2190" y="730" />
+              <mxPoint x="2210" y="730" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3a" edge="1" parent="1" source="q_e2e" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="q_res" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2296" y="450" />
+              <mxPoint x="2296" y="603" />
+              <mxPoint x="2356" y="603" />
+              <mxPoint x="2356" y="790" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3b" edge="1" parent="1" source="q_unit" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="q_res" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1982" y="528" />
+              <mxPoint x="1982" y="790" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3c" edge="1" parent="1" source="q_proj" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="q_res" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2430" y="600" />
+              <mxPoint x="2380" y="600" />
+              <mxPoint x="2380" y="790" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3d" edge="1" parent="1" source="q_specv" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="q_res" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1996" y="603" />
+              <mxPoint x="1996" y="790" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3e" edge="1" parent="1" source="q_res" style="rounded=1;html=1;dashed=1;strokeColor=#D79B00;strokeWidth=2.5;edgeStyle=orthogonalEdgeStyle;curved=0;" target="im_code" value="NO · fix">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1923" y="790" />
+              <mxPoint x="1923" y="678" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="eb1" edge="1" parent="1" source="in_bug" style="rounded=1;html=1;strokeColor=#B85450;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="bg_repro" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="620" y="673" />
+              <mxPoint x="620" y="922" />
+              <mxPoint x="273" y="922" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="eb2" edge="1" parent="1" source="bg_repro" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="bg_red" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="eb3" edge="1" parent="1" source="bg_red" style="rounded=1;html=1;dashed=1;strokeColor=#B85450;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="q_nrt" value="red-test → NRT">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="655" y="1050" />
+              <mxPoint x="655" y="1245" />
+              <mxPoint x="1951" y="1245" />
+              <mxPoint x="1951" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ec1" edge="1" parent="1" source="q_res" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="c_doc" value="SI">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2024" y="790" />
+              <mxPoint x="2024" y="1075" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ec2" edge="1" parent="1" source="c_doc" style="rounded=1;html=1;dashed=1;strokeColor=#5E8C2E;edgeStyle=orthogonalEdgeStyle;curved=0;" target="c_chlog" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2380" y="1075" />
+              <mxPoint x="2380" y="1079" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ec3" edge="1" parent="1" source="c_doc" style="rounded=1;html=1;dashed=1;strokeColor=#94A3B8;edgeStyle=orthogonalEdgeStyle;curved=0;" target="c_docf" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2190" y="1123" />
+              <mxPoint x="2100" y="1123" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ec4" edge="1" parent="1" source="c_doc" style="rounded=1;html=1;strokeColor=#475569;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="c_task" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2360" y="1075" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ec5" edge="1" parent="1" source="c_chlog" style="rounded=1;html=1;dashed=1;strokeColor=#9673A6;strokeWidth=2;edgeStyle=orthogonalEdgeStyle;curved=0;" target="ks_chlog" value="alimenta impact analysis future">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2470" y="935" />
+              <mxPoint x="1267" y="935" />
+              <mxPoint x="1267" y="501" />
+              <mxPoint x="1083" y="501" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

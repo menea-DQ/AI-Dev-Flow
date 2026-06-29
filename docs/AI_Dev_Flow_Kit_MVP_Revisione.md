@@ -1,0 +1,336 @@
+# AI-Dev Flow — Kit MVP (Fase 1) — Documento di revisione
+
+> Questo documento descrive l'architettura del kit così com'è **implementata nel repo** `AI-Dev-Flow`.
+> Il repo è la fonte di verità (codice e file reali); questo documento è la vista d'insieme con il
+> *perché* di ogni scelta. Dove utile riporto il contenuto dei file più brevi; per i file di prosa
+> (PROCESS.md, INSTALL.md) il testo canonico vive nel repo.
+>
+> **Forma del kit.** Il kit è un **plugin Claude Code**, confezionato in un repo che è insieme
+> **marketplace e plugin**. Si **abilita per singolo progetto** (mai globalmente): skill e hook sono
+> attivi solo nei progetti che lo abilitano. Il *processo*, le *skill* (nel contenuto) e i *template*
+> restano agnostici dal tool; il plugin è l'adattatore per Claude Code.
+>
+> **Principi portanti** (nati dall'analisi di un progetto reale gestito a mano, poi generalizzati):
+> (1) la **regola del 98%** di comprensione prima di agire; (2) i **documenti di architettura
+> per-contesto** come knowledge-store; (3) un **test-playbook per-progetto dichiarato** (chiesto,
+> non inferito); (4) le **convenzioni di progetto esplicite**; (5) un **gate pre-work di snapshot**
+> per le modifiche ai dati. L'installazione è un'**intervista** (chiede), non un'inferenza.
+
+---
+
+## Struttura del repo (marketplace + plugin)
+
+```
+AI-Dev-Flow/                         radice = marketplace + plugin
+├── .claude-plugin/
+│   ├── marketplace.json             dichiara il marketplace e il plugin (source ".")
+│   └── plugin.json                  manifest del plugin (name, version, hooks)
+├── README.md
+├── VERSION                          0.0.1
+├── PROCESS.md                       fonte di verità del processo
+├── INSTALL.md                       procedura di installazione per-progetto
+│
+├── skills/                          skill auto-scoperte dal plugin (cartella per skill)
+│   ├── install/SKILL.md             ENTRYPOINT: scaffolding per-progetto
+│   ├── flow-settings/SKILL.md       modifica guidata di flow.config.json
+│   ├── intake-parser/SKILL.md       normalizza la richiesta (CR/BUG)
+│   ├── spec-context/SKILL.md        cosa caricare per la spec (legge gli architecture doc)
+│   ├── impl-runbook/SKILL.md        convenzioni di implementazione (da flow.config)
+│   └── test-selector/SKILL.md       quali test, secondo il test-playbook
+│
+├── agents/
+│   └── test-author.md               sub-agent isolato che scrive i test dalla sola spec
+│
+├── hooks/
+│   ├── hooks.json                   aggancio agli eventi nativi (PreToolUse, Stop)
+│   ├── README.md                    cosa fa ogni hook + gli eventi che restano agent-driven
+│   └── scripts/
+│       ├── hookShared.mjs           utility (stdin, config, glob→regex, marker, guardia)
+│       ├── preEditGuard.mjs         file di test read-only durante l'implementazione
+│       ├── preWorkSnapshot.mjs      snapshot "before" su modifiche ai dati
+│       └── postWorkVerification.mjs verifica post-work dal test-playbook (evento Stop)
+│
+├── templates/                       spec, plan, changelog, qa-log, architecture,
+│   └── …                            test-playbook, AGENT.md, CLAUDE.md
+│
+├── bin/install.mjs                  installer deterministico, transazionale, PER-PROGETTO
+│
+└── project-files/
+    ├── flow.config.template.json    config per-progetto (override locali)
+    └── flow.lock.template.json      lockfile (versione + cache assessment)
+```
+
+**Cosa va dove, in breve.** Il plugin (skill, hook, template, processo) vive nel repo e si abilita
+per-progetto. Nel **progetto** finiscono solo: l'abilitazione del plugin nel suo `.claude/settings.json`,
+`flow.config.json`, `flow.lock.json`, gli artefatti di lavoro (spec, piani, changelog, documenti di
+architettura per-contesto) e i riferimenti in `AGENT.md`/`CLAUDE.md`. Le skill e gli hook **non**
+vengono copiati nel progetto: li fornisce il plugin.
+
+---
+
+## 1. `VERSION` e versionamento
+
+```
+0.0.1
+```
+
+`0.0.1` è la **prima versione beta**: finché siamo sotto `1.0.0`, anche piccoli incrementi possono
+introdurre cambiamenti non retro-compatibili (convenzione semver per le 0.x). Il manifest del plugin
+e il lockfile per-progetto dichiarano la stessa versione, così l'aggiornamento sa cosa è cambiato.
+
+---
+
+## 2. Il plugin: `plugin.json` e `marketplace.json`
+
+Il repo è insieme **marketplace** (cataloga i plugin) e **plugin** (alla radice). I due file vivono
+entrambi in `.claude-plugin/`.
+
+`.claude-plugin/plugin.json`
+```json
+{
+  "name": "ai-dev-flow",
+  "displayName": "AI-Dev Flow",
+  "version": "0.0.1",
+  "description": "Processo di sviluppo software AI-assistito (human-in-the-loop), abilitabile e configurabile per singolo progetto.",
+  "author": { "name": "Massimiliano Enea", "email": "massimiliano.enea@donq.io" },
+  "repository": "https://github.com/menea-DQ/AI-Dev-Flow",
+  "license": "UNLICENSED",
+  "keywords": ["devflow", "human-in-the-loop", "spec-driven", "tdd", "non-regression", "claude-code"],
+  "hooks": "./hooks/hooks.json"
+}
+```
+
+`.claude-plugin/marketplace.json`
+```json
+{
+  "name": "ai-dev-flow",
+  "owner": { "name": "Massimiliano Enea", "email": "massimiliano.enea@donq.io" },
+  "description": "Marketplace del kit AI-Dev Flow.",
+  "plugins": [
+    { "name": "ai-dev-flow", "source": ".", "description": "Processo AI-assistito human-in-the-loop." }
+  ]
+}
+```
+
+**Perché così.** `skills/` e `agents/` sono **auto-scoperti** dal plugin (basta la cartella e il
+frontmatter), quindi non serve dichiararli nel manifest; gli hook invece sono dichiarati col campo
+`hooks`. La sorgente del plugin nel marketplace è `"."` perché il plugin sta alla radice del repo
+(pattern "repo = singolo plugin"). Se un domani servisse ospitare più plugin, basta spostare ciascuno
+in una sottocartella e usare `source: "./plugins/<nome>"`.
+
+---
+
+## 3. Installazione PER-PROGETTO (mai globale)
+
+Due strade equivalenti, entrambe **scoped al singolo progetto**.
+
+**A. Via marketplace** (consigliata per il team), una volta per progetto:
+```
+/plugin marketplace add menea-DQ/AI-Dev-Flow
+/plugin install ai-dev-flow@ai-dev-flow --scope project
+```
+`--scope project` scrive l'abilitazione nel `.claude/settings.json` **committato** del progetto:
+chiunque apra quel repo trova plugin e hook attivi, e nessun altro progetto ne è toccato.
+
+**B. Da copia locale**, l'installer abilita lui stesso il plugin nel progetto e scaffolda:
+```
+node "<path-al-plugin>/bin/install.mjs" --project "$(pwd)"
+```
+
+In entrambi i casi, l'abilitazione per-progetto è questa (scritta nel `.claude/settings.json` del progetto):
+```json
+{
+  "enabledPlugins": { "ai-dev-flow@ai-dev-flow": true },
+  "extraKnownMarketplaces": {
+    "ai-dev-flow": { "source": { "source": "github", "repo": "menea-DQ/AI-Dev-Flow" } }
+  }
+}
+```
+
+**Perché così.** È il meccanismo ufficiale di Claude Code per abilitare un plugin **solo in un progetto**:
+gli hook del plugin scattano unicamente nei progetti dove è abilitato. Il marketplace può puntare a
+GitHub (portabile per il team) o a una **directory locale** (per sviluppo): l'installer deduce la
+sorgente dal remote del kit, con fallback alla directory locale.
+
+### `INSTALL.md` (procedura, eseguita dalla skill `install`)
+
+L'ordine è sacro: **assessment in sola lettura → report → INTERVISTA → installazione transazionale →
+doctor**. Il cambiamento chiave rispetto alla prima stesura è il **Passo 3**: non più "chiedi solo se
+ambiguo" ma un'**intervista** che chiede attivamente le scelte, e mette nero su bianco le due cose che
+il kit **non deve mai dedurre**: la **strategia di test** (test-playbook) e le **convenzioni di
+progetto**. Il Passo 4 abilita il plugin per-progetto e scaffolda gli artefatti; skill e hook NON
+vengono copiati (li fornisce il plugin). Testo canonico in `INSTALL.md` del repo.
+
+---
+
+## 4. Le skill (auto-scoperte dal plugin)
+
+Ogni skill è `skills/<nome>/SKILL.md` con frontmatter (`name`, `description`). Due sono di *servizio*
+(entrypoint che l'utente invoca), quattro sono di *processo* (usate dalle fasi).
+
+- **install** — esegue `INSTALL.md` (assessment → intervista → installer → doctor). Lancia l'installer
+  bundlato nel plugin: `node "<plugin>/bin/install.mjs" --project "$(pwd)" [--decisions <file.json>]`.
+- **flow-settings** — editor guidato di `flow.config.json`: test-playbook, convenzioni di progetto,
+  `architectureDocs`, `dataProducingPaths`, soglie, connettori. Scrive SOLO `flow.config.json`, mai il
+  core del plugin. Mostra un diff e l'effetto pratico prima di salvare.
+- **intake-parser** — Fase 0: normalizza la richiesta (tipo, priorità, riferimenti, fast-path-eligibility).
+- **spec-context** — Fase 1: prima di leggere il codice di un contesto, **legge il suo documento di
+  architettura**; se è in drift, lo segnala. Carica il minimo sufficiente.
+- **impl-runbook** — Fase 2: applica le **convenzioni dichiarate** in `flow.config.projectConventions`
+  (non le inferisce); non tocca i file di test.
+- **test-selector** — Fase 3: sceglie i test consultando il **test-playbook** (non inventa la strategia);
+  su monorepo si appoggia al tool nativo (Turborepo/Nx `--affected`).
+
+**Perché così.** Le due skill di servizio sono il modo in cui l'utente "parla" col kit senza maneggiare
+file. Le skill di processo guadagnano un riferimento esplicito agli artefatti **dichiarati**:
+`spec-context` legge gli architecture doc, `impl-runbook` le convenzioni, `test-selector` il test-playbook.
+È sempre lo stesso principio: **dichiarare invece di inferire**.
+
+---
+
+## 5. Hook (eventi nativi) e sub-agent
+
+Gli hook sono dichiarati in `hooks/hooks.json` e referenziano gli script via `${CLAUDE_PLUGIN_ROOT}`.
+Scattano **solo nei progetti dove il plugin è abilitato**; in più ogni script fa **no-op se manca
+`flow.config.json`** nel progetto (così il plugin è innocuo finché non è stato eseguito l'`install`).
+
+`hooks/hooks.json`
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/preEditGuard.mjs\"" },
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/preWorkSnapshot.mjs\"" }
+        ]
+      }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/postWorkVerification.mjs\"" } ] }
+    ]
+  }
+}
+```
+
+- **preEditGuard** (PreToolUse) — rende read-only i file di test (`flow.config.testPaths`) durante
+  l'implementazione. Eccezione: marcatore `/tmp/aidevflow-testauthoring-<session>` posato dal test-author.
+- **preWorkSnapshot** (PreToolUse) — alla prima modifica di codice produttore di dati
+  (`flow.config.dataProducingPaths`), fa chiedere all'utente (con AskUserQuestion) se catturare lo
+  snapshot "before". Marcatore di sessione; una modifica rilevante ri-arma il gate di verifica.
+- **postWorkVerification** (Stop) — a fine turno, se ci sono modifiche non committate che ricadono nei
+  `pathPatterns` del test-playbook, fa chiedere se eseguire la verifica. Guardia `stop_hook_active`.
+
+Gli eventi di processo `on-spec-approved`, `post-implementation`, `on-tests-green` **non** hanno un
+evento nativo corrispondente: restano **agent-driven** (l'agente li esegue al gate, come da PROCESS.md).
+
+`agents/test-author.md` — **sub-agent isolato**: riceve SOLO la spec, deriva i test dal contratto,
+posa il marcatore `test-authoring`, scrive e committa i test PRIMA del codice (l'ordine è provato dal
+timestamp git), poi rimuove il marcatore. L'isolamento è strutturale e verificabile dalla git history.
+
+**Perché così.** L'anti teaching-to-the-test non è "l'agente promette di non guardare il codice": è
+strutturale (input = sola spec, ordine provato da git, hook che blocca le modifiche successive). Il
+`preWorkSnapshot` aggiunge la gamba mancante per i test sui dati: senza uno stato "before" catturato a
+codice pristino, un confronto pre/post è impossibile.
+
+---
+
+## 6. Template degli artefatti
+
+`templates/`: `spec.md`, `plan.md`, `changelog.md`, `qa-log.md`, `architecture.md`, `test-playbook.md`,
+`AGENT.md`, `CLAUDE.md`. I due nuovi rispetto alla prima stesura:
+
+- **architecture.md** (per-contesto) — descrive il sistema com'è ORA: cosa fa il contesto, come si
+  incastrano i pezzi, **invarianti**, dove si modifica in sicurezza, confini/dipendenze. Niente storia,
+  niente "prima era", niente "attualmente". Si legge *prima* di toccare il codice; il drift va segnalato.
+- **test-playbook.md** — versione leggibile di `flow.config.testPlaybook`: per ogni tipo di test,
+  *quando si applica* e *con quale comando*. Catturato in intervista, non inferito.
+
+`AGENT.md` (agnostico) porta in testa la **Regola del 98%** e le regole chiave; `CLAUDE.md` è il ponte
+che lo richiama, dentro i marcatori `<!-- ai-dev-flow:start/end -->` (così aggiornamento e
+disinstallazione toccano solo quella parte, preservando il contenuto preesistente del progetto).
+
+---
+
+## 7. `flow.config.json` per-progetto
+
+È **il solo posto** delle personalizzazioni; l'aggiornamento del plugin non lo tocca, lo si modifica
+con la skill `flow-settings`.
+
+`project-files/flow.config.template.json`
+```json
+{
+  "specStore": { "mode": "same-repo", "path": ".ai-dev/specs", "repoUrl": null },
+  "changelog": { "path": ".ai-dev/changelog.md" },
+  "architectureDocs": { "byContext": { "[nome-contesto]": { "path": "[contesto]/architecture.md" } } },
+  "testPlaybook": {
+    "[non-regression]": {
+      "appliesWhen": "modifiche a sync/ETL, schema DB, query che scrivono su tabelle",
+      "pathPatterns": ["**/sync/**", "**/*.sql", "database/**"],
+      "command": "[comando per lanciarlo]",
+      "needsBeforeSnapshot": true
+    },
+    "[end-to-end]": {
+      "appliesWhen": "modifiche a UI / componenti / pagine",
+      "pathPatterns": ["**/src/components/**", "**/src/app/**"],
+      "command": "[comando per lanciarlo]",
+      "needsBeforeSnapshot": false
+    }
+  },
+  "projectConventions": { "rules": [], "sourceDoc": null },
+  "maxRefine": { "warn": 3, "block": 6 },
+  "fastPath": { "askEachTime": true, "autoUnderThreshold": false, "thresholdLines": 20 },
+  "testPaths": ["**/*.test.*", "**/*.spec.*", "tests/**", "e2e/**"],
+  "dataProducingPaths": [],
+  "monorepo": { "tool": "auto", "affectedBase": "pre-task" },
+  "tokenEconomy": { "ponytail": "lite", "headroom": false },
+  "connectors": { "ticketing": null, "helpdesk": null, "instances": {} }
+}
+```
+
+Sezioni popolate per intervista in install: `architectureDocs` (registro dei doc per-contesto),
+`testPlaybook` (ricetta dei test, con `pathPatterns` machine-readable per il matching degli hook),
+`projectConventions` (i "suggerimenti di progetto" che l'impl-runbook applica), `dataProducingPaths`
+(arma il gate `preWorkSnapshot`). `connectors` default `null`: il ticketing si chiede, non si assume.
+
+`project-files/flow.lock.template.json` — dichiara `kitVersion`/`processVersion` e l'`assessment`
+(tipo new/existing, monorepo, **elenco dei contesti**, hash dei file-chiave). Se cambia la struttura
+(es. nuova app), l'hash non combacia e l'assessment si rifà.
+
+---
+
+## 8. `bin/install.mjs` — installer deterministico, transazionale, per-progetto
+
+Funzionante e testato. Sintesi del comportamento:
+
+- **Idempotente**: se `flow.lock.json` esiste con la stessa `kitVersion`, non rifà nulla (salvo `--force`).
+- **Rileva i contesti** dai workspace (`pnpm-workspace.yaml` e `workspaces` di `package.json`, espandendo
+  i glob `*/`).
+- Crea `flow.config.json` (template + `--decisions`), `flow.lock.json` (con hash e contesti).
+- **Abilita il plugin SOLO nel progetto**: scrive `enabledPlugins` + `extraKnownMarketplaces` nel
+  `.claude/settings.json` (sorgente `github` dedotta dal remote del kit, o `directory` locale).
+- Crea `AGENT.md` (se assente) e inietta il blocco delimitato in `CLAUDE.md` preservando il preesistente.
+- Crea un `architecture.md` per contesto acconsentito; inizializza il changelog.
+- **Transazionale**: traccia file creati/modificati; a errore esegue il rollback completo.
+
+Le **decisioni** dell'intervista arrivano via `--decisions <file.json>`
+(`{ installedAt, config:{…override…}, architectureContexts:[…] }`); senza, usa i default del template
+e lo segnala (non inferisce test né convenzioni).
+
+---
+
+## Riepilogo della revisione
+
+Il kit MVP (Fase 1) è implementato come **plugin Claude Code abilitabile per singolo progetto**. Copre:
+installazione per-progetto **per intervista** (chiedi, non inferire), i 3 gate umani, la **regola del
+98%**, la selezione test guidata dal **test-playbook dichiarato**, i **documenti di architettura
+per-contesto**, le **convenzioni di progetto dichiarate**, il **gate di snapshot pre-work** per i dati,
+l'isolamento strutturale dei test (sub-agent + hook), e le **due skill di servizio** (`install`,
+`flow-settings`).
+
+Le idee nascono dall'osservazione di un progetto reale gestito a mano, ma sono state **generalizzate**:
+il plugin non eredita liste o procedure di quel progetto, eredita i *pattern*. Tutto ciò che è specifico
+di un progetto vive nei suoi file di config e di architettura, popolati per intervista, non nel core del
+plugin.
+
+Repo (fonte di verità): `git@github-work:menea-DQ/AI-Dev-Flow.git`.
