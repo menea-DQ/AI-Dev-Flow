@@ -1,0 +1,32 @@
+{
+  "specStore": { "mode": "same-repo", "path": ".ai-dev/specs", "repoUrl": null },
+  "changelog": { "path": ".ai-dev/changelog.md" },
+  "architectureDocs": {
+    "byContext": {
+      "[nome-contesto]": { "path": "[contesto]/architecture.md" }
+    }
+  },
+  "testPlaybook": {
+    "[non-regression]": {
+      "appliesWhen": "modifiche a sync/ETL, schema DB, query che scrivono su tabelle",
+      "command": "[comando per lanciarlo]",
+      "needsBeforeSnapshot": true
+    },
+    "[end-to-end]": {
+      "appliesWhen": "modifiche a UI / componenti / pagine",
+      "command": "[comando per lanciarlo]",
+      "needsBeforeSnapshot": false
+    }
+  },
+  "projectConventions": {
+    "rules": [],
+    "sourceDoc": null
+  },
+  "maxRefine": { "warn": 3, "block": 6 },
+  "fastPath": { "askEachTime": true, "autoUnderThreshold": false, "thresholdLines": 20 },
+  "testPaths": ["**/*.test.*", "**/*.spec.*", "tests/**", "e2e/**"],
+  "dataProducingPaths": [],
+  "monorepo": { "tool": "auto", "affectedBase": "pre-task" },
+  "tokenEconomy": { "ponytail": "lite", "headroom": false },
+  "connectors": { "ticketing": null, "helpdesk": null, "instances": {} }
+}

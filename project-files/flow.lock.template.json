@@ -1,0 +1,11 @@
+{
+  "kitVersion": "0.0.1",
+  "processVersion": "0.0.1",
+  "installedAt": "[data]",
+  "assessment": {
+    "type": "[new|existing]",
+    "monorepo": true,
+    "contexts": ["[elenco contesti rilevati]"],
+    "filesHash": "[hash dei file-chiave: package.json, turbo.json, struttura]"
+  }
+}
