@@ -6,6 +6,5 @@
   "author": { "name": "Massimiliano Enea", "email": "massimiliano.enea@donq.io" },
   "repository": "https://github.com/menea-DQ/AI-Dev-Flow",
   "license": "UNLICENSED",
-  "keywords": ["devflow", "human-in-the-loop", "spec-driven", "tdd", "non-regression", "claude-code"],
-  "hooks": "./hooks/hooks.json"
+  "keywords": ["devflow", "human-in-the-loop", "spec-driven", "tdd", "non-regression", "claude-code"]
 }

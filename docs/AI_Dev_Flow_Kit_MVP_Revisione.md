@@ -24,7 +24,7 @@
 AI-Dev-Flow/                         radice = marketplace + plugin
 ├── .claude-plugin/
 │   ├── marketplace.json             dichiara il marketplace e il plugin (source "./")
-│   └── plugin.json                  manifest del plugin (name, version, hooks)
+│   └── plugin.json                  manifest del plugin (name, version, keywords)
 ├── README.md
 ├── VERSION                          0.0.1
 ├── PROCESS.md                       fonte di verità del processo
@@ -104,8 +104,7 @@ entrambi in `.claude-plugin/`.
   "author": { "name": "Massimiliano Enea", "email": "massimiliano.enea@donq.io" },
   "repository": "https://github.com/menea-DQ/AI-Dev-Flow",
   "license": "UNLICENSED",
-  "keywords": ["devflow", "human-in-the-loop", "spec-driven", "tdd", "non-regression", "claude-code"],
-  "hooks": "./hooks/hooks.json"
+  "keywords": ["devflow", "human-in-the-loop", "spec-driven", "tdd", "non-regression", "claude-code"]
 }
 ```
 
@@ -116,14 +115,16 @@ entrambi in `.claude-plugin/`.
   "owner": { "name": "Massimiliano Enea", "email": "massimiliano.enea@donq.io" },
   "description": "Marketplace del kit AI-Dev Flow.",
   "plugins": [
-    { "name": "ai-dev-flow", "source": ".", "description": "Processo AI-assistito human-in-the-loop." }
+    { "name": "ai-dev-flow", "source": "./", "description": "Processo AI-assistito human-in-the-loop." }
   ]
 }
 ```
 
-**Perché così.** `skills/` e `agents/` sono **auto-scoperti** dal plugin (basta la cartella e il
-frontmatter), quindi non serve dichiararli nel manifest; gli hook invece sono dichiarati col campo
-`hooks`. La sorgente del plugin nel marketplace è `"./"` (il path relativo DEVE iniziare con `./`;
+**Perché così.** `skills/`, `agents/` e `hooks/hooks.json` sono **auto-scoperti** dal plugin (basta la
+cartella/posizione standard), quindi non serve dichiararli nel manifest — anzi, dichiarare
+`hooks/hooks.json` nel campo `hooks` causa un doppio caricamento (errore "Duplicate hooks file"): il
+campo `hooks` si usa solo per file di hook aggiuntivi/non standard. La sorgente del plugin nel
+marketplace è `"./"` (il path relativo DEVE iniziare con `./`;
 `"."` viene rifiutato dallo schema): `"./"` indica il plugin alla radice del repo, pattern
 "repo = singolo plugin". Se un domani servisse ospitare più plugin, basta spostare ciascuno in una
 sottocartella e usare `source: "./plugins/<nome>"`.
