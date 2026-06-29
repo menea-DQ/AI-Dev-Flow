@@ -1,8 +1,12 @@
-// Utilities condivise dagli hook di AI-Dev Flow (adapter Claude Code).
+// Utilities condivise dagli hook di AI-Dev Flow (plugin Claude Code).
 // Nessuna dipendenza esterna: leggono lo stdin JSON di Claude Code e la flow.config.json del progetto.
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+
+export function isFlowProject() {
+  return existsSync(join(projectDirectory(), 'flow.config.json'));
+}
 
 const MARKER_DIRECTORY = '/tmp';
 

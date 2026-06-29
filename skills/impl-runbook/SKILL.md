@@ -1,4 +1,12 @@
+---
+name: impl-runbook
+description: >
+  Applica le convenzioni di implementazione del progetto dichiarate in flow.config
+  (non le inferisce). Usa in Fase 2 di AI-Dev Flow, durante lo sviluppo del codice.
+---
+
 # Skill: impl-runbook
+
 Scopo: applicare le convenzioni di implementazione del progetto.
 
 Quando usarla: Fase 2, durante lo sviluppo software.

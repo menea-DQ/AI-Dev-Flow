@@ -1,4 +1,12 @@
+---
+name: intake-parser
+description: >
+  Normalizza una richiesta in ingresso (CR/BUG) in un "contesto richiesta" minimale.
+  Usa in Fase 0 (Intake) di AI-Dev Flow, all'arrivo di un ticket dal ticketing/helpdesk.
+---
+
 # Skill: intake-parser
+
 Scopo: normalizzare una richiesta in ingresso (CR/BUG) in un "contesto richiesta" minimale.
 
 Quando usarla: Fase 0 (Intake), all'arrivo di un ticket.

@@ -1,4 +1,12 @@
+---
+name: test-selector
+description: >
+  Sceglie QUALI test lanciare in base a cosa è cambiato, consultando il test-playbook del
+  progetto (non inventa la strategia). Usa in Fase 3 (Qualità) di AI-Dev Flow, dopo l'implementazione.
+---
+
 # Skill: test-selector
+
 Scopo: scegliere QUALI test lanciare in base a cosa è cambiato (risparmio + qualità).
 
 Quando usarla: Fase 3 (Qualità), dopo l'implementazione.

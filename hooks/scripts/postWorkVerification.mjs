@@ -4,9 +4,12 @@
 
 import { existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { readHookInput, loadFlowConfig, projectDirectory, matchesAnyPattern, markerPath, blockWithInstruction } from './hookShared.mjs';
+import { readHookInput, isFlowProject, loadFlowConfig, projectDirectory, matchesAnyPattern, markerPath, blockWithInstruction } from './hookShared.mjs';
 
 const input = await readHookInput();
+if (!isFlowProject()) {
+  process.exit(0);
+}
 if (input?.stop_hook_active === true) {
   process.exit(0);
 }

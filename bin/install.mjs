@@ -1,22 +1,27 @@
 #!/usr/bin/env node
 // AI-Dev Flow installer (deterministico, transazionale).
 //
-// Esegue le operazioni meccaniche dell'installazione descritte in INSTALL.md (Passo 4).
-// Le DECISIONI dell'intervista (Passo 3) NON le prende questo script: arrivano già prese,
-// passate via --decisions <file.json>. Se il file manca, usa i default del template e lo
-// segnala (lo script non inferisce test e convenzioni: è compito dell'intervista a monte).
+// Installa il kit PER-PROGETTO: abilita il plugin solo in questo progetto
+// (enabledPlugins + extraKnownMarketplaces nel .claude/settings.json committato) e scaffolda
+// gli artefatti per-progetto. NON tocca nulla a livello globale.
 //
-// Fallback senza Node: l'agente esegue gli stessi passi a mano, sono elencati in stepPlan().
+// Le DECISIONI dell'intervista (INSTALL.md, Passo 3) NON le prende questo script: arrivano già
+// prese, passate via --decisions <file.json>. Se il file manca, usa i default del template e lo
+// segnala (lo script non inferisce test e convenzioni).
 //
 // Uso:
-//   node install.mjs --kit <path-al-kit> [--project <path>] [--decisions <file.json>] [--force]
+//   node install.mjs [--kit <path-al-kit>] [--project <path>] [--decisions <file.json>] [--force]
+//   (--kit default: la radice del plugin in cui vive questo script)
 //
 // Proprietà:
+//   • PER-PROGETTO: abilita il plugin solo nel progetto target, mai globalmente.
 //   • TRANSAZIONALE: ogni file creato/modificato è tracciato; a errore → rollback totale.
 //   • IDEMPOTENTE: se è già installato e coerente (stessa kitVersion), non rifà nulla.
 
-import { mkdir, writeFile, readFile, readdir, stat, access, copyFile, rm } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
 import { constants as fsConstants, createReadStream } from 'node:fs';
+import { access } from 'node:fs/promises';
+import { execSync } from 'node:child_process';
 import { join, dirname, basename, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +29,8 @@ import { fileURLToPath } from 'node:url';
 const KIT_ROOT_DEFAULT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MARKER_START = '<!-- ai-dev-flow:start -->';
 const MARKER_END = '<!-- ai-dev-flow:end -->';
+const PLUGIN_NAME = 'ai-dev-flow';
+const MARKETPLACE_NAME = 'ai-dev-flow';
 
 function parseArguments(argv) {
   const parsed = { force: false };
@@ -57,8 +64,7 @@ async function readJsonIfPresent(targetPath) {
   if (!(await pathExists(targetPath))) {
     return null;
   }
-  const text = await readFile(targetPath, 'utf8');
-  return JSON.parse(text);
+  return JSON.parse(await readFile(targetPath, 'utf8'));
 }
 
 function deepMerge(base, override) {
@@ -85,8 +91,8 @@ async function hashOfFile(targetPath) {
   });
 }
 
-async function listTopLevelDirectories(projectRoot) {
-  const entries = await readdir(projectRoot, { withFileTypes: true });
+async function listTopLevelDirectories(directoryPath) {
+  const entries = await readdir(directoryPath, { withFileTypes: true });
   return entries
     .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules')
     .map((entry) => entry.name)
@@ -94,39 +100,41 @@ async function listTopLevelDirectories(projectRoot) {
 }
 
 async function detectContexts(projectRoot) {
-  const workspaceFile = join(projectRoot, 'pnpm-workspace.yaml');
+  const workspaceGlobs = await collectWorkspaceGlobs(projectRoot);
   const contexts = new Set();
-  if (await pathExists(workspaceFile)) {
-    const text = await readFile(workspaceFile, 'utf8');
-    const globs = [...text.matchAll(/^\s*-\s*['"]?([^'"\n]+)['"]?\s*$/gm)].map((match) => match[1].trim());
-    for (const glob of globs) {
-      if (glob.endsWith('/*')) {
-        const parent = join(projectRoot, glob.slice(0, -2));
-        if (await pathExists(parent)) {
-          for (const child of await listTopLevelDirectories(parent)) {
-            contexts.add(join(glob.slice(0, -2), child));
-          }
-        }
-      } else if (!glob.includes('*')) {
-        contexts.add(glob);
-      }
-    }
-  }
-  if (contexts.size === 0) {
-    const manifest = await readJsonIfPresent(join(projectRoot, 'package.json'));
-    const workspaces = manifest && (Array.isArray(manifest.workspaces) ? manifest.workspaces : manifest.workspaces?.packages);
-    if (Array.isArray(workspaces) && workspaces.length > 0) {
-      for (const glob of workspaces) {
-        if (!glob.includes('*')) {
-          contexts.add(glob);
+  for (const glob of workspaceGlobs) {
+    if (glob.endsWith('/*')) {
+      const parent = join(projectRoot, glob.slice(0, -2));
+      if (await pathExists(parent)) {
+        for (const child of await listTopLevelDirectories(parent)) {
+          contexts.add(join(glob.slice(0, -2), child));
         }
       }
+    } else if (!glob.includes('*')) {
+      contexts.add(glob);
     }
   }
   if (contexts.size === 0) {
     contexts.add('.');
   }
   return [...contexts].sort();
+}
+
+async function collectWorkspaceGlobs(projectRoot) {
+  const globs = [];
+  const workspaceFile = join(projectRoot, 'pnpm-workspace.yaml');
+  if (await pathExists(workspaceFile)) {
+    const text = await readFile(workspaceFile, 'utf8');
+    for (const match of text.matchAll(/^\s*-\s*['"]?([^'"\n]+)['"]?\s*$/gm)) {
+      globs.push(match[1].trim());
+    }
+  }
+  const manifest = await readJsonIfPresent(join(projectRoot, 'package.json'));
+  const packageWorkspaces = manifest && (Array.isArray(manifest.workspaces) ? manifest.workspaces : manifest.workspaces?.packages);
+  if (Array.isArray(packageWorkspaces)) {
+    globs.push(...packageWorkspaces);
+  }
+  return globs;
 }
 
 async function computeFilesHash(projectRoot) {
@@ -145,17 +153,22 @@ async function computeFilesHash(projectRoot) {
   return hash.digest('hex');
 }
 
-function deriveSkillFrontmatter(skillName, skillBody) {
-  const scopeMatch = skillBody.match(/^Scopo:\s*(.+)$/m);
-  const whenMatch = skillBody.match(/^Quando usarla:\s*(.+)$/m);
-  const description = [scopeMatch?.[1]?.trim(), whenMatch?.[1]?.trim()].filter(Boolean).join(' — ');
-  return `---\nname: ${skillName}\ndescription: ${description || skillName}\n---\n\n`;
+function kitMarketplaceSource(kitRoot) {
+  try {
+    const remoteUrl = execSync('git remote get-url origin', { cwd: kitRoot, encoding: 'utf8' }).trim();
+    const cleaned = remoteUrl.replace(/\.git$/, '');
+    const segments = cleaned.split(/[/:]/).filter(Boolean);
+    if (segments.length >= 2) {
+      return { source: 'github', repo: segments.slice(-2).join('/') };
+    }
+  } catch {
+    // nessun remote: ricado sulla sorgente directory locale
+  }
+  return { source: 'directory', path: kitRoot };
 }
 
 class TransactionalInstaller {
-  constructor(projectRoot, kitRoot) {
-    this.projectRoot = projectRoot;
-    this.kitRoot = kitRoot;
+  constructor() {
     this.createdPaths = [];
     this.createdDirectories = [];
     this.modifiedBackups = new Map();
@@ -197,7 +210,7 @@ class TransactionalInstaller {
 async function run() {
   const args = parseArguments(process.argv.slice(2));
   if (args.help) {
-    console.log('Uso: node install.mjs --kit <path> [--project <path>] [--decisions <file.json>] [--force]');
+    console.log('Uso: node install.mjs [--kit <path>] [--project <path>] [--decisions <file.json>] [--force]');
     return;
   }
 
@@ -222,7 +235,7 @@ async function run() {
     console.warn('Le scelte di test e convenzioni NON vanno inferite: vanno raccolte in intervista (INSTALL.md, Passo 3).');
   }
 
-  const installer = new TransactionalInstaller(projectRoot, kitRoot);
+  const installer = new TransactionalInstaller();
   try {
     const contexts = await detectContexts(projectRoot);
     console.log(`Contesti rilevati: ${contexts.join(', ')}`);
@@ -244,14 +257,13 @@ async function run() {
     };
     await installer.createFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
 
-    await installSkills(installer, kitRoot, projectRoot);
-    await installAdapterReference(installer, kitRoot, projectRoot);
-    await wireHooks(installer, projectRoot);
+    await enablePluginForProject(installer, projectRoot, kitRoot);
     await installAgentInstructions(installer, kitRoot, projectRoot);
     await installArchitectureDocs(installer, kitRoot, projectRoot, contexts, decisions);
     await initializeChangelog(installer, kitRoot, projectRoot, mergedConfig);
 
-    console.log('Installazione completata. Esegui il doctor (INSTALL.md, Passo 5) per la verifica.');
+    console.log('Installazione completata. Riapri il progetto in Claude Code per attivare plugin e hook.');
+    console.log('Poi esegui il doctor (INSTALL.md, Passo 5) per la verifica.');
   } catch (error) {
     console.error('Errore durante l\'installazione, eseguo il rollback:', error.message);
     await installer.rollback();
@@ -260,67 +272,15 @@ async function run() {
   }
 }
 
-async function installSkills(installer, kitRoot, projectRoot) {
-  const skillsDirectory = join(kitRoot, 'skills');
-  const skillFiles = (await readdir(skillsDirectory)).filter((name) => name.endsWith('.md'));
-  for (const fileName of skillFiles) {
-    const skillName = basename(fileName, '.md');
-    const skillBody = await readFile(join(skillsDirectory, fileName), 'utf8');
-    const frontmatter = deriveSkillFrontmatter(skillName, skillBody);
-    const targetPath = join(projectRoot, '.claude', 'skills', skillName, 'SKILL.md');
-    await installer.createFile(targetPath, frontmatter + skillBody);
-  }
-  console.log(`Installate ${skillFiles.length} skill in .claude/skills/.`);
-}
-
-async function installAdapterReference(installer, kitRoot, projectRoot) {
-  const sourceDirectory = join(kitRoot, 'adapters', 'claude-code');
-  const targetDirectory = join(projectRoot, '.ai-dev', 'adapters', 'claude-code');
-  await copyDirectory(installer, sourceDirectory, targetDirectory);
-  console.log('Copiati hook (spec + script eseguibili) e sub-agent in .ai-dev/adapters/claude-code/.');
-  console.log('NOTA: gli eventi di processo (on-spec-approved, on-tests-green) restano agent-driven —');
-  console.log('non esiste un evento nativo di Claude Code a cui agganciarli.');
-}
-
-async function wireHooks(installer, projectRoot) {
+async function enablePluginForProject(installer, projectRoot, kitRoot) {
   const settingsPath = join(projectRoot, '.claude', 'settings.json');
-  const scriptsBase = '$CLAUDE_PROJECT_DIR/.ai-dev/adapters/claude-code/hooks/scripts';
-  const sentinel = '.ai-dev/adapters/claude-code/hooks/scripts/';
-
   const settingsExisted = await pathExists(settingsPath);
   const settings = (await readJsonIfPresent(settingsPath)) ?? {};
-  if (JSON.stringify(settings).includes(sentinel)) {
-    console.log('Hook AI-Dev Flow già presenti in .claude/settings.json: lasciati invariati.');
-    return;
-  }
 
-  settings.hooks ??= {};
-  settings.hooks.PreToolUse ??= [];
-  settings.hooks.PreToolUse.push({
-    matcher: 'Edit|Write|MultiEdit|NotebookEdit',
-    hooks: [
-      { type: 'command', command: `node "${scriptsBase}/preEditGuard.mjs"`, statusMessage: 'AI-Dev Flow: guard file di test (read-only)' },
-      { type: 'command', command: `node "${scriptsBase}/preWorkSnapshot.mjs"`, statusMessage: 'AI-Dev Flow: valuto snapshot "before"' },
-    ],
-  });
-  settings.hooks.Stop ??= [];
-  settings.hooks.Stop.push({
-    hooks: [
-      { type: 'command', command: `node "${scriptsBase}/postWorkVerification.mjs"`, statusMessage: 'AI-Dev Flow: verifica post-work' },
-    ],
-  });
-
-  settings.permissions ??= {};
-  settings.permissions.allow ??= [];
-  for (const allowEntry of [
-    'Bash(touch /tmp/aidevflow-prework-*)',
-    'Bash(touch /tmp/aidevflow-verify-*)',
-    'Bash(touch /tmp/aidevflow-testauthoring-*)',
-  ]) {
-    if (!settings.permissions.allow.includes(allowEntry)) {
-      settings.permissions.allow.push(allowEntry);
-    }
-  }
+  settings.enabledPlugins ??= {};
+  settings.enabledPlugins[`${PLUGIN_NAME}@${MARKETPLACE_NAME}`] = true;
+  settings.extraKnownMarketplaces ??= {};
+  settings.extraKnownMarketplaces[MARKETPLACE_NAME] ??= { source: kitMarketplaceSource(kitRoot) };
 
   const serialized = `${JSON.stringify(settings, null, 2)}\n`;
   if (settingsExisted) {
@@ -328,29 +288,15 @@ async function wireHooks(installer, projectRoot) {
   } else {
     await installer.createFile(settingsPath, serialized);
   }
-  console.log('Agganciati gli hook in .claude/settings.json (PreToolUse: pre-edit-guard + pre-work-snapshot; Stop: verifica post-work).');
-}
-
-async function copyDirectory(installer, sourceDirectory, targetDirectory) {
-  const entries = await readdir(sourceDirectory, { withFileTypes: true });
-  for (const entry of entries) {
-    const sourcePath = join(sourceDirectory, entry.name);
-    const targetPath = join(targetDirectory, entry.name);
-    if (entry.isDirectory()) {
-      await copyDirectory(installer, sourcePath, targetPath);
-    } else {
-      await installer.createDirectory(dirname(targetPath));
-      await copyFile(sourcePath, targetPath);
-      installer.createdPaths.unshift(targetPath);
-    }
-  }
+  const source = settings.extraKnownMarketplaces[MARKETPLACE_NAME].source;
+  const sourceLabel = source.source === 'github' ? `github:${source.repo}` : `directory:${source.path}`;
+  console.log(`Abilitato il plugin SOLO in questo progetto (.claude/settings.json, marketplace ${sourceLabel}).`);
 }
 
 async function installAgentInstructions(installer, kitRoot, projectRoot) {
   const agentPath = join(projectRoot, 'AGENT.md');
   if (!(await pathExists(agentPath))) {
-    const template = await readFile(join(kitRoot, 'templates', 'AGENT.md'), 'utf8');
-    await installer.createFile(agentPath, template);
+    await installer.createFile(agentPath, await readFile(join(kitRoot, 'templates', 'AGENT.md'), 'utf8'));
     console.log('Creato AGENT.md dal template.');
   } else {
     console.log('AGENT.md già presente: lasciato invariato.');
@@ -393,8 +339,7 @@ async function initializeChangelog(installer, kitRoot, projectRoot, config) {
     console.log('Changelog già presente: lasciato invariato.');
     return;
   }
-  const template = await readFile(join(kitRoot, 'templates', 'changelog.md'), 'utf8');
-  await installer.createFile(changelogPath, template);
+  await installer.createFile(changelogPath, await readFile(join(kitRoot, 'templates', 'changelog.md'), 'utf8'));
   console.log('Inizializzato changelog vuoto.');
 }
 

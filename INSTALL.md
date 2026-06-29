@@ -57,7 +57,9 @@ Operazioni:
 - Crea flow.config.json dai default + le risposte dell'intervista del passo 3
   (incluso testPlaybook e projectConventions).
 - Crea flow.lock.json con la versione del kit e l'hash dei file-chiave (per la cache assessment).
-- Installa le skill (skills/, incluse `install` e `flow-settings`) e gli hook nel modo previsto.
+- Abilita il plugin SOLO in questo progetto: scrive enabledPlugins + extraKnownMarketplaces nel
+  .claude/settings.json del progetto (mai globalmente). Skill e hook li fornisce il plugin: NON
+  vengono copiati nel progetto.
 - Crea AGENT.md (se assente) con le istruzioni del processo; fai sì che CLAUDE.md lo richiami
   (sezione delimitata da marcatori <!-- ai-dev-flow:start --> ... <!-- ai-dev-flow:end -->).
 - Per ogni contesto per cui l'utente ha acconsentito: crea il documento di architettura dal

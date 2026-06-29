@@ -1,0 +1,12 @@
+{
+  "name": "ai-dev-flow",
+  "owner": { "name": "Massimiliano Enea", "email": "massimiliano.enea@donq.io" },
+  "description": "Marketplace del kit AI-Dev Flow. Contiene il plugin omonimo, abilitabile per singolo progetto.",
+  "plugins": [
+    {
+      "name": "ai-dev-flow",
+      "source": ".",
+      "description": "Processo AI-assistito human-in-the-loop: skill di processo, hook di qualità, installer per-progetto."
+    }
+  ]
+}

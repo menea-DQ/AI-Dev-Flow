@@ -1,4 +1,13 @@
+---
+name: spec-context
+description: >
+  Decide COSA caricare per definire la specifica, senza leggere tutta la codebase
+  (legge prima i documenti di architettura per-contesto). Usa in Fase 1 di AI-Dev Flow,
+  prima di redigere la specifica.
+---
+
 # Skill: spec-context
+
 Scopo: decidere COSA caricare per definire la specifica, senza leggere tutta la codebase.
 
 Quando usarla: Fase 1, prima di redigere la specifica.

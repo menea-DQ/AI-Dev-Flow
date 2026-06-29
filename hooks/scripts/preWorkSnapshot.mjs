@@ -4,9 +4,12 @@
 // Una modifica rilevante ri-arma anche il gate di verifica post-work.
 
 import { existsSync, rmSync } from 'node:fs';
-import { readHookInput, loadFlowConfig, toRelativePath, matchesAnyPattern, markerPath, blockWithInstruction } from './hookShared.mjs';
+import { readHookInput, isFlowProject, loadFlowConfig, toRelativePath, matchesAnyPattern, markerPath, blockWithInstruction } from './hookShared.mjs';
 
 const input = await readHookInput();
+if (!isFlowProject()) {
+  process.exit(0);
+}
 const editedFilePath = input?.tool_input?.file_path;
 if (!editedFilePath) {
   process.exit(0);
