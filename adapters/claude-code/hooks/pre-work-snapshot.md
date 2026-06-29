@@ -17,3 +17,7 @@ Nota di idempotenza: il marcatore è keyed sull'id-sessione (file nella cartella
 intervento ri-arma il gate. Una guardia evita il rientro quando l'evento osservato è "fine turno".
 
 Verificabile: il doctor controlla che, per i progetti con dataProducingPaths, il gate sia attivo.
+
+Implementazione (Claude Code): scripts/preWorkSnapshot.mjs, evento PreToolUse su Edit|Write|MultiEdit|NotebookEdit.
+Marcatore di sessione: /tmp/aidevflow-prework-<session>. Una modifica rilevante ri-arma anche il gate di
+verifica post-work (rimuove /tmp/aidevflow-verify-<session>).

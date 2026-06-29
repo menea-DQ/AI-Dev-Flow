@@ -9,11 +9,13 @@
   "testPlaybook": {
     "[non-regression]": {
       "appliesWhen": "modifiche a sync/ETL, schema DB, query che scrivono su tabelle",
+      "pathPatterns": ["**/sync/**", "**/*.sql", "database/**"],
       "command": "[comando per lanciarlo]",
       "needsBeforeSnapshot": true
     },
     "[end-to-end]": {
       "appliesWhen": "modifiche a UI / componenti / pagine",
+      "pathPatterns": ["**/src/components/**", "**/src/app/**"],
       "command": "[comando per lanciarlo]",
       "needsBeforeSnapshot": false
     }

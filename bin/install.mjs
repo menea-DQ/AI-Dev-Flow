@@ -246,6 +246,7 @@ async function run() {
 
     await installSkills(installer, kitRoot, projectRoot);
     await installAdapterReference(installer, kitRoot, projectRoot);
+    await wireHooks(installer, projectRoot);
     await installAgentInstructions(installer, kitRoot, projectRoot);
     await installArchitectureDocs(installer, kitRoot, projectRoot, contexts, decisions);
     await initializeChangelog(installer, kitRoot, projectRoot, mergedConfig);
@@ -276,9 +277,58 @@ async function installAdapterReference(installer, kitRoot, projectRoot) {
   const sourceDirectory = join(kitRoot, 'adapters', 'claude-code');
   const targetDirectory = join(projectRoot, '.ai-dev', 'adapters', 'claude-code');
   await copyDirectory(installer, sourceDirectory, targetDirectory);
-  console.log('Copiati gli hook/sub-agent (spec di riferimento) in .ai-dev/adapters/claude-code/.');
-  console.log('NOTA (beta 0.0.1): gli hook restano spec di processo; il wiring agli eventi reali di');
-  console.log('Claude Code (settings.json) non è automatico in questa versione.');
+  console.log('Copiati hook (spec + script eseguibili) e sub-agent in .ai-dev/adapters/claude-code/.');
+  console.log('NOTA: gli eventi di processo (on-spec-approved, on-tests-green) restano agent-driven —');
+  console.log('non esiste un evento nativo di Claude Code a cui agganciarli.');
+}
+
+async function wireHooks(installer, projectRoot) {
+  const settingsPath = join(projectRoot, '.claude', 'settings.json');
+  const scriptsBase = '$CLAUDE_PROJECT_DIR/.ai-dev/adapters/claude-code/hooks/scripts';
+  const sentinel = '.ai-dev/adapters/claude-code/hooks/scripts/';
+
+  const settingsExisted = await pathExists(settingsPath);
+  const settings = (await readJsonIfPresent(settingsPath)) ?? {};
+  if (JSON.stringify(settings).includes(sentinel)) {
+    console.log('Hook AI-Dev Flow già presenti in .claude/settings.json: lasciati invariati.');
+    return;
+  }
+
+  settings.hooks ??= {};
+  settings.hooks.PreToolUse ??= [];
+  settings.hooks.PreToolUse.push({
+    matcher: 'Edit|Write|MultiEdit|NotebookEdit',
+    hooks: [
+      { type: 'command', command: `node "${scriptsBase}/preEditGuard.mjs"`, statusMessage: 'AI-Dev Flow: guard file di test (read-only)' },
+      { type: 'command', command: `node "${scriptsBase}/preWorkSnapshot.mjs"`, statusMessage: 'AI-Dev Flow: valuto snapshot "before"' },
+    ],
+  });
+  settings.hooks.Stop ??= [];
+  settings.hooks.Stop.push({
+    hooks: [
+      { type: 'command', command: `node "${scriptsBase}/postWorkVerification.mjs"`, statusMessage: 'AI-Dev Flow: verifica post-work' },
+    ],
+  });
+
+  settings.permissions ??= {};
+  settings.permissions.allow ??= [];
+  for (const allowEntry of [
+    'Bash(touch /tmp/aidevflow-prework-*)',
+    'Bash(touch /tmp/aidevflow-verify-*)',
+    'Bash(touch /tmp/aidevflow-testauthoring-*)',
+  ]) {
+    if (!settings.permissions.allow.includes(allowEntry)) {
+      settings.permissions.allow.push(allowEntry);
+    }
+  }
+
+  const serialized = `${JSON.stringify(settings, null, 2)}\n`;
+  if (settingsExisted) {
+    await installer.modifyFile(settingsPath, serialized);
+  } else {
+    await installer.createFile(settingsPath, serialized);
+  }
+  console.log('Agganciati gli hook in .claude/settings.json (PreToolUse: pre-edit-guard + pre-work-snapshot; Stop: verifica post-work).');
 }
 
 async function copyDirectory(installer, sourceDirectory, targetDirectory) {
