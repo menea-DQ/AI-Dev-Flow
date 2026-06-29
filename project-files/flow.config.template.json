@@ -30,5 +30,5 @@
   "dataProducingPaths": [],
   "monorepo": { "tool": "auto", "affectedBase": "pre-task" },
   "tokenEconomy": { "ponytail": "lite", "headroom": false },
-  "connectors": { "ticketing": null, "helpdesk": null, "instances": {} }
+  "connectors": { "ticketing": "productive", "helpdesk": "zammad", "envFile": ".ai-dev/connectors.env", "instances": {} }
 }

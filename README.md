@@ -42,10 +42,26 @@ Riapri il progetto in Claude Code per attivare plugin e hook.
 In entrambi i casi l'install è **per-progetto** (mai globale), **transazionale** (rollback in caso di
 errore) e **idempotente**. L'intervista del Passo 3 **chiede** strategia di test e convenzioni: non le inferisce.
 
+## Connettori (ticketing / helpdesk)
+
+L'interfaccia dei connettori è **agnostica e sostituibile**, ma il kit ne ship già due **pronti**:
+**Productive** (ticketing) e **Zammad** (helpdesk) — perché in azienda si usano sempre questi.
+L'install NON chiede quale tool usare: i default sono `productive` e `zammad`. Le credenziali stanno
+in variabili d'ambiente (vedi [`connectors/.env.example`](connectors/.env.example)). Per cambiare
+connettore (o aggiungerne uno, es. Jira) si tocca solo `flow.config`, senza reimplementare nulla.
+Vedi [`connectors/README.md`](connectors/README.md) per il contratto.
+
 ## Cambiare le impostazioni di un progetto
 
 Invoca la skill `flow-settings`: «cambia come si fanno i test», «aggiungi una convenzione di progetto»,
 «modifica le soglie». Modifica solo i tuoi override locali (`flow.config.json`), mai il core del plugin.
+
+## Disinstallare da un progetto
+
+Invoca la skill `uninstall` (oppure `node "<plugin>/bin/uninstall.mjs" --project "$(pwd)"`). Disabilita
+il plugin nel progetto, rimuove il blocco da `CLAUDE.md` e cancella gli artefatti dell'install. I file
+che possono contenere lavoro tuo (config, architecture, changelog) vengono **preservati se modificati**,
+salvo `--purge` che rimuove tutto.
 
 ## Aggiornare il kit
 
@@ -63,14 +79,17 @@ AI-Dev-Flow/                     radice = marketplace + plugin
 ├── VERSION                      versione semantica
 ├── PROCESS.md                   fonte di verità del processo
 ├── INSTALL.md                   procedura di installazione per-progetto
-├── skills/<nome>/SKILL.md       install, flow-settings + skill di processo
+├── skills/<nome>/SKILL.md       install, uninstall, flow-settings + skill di processo
 ├── agents/test-author.md        sub-agent isolato che scrive i test dalla sola spec
 ├── hooks/
 │   ├── hooks.json               aggancio agli eventi nativi (PreToolUse, Stop)
 │   ├── README.md                cosa fa ogni hook
 │   └── scripts/*.mjs            script degli hook (guardia: no-op se manca flow.config.json)
+├── connectors/                  connettori ticketing/helpdesk pronti (productive, zammad) + contratto
 ├── templates/                   modelli degli artefatti (spec, plan, changelog, architecture, …)
-├── bin/install.mjs              installer deterministico per-progetto
+├── bin/
+│   ├── install.mjs              installer deterministico per-progetto (scrive un manifest)
+│   └── uninstall.mjs            disinstaller per-progetto (legge il manifest, ripulisce)
 └── project-files/               template di config e lock per-progetto
 ```
 

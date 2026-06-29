@@ -45,7 +45,10 @@ Decisioni dell'intervista:
   Se esiste già un documento che le descrive, chiedi se usarlo come fonte; altrimenti raccoglile in
   intervista. Verranno salvate in flow.config e applicate dall'impl-runbook.
 - MAX_REFINE: default avviso=3, blocco=6.
-- Connettori: quali usare (ticketing, helpdesk) e quale istanza, se più di una.
+- Connettori: NON chiedere quale tool usare. I default sono già pronti — `productive` (ticketing) e
+  `zammad` (helpdesk) — e l'interfaccia è agnostica/sostituibile via flow.config. L'unica cosa da
+  sistemare sono le CREDENZIALI (variabili d'ambiente, vedi connectors/.env.example): segnala quali
+  servono, non inventarle. Per cambiare connettore si usa la skill flow-settings, non l'install.
 - Fast-path: chiedere ogni volta [DEFAULT] o auto sotto soglia? con quale soglia?
 - Livello di essenzialità (Ponytail): default "lite".
 

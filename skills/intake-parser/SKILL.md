@@ -12,7 +12,13 @@ Scopo: normalizzare una richiesta in ingresso (CR/BUG) in un "contesto richiesta
 Quando usarla: Fase 0 (Intake), all'arrivo di un ticket.
 
 Cosa fare:
-1. Leggi il ticket dal connettore di ticketing (NON le credenziali: usa il connettore).
+1. Leggi il ticket usando il CONNETTORE configurato in flow.config.connectors (default già pronti:
+   `productive` per il ticketing, `zammad` per l'helpdesk). NON chiedere quale tool usare e NON
+   reimplementare nulla: esegui il connettore bundlato nel plugin, che stampa un JSON normalizzato:
+       node "${CLAUDE_PLUGIN_ROOT}/connectors/<connector>.mjs" "<url-o-id>"
+   Le credenziali stanno nelle variabili d'ambiente (vedi connectors/.env.example); se ne manca una,
+   il connettore lo dice e tu giri il messaggio all'utente.
+   Se un task di ticketing rimanda a un ticket di helpdesk (campo references), leggi anche quello.
 2. Estrai: tipo (CR/evolutiva o BUG), priorità, riferimenti (ticket collegati, allegati), cliente.
 3. Classifica CR vs BUG. Per i BUG, segna se c'è una descrizione di riproduzione.
 4. Valuta fast-path-eligibility con criteri semplici e dichiarati:

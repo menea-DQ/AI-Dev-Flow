@@ -32,8 +32,9 @@ AI-Dev-Flow/                         radice = marketplace + plugin
 │
 ├── skills/                          skill auto-scoperte dal plugin (cartella per skill)
 │   ├── install/SKILL.md             ENTRYPOINT: scaffolding per-progetto
+│   ├── uninstall/SKILL.md           rimuove il kit dal progetto e ripulisce gli artefatti
 │   ├── flow-settings/SKILL.md       modifica guidata di flow.config.json
-│   ├── intake-parser/SKILL.md       normalizza la richiesta (CR/BUG)
+│   ├── intake-parser/SKILL.md       normalizza la richiesta (CR/BUG) via connettore
 │   ├── spec-context/SKILL.md        cosa caricare per la spec (legge gli architecture doc)
 │   ├── impl-runbook/SKILL.md        convenzioni di implementazione (da flow.config)
 │   └── test-selector/SKILL.md       quali test, secondo il test-playbook
@@ -50,14 +51,22 @@ AI-Dev-Flow/                         radice = marketplace + plugin
 │       ├── preWorkSnapshot.mjs      snapshot "before" su modifiche ai dati
 │       └── postWorkVerification.mjs verifica post-work dal test-playbook (evento Stop)
 │
+├── connectors/                      connettori ticketing/helpdesk PRONTI + contratto agnostico
+│   ├── README.md                    il contratto (interfaccia) per aggiungere/sostituire connettori
+│   ├── productive.mjs               ticketing: Productive (REST)
+│   ├── zammad.mjs                   helpdesk: Zammad (REST, cookie CF opzionale)
+│   └── .env.example                 variabili d'ambiente delle credenziali
+│
 ├── templates/                       spec, plan, changelog, qa-log, architecture,
 │   └── …                            test-playbook, AGENT.md, CLAUDE.md
 │
-├── bin/install.mjs                  installer deterministico, transazionale, PER-PROGETTO
+├── bin/
+│   ├── install.mjs                  installer deterministico, transazionale, PER-PROGETTO (scrive un manifest)
+│   └── uninstall.mjs                disinstaller per-progetto (legge il manifest, ripulisce in sicurezza)
 │
 └── project-files/
     ├── flow.config.template.json    config per-progetto (override locali)
-    └── flow.lock.template.json      lockfile (versione + cache assessment)
+    └── flow.lock.template.json      lockfile (versione + cache assessment + manifest install)
 ```
 
 **Cosa va dove, in breve.** Il plugin (skill, hook, template, processo) vive nel repo e si abilita
@@ -166,11 +175,14 @@ vengono copiati (li fornisce il plugin). Testo canonico in `INSTALL.md` del repo
 
 ## 4. Le skill (auto-scoperte dal plugin)
 
-Ogni skill è `skills/<nome>/SKILL.md` con frontmatter (`name`, `description`). Due sono di *servizio*
+Ogni skill è `skills/<nome>/SKILL.md` con frontmatter (`name`, `description`). Tre sono di *servizio*
 (entrypoint che l'utente invoca), quattro sono di *processo* (usate dalle fasi).
 
 - **install** — esegue `INSTALL.md` (assessment → intervista → installer → doctor). Lancia l'installer
   bundlato nel plugin: `node "<plugin>/bin/install.mjs" --project "$(pwd)" [--decisions <file.json>]`.
+- **uninstall** — rimuove il kit dal progetto (`node "<plugin>/bin/uninstall.mjs" --project "$(pwd)"`):
+  disabilita il plugin, rimuove il blocco da `CLAUDE.md`, cancella gli artefatti. Preserva i file che
+  l'utente ha modificato (config/architecture/changelog) salvo `--purge`.
 - **flow-settings** — editor guidato di `flow.config.json`: test-playbook, convenzioni di progetto,
   `architectureDocs`, `dataProducingPaths`, soglie, connettori. Scrive SOLO `flow.config.json`, mai il
   core del plugin. Mostra un diff e l'effetto pratico prima di salvare.
@@ -233,6 +245,29 @@ timestamp git), poi rimuove il marcatore. L'isolamento è strutturale e verifica
 strutturale (input = sola spec, ordine provato da git, hook che blocca le modifiche successive). Il
 `preWorkSnapshot` aggiunge la gamba mancante per i test sui dati: senza uno stato "before" catturato a
 codice pristino, un confronto pre/post è impossibile.
+
+---
+
+## 5-bis. Connettori (ticketing / helpdesk) — pronti e agnostici
+
+L'interfaccia dei connettori è **agnostica e sostituibile**, ma il kit ne ship già due **pronti**,
+perché in azienda si usano sempre questi: **Productive** (ticketing) e **Zammad** (helpdesk). L'install
+**non chiede** quale tool usare (niente domande su Jira/Trello/ecc.): i default sono `productive` e
+`zammad` in `flow.config.connectors`. Non si reimplementa nulla a ogni progetto.
+
+- **Contratto** (`connectors/README.md`): un connettore è un comando
+  `node "${CLAUDE_PLUGIN_ROOT}/connectors/<nome>.mjs" "<url-o-id>"` che stampa su stdout un JSON
+  normalizzato (`connector`, `kind`, `id`, `number`, `title`, `description`, `references`, `customer`, `raw`).
+- **`productive.mjs`** — ticketing, REST `api.productive.io/api/v2` (header `X-Auth-Token` +
+  `X-Organization-Id`). Env: `PRODUCTIVE_API_TOKEN`. Estrae eventuali URL di helpdesk dai custom field.
+- **`zammad.mjs`** — helpdesk, REST `<base>/api/v1/...`. Env: `ZAMMAD_API_TOKEN` e, se l'istanza è
+  dietro Cloudflare Access, `ZAMMAD_CF_AUTHORIZATION` (cookie).
+- **Sostituire/aggiungere**: crea `connectors/<nome>.mjs` che rispetta il contratto e imposta
+  `flow.config.connectors.ticketing`/`.helpdesk` = `"<nome>"`. Skill e intake restano invariati.
+
+**Perché così.** L'astrazione resta (sostituibile), ma i connettori concreti sono già pronti e uniformi:
+nessuno spreco di token per "crearseli" a ogni install, nessuna implementazione divergente. Le
+credenziali sono env-based (vedi `connectors/.env.example`), mai committate.
 
 ---
 
@@ -300,23 +335,35 @@ Sezioni popolate per intervista in install: `architectureDocs` (registro dei doc
 
 ---
 
-## 8. `bin/install.mjs` — installer deterministico, transazionale, per-progetto
+## 8. `bin/install.mjs` e `bin/uninstall.mjs` — install/uninstall per-progetto
 
-Funzionante e testato. Sintesi del comportamento:
+Funzionanti e testati. Sintesi di `install.mjs`:
 
 - **Idempotente**: se `flow.lock.json` esiste con la stessa `kitVersion`, non rifà nulla (salvo `--force`).
 - **Rileva i contesti** dai workspace (`pnpm-workspace.yaml` e `workspaces` di `package.json`, espandendo
   i glob `*/`).
-- Crea `flow.config.json` (template + `--decisions`), `flow.lock.json` (con hash e contesti).
+- Crea `flow.config.json` (template + `--decisions`), `flow.lock.json` (con hash, contesti e **manifest**).
 - **Abilita il plugin SOLO nel progetto**: scrive `enabledPlugins` + `extraKnownMarketplaces` nel
   `.claude/settings.json` (sorgente `github` dedotta dal remote del kit, o `directory` locale).
 - Crea `AGENT.md` (se assente) e inietta il blocco delimitato in `CLAUDE.md` preservando il preesistente.
 - Crea un `architecture.md` per contesto acconsentito; inizializza il changelog.
 - **Transazionale**: traccia file creati/modificati; a errore esegue il rollback completo.
+- **Scrive un manifest** in `flow.lock.json` (`install`): file creati con `sha256` e flag `userContent`,
+  file modificati (settings, blocco CLAUDE), cartelle create. È la base per una disinstallazione precisa.
 
 Le **decisioni** dell'intervista arrivano via `--decisions <file.json>`
 (`{ installedAt, config:{…override…}, architectureContexts:[…] }`); senza, usa i default del template
 e lo segnala (non inferisce test né convenzioni).
+
+`uninstall.mjs` legge quel manifest e **ripulisce in sicurezza**:
+
+- disabilita il plugin nel progetto (rimuove `enabledPlugins` + `extraKnownMarketplaces`, lasciando
+  intatte le altre impostazioni; cancella `settings.json` solo se creato da noi e rimasto vuoto);
+- rimuove il blocco AI-Dev Flow da `CLAUDE.md` preservando il resto (cancella il file solo se creato
+  da noi e rimasto vuoto);
+- elimina i file creati dall'install; `flow.lock.json` per ultimo; rimuove le cartelle rimaste vuote;
+- **preserva** i file che l'utente ha modificato dopo l'install (hash diverso da quello del manifest) —
+  `flow.config.json`, `AGENT.md`, architecture, changelog — a meno di `--purge` (rimuove tutto).
 
 ---
 
@@ -326,8 +373,9 @@ Il kit MVP (Fase 1) è implementato come **plugin Claude Code abilitabile per si
 installazione per-progetto **per intervista** (chiedi, non inferire), i 3 gate umani, la **regola del
 98%**, la selezione test guidata dal **test-playbook dichiarato**, i **documenti di architettura
 per-contesto**, le **convenzioni di progetto dichiarate**, il **gate di snapshot pre-work** per i dati,
-l'isolamento strutturale dei test (sub-agent + hook), e le **due skill di servizio** (`install`,
-`flow-settings`).
+l'isolamento strutturale dei test (sub-agent + hook), i **connettori pronti** (Productive/Zammad) con
+interfaccia agnostica, le **tre skill di servizio** (`install`, `uninstall`, `flow-settings`) e una
+**disinstallazione pulita** basata su manifest.
 
 Le idee nascono dall'osservazione di un progetto reale gestito a mano, ma sono state **generalizzate**:
 il plugin non eredita liste o procedure di quel progetto, eredita i *pattern*. Tutto ciò che è specifico

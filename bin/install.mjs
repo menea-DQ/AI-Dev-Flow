@@ -11,16 +11,16 @@
 //
 // Uso:
 //   node install.mjs [--kit <path-al-kit>] [--project <path>] [--decisions <file.json>] [--force]
-//   (--kit default: la radice del plugin in cui vive questo script)
 //
 // Proprietà:
 //   • PER-PROGETTO: abilita il plugin solo nel progetto target, mai globalmente.
 //   • TRANSAZIONALE: ogni file creato/modificato è tracciato; a errore → rollback totale.
 //   • IDEMPOTENTE: se è già installato e coerente (stessa kitVersion), non rifà nulla.
+//   • REVERSIBILE: scrive in flow.lock.json un manifest (file creati con hash, file modificati)
+//     che bin/uninstall.mjs usa per ripulire con precisione.
 
-import { mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, readdir, rm, access } from 'node:fs/promises';
 import { constants as fsConstants, createReadStream } from 'node:fs';
-import { access } from 'node:fs/promises';
 import { execSync } from 'node:child_process';
 import { join, dirname, basename, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -79,6 +79,10 @@ function deepMerge(base, override) {
     merged[key] = key in base ? deepMerge(base[key], override[key]) : override[key];
   }
   return merged;
+}
+
+function relativize(projectRoot, absolutePath) {
+  return absolutePath.startsWith(`${projectRoot}/`) ? absolutePath.slice(projectRoot.length + 1) : absolutePath;
 }
 
 async function hashOfFile(targetPath) {
@@ -240,9 +244,33 @@ async function run() {
     const contexts = await detectContexts(projectRoot);
     console.log(`Contesti rilevati: ${contexts.join(', ')}`);
 
+    const manifest = { createdFiles: [], createdDirectories: [], settings: null, claudeMd: null };
+
     const configTemplate = await readJsonIfPresent(join(kitRoot, 'project-files', 'flow.config.template.json'));
     const mergedConfig = deepMerge(configTemplate, decisions?.config ?? {});
     await installer.createFile(join(projectRoot, 'flow.config.json'), `${JSON.stringify(mergedConfig, null, 2)}\n`);
+    manifest.createdFiles.push({ relPath: 'flow.config.json', userContent: true });
+
+    manifest.settings = await enablePluginForProject(installer, projectRoot, kitRoot);
+    const agentInstructions = await installAgentInstructions(installer, kitRoot, projectRoot);
+    if (agentInstructions.agentMd.fileCreatedByUs) {
+      manifest.createdFiles.push({ relPath: 'AGENT.md', userContent: true });
+    }
+    manifest.claudeMd = agentInstructions.claudeMd;
+    for (const relPath of await installArchitectureDocs(installer, kitRoot, projectRoot, contexts, decisions)) {
+      manifest.createdFiles.push({ relPath, userContent: true });
+    }
+    const changelogRelPath = await initializeChangelog(installer, kitRoot, projectRoot, mergedConfig);
+    if (changelogRelPath) {
+      manifest.createdFiles.push({ relPath: changelogRelPath, userContent: true });
+    }
+
+    for (const entry of manifest.createdFiles) {
+      entry.sha256 = await hashOfFile(join(projectRoot, entry.relPath));
+    }
+    manifest.createdDirectories = installer.createdDirectories
+      .map((directoryPath) => relativize(projectRoot, directoryPath))
+      .filter((relPath) => relPath && relPath !== projectRoot);
 
     const lock = {
       kitVersion,
@@ -254,16 +282,12 @@ async function run() {
         contexts,
         filesHash: await computeFilesHash(projectRoot),
       },
+      install: manifest,
     };
     await installer.createFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
 
-    await enablePluginForProject(installer, projectRoot, kitRoot);
-    await installAgentInstructions(installer, kitRoot, projectRoot);
-    await installArchitectureDocs(installer, kitRoot, projectRoot, contexts, decisions);
-    await initializeChangelog(installer, kitRoot, projectRoot, mergedConfig);
-
     console.log('Installazione completata. Riapri il progetto in Claude Code per attivare plugin e hook.');
-    console.log('Poi esegui il doctor (INSTALL.md, Passo 5) per la verifica.');
+    console.log('Poi esegui il doctor (INSTALL.md, Passo 5) per la verifica. Per rimuovere tutto: skill `uninstall`.');
   } catch (error) {
     console.error('Errore durante l\'installazione, eseguo il rollback:', error.message);
     await installer.rollback();
@@ -277,8 +301,9 @@ async function enablePluginForProject(installer, projectRoot, kitRoot) {
   const settingsExisted = await pathExists(settingsPath);
   const settings = (await readJsonIfPresent(settingsPath)) ?? {};
 
+  const pluginKey = `${PLUGIN_NAME}@${MARKETPLACE_NAME}`;
   settings.enabledPlugins ??= {};
-  settings.enabledPlugins[`${PLUGIN_NAME}@${MARKETPLACE_NAME}`] = true;
+  settings.enabledPlugins[pluginKey] = true;
   settings.extraKnownMarketplaces ??= {};
   settings.extraKnownMarketplaces[MARKETPLACE_NAME] ??= { source: kitMarketplaceSource(kitRoot) };
 
@@ -291,11 +316,13 @@ async function enablePluginForProject(installer, projectRoot, kitRoot) {
   const source = settings.extraKnownMarketplaces[MARKETPLACE_NAME].source;
   const sourceLabel = source.source === 'github' ? `github:${source.repo}` : `directory:${source.path}`;
   console.log(`Abilitato il plugin SOLO in questo progetto (.claude/settings.json, marketplace ${sourceLabel}).`);
+  return { relPath: '.claude/settings.json', fileCreatedByUs: !settingsExisted, pluginKey, marketplaceName: MARKETPLACE_NAME };
 }
 
 async function installAgentInstructions(installer, kitRoot, projectRoot) {
   const agentPath = join(projectRoot, 'AGENT.md');
-  if (!(await pathExists(agentPath))) {
+  const agentExisted = await pathExists(agentPath);
+  if (!agentExisted) {
     await installer.createFile(agentPath, await readFile(join(kitRoot, 'templates', 'AGENT.md'), 'utf8'));
     console.log('Creato AGENT.md dal template.');
   } else {
@@ -303,44 +330,59 @@ async function installAgentInstructions(installer, kitRoot, projectRoot) {
   }
 
   const claudePath = join(projectRoot, 'CLAUDE.md');
+  const claudeExisted = await pathExists(claudePath);
   const block = `${MARKER_START}\nQuesto progetto usa AI-Dev Flow. Le istruzioni operative sono in AGENT.md (agnostico).\nLeggi AGENT.md e seguilo. Versione del processo: vedi flow.lock.json.\n${MARKER_END}\n`;
-  if (!(await pathExists(claudePath))) {
+  let blockAdded = false;
+  if (!claudeExisted) {
     await installer.createFile(claudePath, `# CLAUDE.md\n${block}`);
+    blockAdded = true;
     console.log('Creato CLAUDE.md con il blocco AI-Dev Flow.');
   } else {
     const existing = await readFile(claudePath, 'utf8');
     if (!existing.includes(MARKER_START)) {
       await installer.modifyFile(claudePath, `${block}\n${existing}`);
+      blockAdded = true;
       console.log('Aggiunto il blocco AI-Dev Flow in cima a CLAUDE.md (contenuto preesistente preservato).');
     } else {
       console.log('CLAUDE.md già contiene il blocco AI-Dev Flow: lasciato invariato.');
     }
   }
+
+  return {
+    agentMd: { relPath: 'AGENT.md', fileCreatedByUs: !agentExisted },
+    claudeMd: { relPath: 'CLAUDE.md', fileCreatedByUs: !claudeExisted, blockAdded },
+  };
 }
 
 async function installArchitectureDocs(installer, kitRoot, projectRoot, contexts, decisions) {
   const consentedContexts = decisions?.architectureContexts ?? contexts;
   const template = await readFile(join(kitRoot, 'templates', 'architecture.md'), 'utf8');
+  const createdRelPaths = [];
   for (const context of consentedContexts) {
-    const targetPath = context === '.' ? join(projectRoot, 'architecture.md') : join(projectRoot, context, 'architecture.md');
+    const relPath = context === '.' ? 'architecture.md' : join(context, 'architecture.md');
+    const targetPath = join(projectRoot, relPath);
     if (await pathExists(targetPath)) {
       console.log(`architecture.md già presente per "${context}": registrato, non sovrascritto.`);
       continue;
     }
     const filled = template.replace('[nome contesto]', context === '.' ? basename(projectRoot) : context);
     await installer.createFile(targetPath, filled);
+    createdRelPaths.push(relPath);
     console.log(`Creato documento di architettura per "${context}".`);
   }
+  return createdRelPaths;
 }
 
 async function initializeChangelog(installer, kitRoot, projectRoot, config) {
-  const changelogPath = join(projectRoot, config.changelog?.path ?? '.ai-dev/changelog.md');
+  const relPath = config.changelog?.path ?? '.ai-dev/changelog.md';
+  const changelogPath = join(projectRoot, relPath);
   if (await pathExists(changelogPath)) {
     console.log('Changelog già presente: lasciato invariato.');
-    return;
+    return null;
   }
   await installer.createFile(changelogPath, await readFile(join(kitRoot, 'templates', 'changelog.md'), 'utf8'));
   console.log('Inizializzato changelog vuoto.');
+  return relPath;
 }
 
 run();
