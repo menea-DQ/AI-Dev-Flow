@@ -3,7 +3,7 @@
 Plugin Claude Code per uno sviluppo software AI-assistito (human-in-the-loop), **abilitabile e
 configurabile per singolo progetto**.
 
-> Versione **0.0.5** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
+> Versione **0.0.6** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
 > possono introdurre cambiamenti non retro-compatibili (convenzione semver per le 0.x).
 
 ## Cos'è
@@ -46,8 +46,10 @@ errore) e **idempotente**. L'intervista del Passo 3 **chiede** strategia di test
 
 L'interfaccia dei connettori è **agnostica e sostituibile**, ma il kit ne ship già due **pronti**:
 **Productive** (ticketing) e **Zammad** (helpdesk) — perché in azienda si usano sempre questi.
-L'install NON chiede quale tool usare: i default sono `productive` e `zammad`. Le credenziali stanno
-in variabili d'ambiente (vedi [`connectors/.env.example`](connectors/.env.example)). Per cambiare
+L'install NON chiede quale tool usare: i default sono `productive` e `zammad`. Le credenziali vanno nel
+file **`.ai-dev/connectors.env` del progetto** (gitignorato; l'install lo scaffolda da
+[`connectors/.env.example`](connectors/.env.example)) — i connettori lo **caricano da soli** prima di
+leggere le credenziali (le variabili già esportate nell'ambiente hanno comunque la precedenza). Per cambiare
 connettore (o aggiungerne uno, es. Jira) si tocca solo `flow.config`, senza reimplementare nulla.
 Vedi [`connectors/README.md`](connectors/README.md) per il contratto. Il connettore Productive **scarica
 gli allegati del task** in `.ai-dev/attachments/productive-<id>/` (cartella gitignorata) e li elenca

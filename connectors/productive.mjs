@@ -8,10 +8,12 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { loadConnectorEnv } from './connectorEnv.mjs';
 
 const PRODUCTIVE_API_BASE_URL = process.env.PRODUCTIVE_API_BASE_URL ?? 'https://api.productive.io/api/v2';
 
 async function main() {
+  loadConnectorEnv();
   if (process.argv[2] === '--check') {
     return runCheck();
   }

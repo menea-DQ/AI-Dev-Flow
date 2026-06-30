@@ -54,5 +54,8 @@ Crea `connectors/<nome>.mjs` che rispetti il contratto sopra, poi imposta in `fl
 
 ## Credenziali
 
-I connettori leggono le credenziali da variabili d'ambiente (vedi `.env.example`). NON committare i
-segreti: tienili nell'ambiente o in un file env gitignorato del progetto.
+I connettori **caricano automaticamente** il file env del progetto `flow.config.connectors.envFile`
+(default **`.ai-dev/connectors.env`**, gitignorato) prima di leggere le credenziali; le variabili già
+esportate nell'ambiente reale hanno la precedenza. Quindi metti le credenziali in
+`.ai-dev/connectors.env` del progetto (l'install lo scaffolda da `.env.example`) — NON nel `connectors/`
+del plugin (che vive nella cache ed è sovrascritto agli aggiornamenti). Non committare i segreti.

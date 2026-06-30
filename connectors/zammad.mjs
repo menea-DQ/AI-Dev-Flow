@@ -3,7 +3,10 @@
 // Contratto: node zammad.mjs <url-del-ticket> → stampa JSON normalizzato su stdout.
 // Env richiesto: ZAMMAD_API_TOKEN. Opzionale (istanze dietro Cloudflare Access): ZAMMAD_CF_AUTHORIZATION.
 
+import { loadConnectorEnv } from './connectorEnv.mjs';
+
 async function main() {
+  loadConnectorEnv();
   if (process.argv[2] === '--check') {
     return runCheck();
   }

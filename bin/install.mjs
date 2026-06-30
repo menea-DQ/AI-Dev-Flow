@@ -270,6 +270,9 @@ async function run() {
     if (changelogRelPath) {
       manifest.createdFiles.push({ relPath: changelogRelPath, userContent: true });
     }
+    for (const created of await scaffoldConnectorsEnv(installer, kitRoot, projectRoot, mergedConfig)) {
+      manifest.createdFiles.push(created);
+    }
 
     for (const entry of manifest.createdFiles) {
       entry.sha256 = await hashOfFile(join(projectRoot, entry.relPath));
@@ -440,6 +443,34 @@ async function installArchitectureDocs(installer, kitRoot, projectRoot, contexts
     console.log(`Creato documento di architettura per "${context}".`);
   }
   return createdRelPaths;
+}
+
+async function scaffoldConnectorsEnv(installer, kitRoot, projectRoot, mergedConfig) {
+  const envFileRelativePath = mergedConfig?.connectors?.envFile ?? '.ai-dev/connectors.env';
+  const created = [];
+
+  const envFilePath = join(projectRoot, envFileRelativePath);
+  if (!(await pathExists(envFilePath))) {
+    const examplePath = join(kitRoot, 'connectors', '.env.example');
+    const template = (await pathExists(examplePath)) ? await readFile(examplePath, 'utf8') : '';
+    await installer.createFile(envFilePath, template);
+    created.push({ relPath: envFileRelativePath, userContent: true });
+    console.log(`Creato ${envFileRelativePath}: compila qui le credenziali dei connettori (è gitignorato).`);
+  }
+
+  const ignoreEntry = basename(envFileRelativePath);
+  const gitignorePath = join(dirname(envFilePath), '.gitignore');
+  const gitignoreRelative = join(dirname(envFileRelativePath), '.gitignore');
+  if (!(await pathExists(gitignorePath))) {
+    await installer.createFile(gitignorePath, `${ignoreEntry}\n`);
+    created.push({ relPath: gitignoreRelative, userContent: false });
+  } else {
+    const existing = await readFile(gitignorePath, 'utf8');
+    if (!existing.includes(ignoreEntry)) {
+      await installer.modifyFile(gitignorePath, `${existing.replace(/\n*$/, '')}\n${ignoreEntry}\n`);
+    }
+  }
+  return created;
 }
 
 async function initializeChangelog(installer, kitRoot, projectRoot, config) {

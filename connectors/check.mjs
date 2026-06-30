@@ -107,6 +107,7 @@ const BROKEN_STATUSES = new Set(['auth-failed', 'drift', 'fetch-failed', 'contra
 async function run() {
   const args = parseArguments(process.argv.slice(2));
   const projectRoot = resolve(args.projectRoot ?? process.cwd());
+  process.chdir(projectRoot);
   const connectors = loadConnectorsConfig(projectRoot);
 
   const results = [

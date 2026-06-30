@@ -26,7 +26,7 @@ AI-Dev-Flow/                         radice = marketplace + plugin
 │   ├── marketplace.json             dichiara il marketplace e il plugin (source "./")
 │   └── plugin.json                  manifest del plugin (name, version, keywords)
 ├── README.md
-├── VERSION                          0.0.5
+├── VERSION                          0.0.6
 ├── PROCESS.md                       fonte di verità del processo
 ├── INSTALL.md                       procedura di installazione per-progetto
 │
@@ -93,13 +93,14 @@ vengono copiati nel progetto: li fornisce il plugin.
 ## 1. `VERSION` e versionamento
 
 ```
-0.0.5
+0.0.6
 ```
 
 `0.0.x` è la fase **beta**: finché siamo sotto `1.0.0`, anche piccoli incrementi possono introdurre
 cambiamenti non retro-compatibili (convenzione semver per le 0.x). Il manifest del plugin e il lockfile
-per-progetto dichiarano la versione; i passaggi `0.0.1 → 0.0.2`, `0.0.2 → 0.0.3` e `0.0.3 → 0.0.4` hanno migrazioni che allineano gli artefatti dei
-progetti già installati (vedi `migrations/`).
+per-progetto dichiarano la versione; i passaggi che cambiano il formato degli artefatti hanno una
+migrazione in `migrations/` che allinea i progetti già installati (le versioni con sole modifiche al
+plugin — es. ai connettori — non ne hanno bisogno: basta aggiornare il plugin).
 
 ---
 
@@ -113,7 +114,7 @@ entrambi in `.claude-plugin/`.
 {
   "name": "ai-dev-flow",
   "displayName": "AI-Dev Flow",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Processo di sviluppo software AI-assistito (human-in-the-loop), abilitabile e configurabile per singolo progetto.",
   "author": { "name": "Massimiliano Enea", "email": "massimiliano.enea@donq.io" },
   "repository": "https://github.com/menea-DQ/AI-Dev-Flow",
