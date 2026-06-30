@@ -3,7 +3,7 @@
 Plugin Claude Code per uno sviluppo software AI-assistito (human-in-the-loop), **abilitabile e
 configurabile per singolo progetto**.
 
-> Versione **0.0.3** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
+> Versione **0.0.4** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
 > possono introdurre cambiamenti non retro-compatibili (convenzione semver per le 0.x).
 
 ## Cos'è
@@ -71,12 +71,13 @@ espongono). Il kit quindi **non usa DB o connettori custom**: abilita l'OTEL **p
 a uno **stack OTLP standard** con **Grafana**. OTLP è il layer agnostico: cambi backend cambiando
 l'endpoint, senza riscrivere nulla.
 
-L'abilitazione OTEL è una config di **startup** di Claude Code: l'`env` di `settings.json` NON la attiva,
-serve l'ambiente reale al lancio. Per restare per-progetto, l'install scrive un **`.envrc`** (direnv) nel
-progetto: entrando nella cartella le variabili si attivano (e si disattivano uscendo) → telemetria solo
-in quel progetto, nessun leak. Richiede `direnv` e un `direnv allow` iniziale. Dettagli e stack in
-[`telemetry/`](telemetry/). Si disattiva con `flow.config.telemetry.enabled = false`; l'uninstall rimuove
-il blocco dal `.envrc`.
+L'abilitazione OTEL è una config di **startup** di Claude Code: per restare per-progetto, l'install scrive
+le variabili OTEL in un **`.envrc`** (direnv — entrando nella cartella si attivano, uscendo si disattivano)
+**e** nel `.claude/settings.json` del progetto. Il `.envrc` è ciò che le attiva nel processo `claude` al
+lancio; richiede `direnv` + un `direnv allow` iniziale. Tra le variabili,
+`OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=cumulative` è necessaria perché Prometheus accetti le
+metriche. Dettagli e stack in [`telemetry/`](telemetry/). Si disattiva con
+`flow.config.telemetry.enabled = false`; l'uninstall rimuove tutto (blocco `.envrc` + variabili settings.json).
 
 ## Cambiare le impostazioni di un progetto
 

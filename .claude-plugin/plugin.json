@@ -1,7 +1,7 @@
 {
   "name": "ai-dev-flow",
   "displayName": "AI-Dev Flow",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Processo di sviluppo software AI-assistito (human-in-the-loop), abilitabile e configurabile per singolo progetto. Skill di processo, hook di qualità e installer deterministico.",
   "author": { "name": "Massimiliano Enea", "email": "massimiliano.enea@donq.io" },
   "repository": "https://github.com/menea-DQ/AI-Dev-Flow",

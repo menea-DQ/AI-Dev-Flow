@@ -327,6 +327,17 @@ async function enablePluginsForProject(installer, projectRoot, kitRoot, mergedCo
     marketplaceNames.push(PONYTAIL_MARKETPLACE_NAME);
   }
 
+  let envKeys = [];
+  if (mergedConfig?.telemetry?.enabled) {
+    const projectName = mergedConfig.telemetry.projectName || basename(projectRoot);
+    const pairs = telemetryEnvPairs(mergedConfig.telemetry, projectName);
+    settings.env ??= {};
+    for (const [key, value] of Object.entries(pairs)) {
+      settings.env[key] = value;
+    }
+    envKeys = Object.keys(pairs);
+  }
+
   const serialized = `${JSON.stringify(settings, null, 2)}\n`;
   if (settingsExisted) {
     await installer.modifyFile(settingsPath, serialized);
@@ -334,22 +345,26 @@ async function enablePluginsForProject(installer, projectRoot, kitRoot, mergedCo
     await installer.createFile(settingsPath, serialized);
   }
   console.log(`Abilitati SOLO in questo progetto: ${enabledPluginKeys.join(', ')} (modalità Ponytail: ${ponytailMode}).`);
-  return { relPath: '.claude/settings.json', fileCreatedByUs: !settingsExisted, enabledPluginKeys, marketplaceNames };
+  return { relPath: '.claude/settings.json', fileCreatedByUs: !settingsExisted, enabledPluginKeys, marketplaceNames, envKeys };
+}
+
+function telemetryEnvPairs(telemetry, projectName) {
+  return {
+    CLAUDE_CODE_ENABLE_TELEMETRY: '1',
+    OTEL_METRICS_EXPORTER: 'otlp',
+    OTEL_LOGS_EXPORTER: 'otlp',
+    OTEL_EXPORTER_OTLP_PROTOCOL: telemetry.otlpProtocol ?? 'http/protobuf',
+    OTEL_EXPORTER_OTLP_ENDPOINT: telemetry.otlpEndpoint,
+    OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: 'cumulative',
+    OTEL_SERVICE_NAME: telemetry.serviceName ?? 'ai-dev-flow',
+    OTEL_RESOURCE_ATTRIBUTES: `project.name=${projectName}`,
+    OTEL_METRIC_EXPORT_INTERVAL: '10000',
+  };
 }
 
 function buildTelemetryEnvrcBlock(telemetry, projectName) {
-  return [
-    ENVRC_BLOCK_START,
-    'export CLAUDE_CODE_ENABLE_TELEMETRY=1',
-    'export OTEL_METRICS_EXPORTER=otlp',
-    'export OTEL_LOGS_EXPORTER=otlp',
-    `export OTEL_EXPORTER_OTLP_PROTOCOL=${telemetry.otlpProtocol ?? 'http/protobuf'}`,
-    `export OTEL_EXPORTER_OTLP_ENDPOINT=${telemetry.otlpEndpoint}`,
-    `export OTEL_SERVICE_NAME=${telemetry.serviceName ?? 'ai-dev-flow'}`,
-    `export OTEL_RESOURCE_ATTRIBUTES=project.name=${projectName}`,
-    'export OTEL_METRIC_EXPORT_INTERVAL=10000',
-    ENVRC_BLOCK_END,
-  ].join('\n');
+  const exports = Object.entries(telemetryEnvPairs(telemetry, projectName)).map(([key, value]) => `export ${key}=${value}`);
+  return [ENVRC_BLOCK_START, ...exports, ENVRC_BLOCK_END].join('\n');
 }
 
 async function writeTelemetryEnvrc(installer, projectRoot, telemetry) {

@@ -25,7 +25,7 @@ const MARKER_END = '<!-- ai-dev-flow:end -->';
 const ENVRC_BLOCK_START = '# >>> ai-dev-flow telemetry >>>';
 const ENVRC_BLOCK_END = '# <<< ai-dev-flow telemetry <<<';
 const DEFAULT_SETTINGS = { relPath: '.claude/settings.json', fileCreatedByUs: false, enabledPluginKeys: ['ai-dev-flow@ai-dev-flow'], marketplaceNames: ['ai-dev-flow'] };
-const TELEMETRY_ENV_KEYS = ['CLAUDE_CODE_ENABLE_TELEMETRY', 'OTEL_METRICS_EXPORTER', 'OTEL_LOGS_EXPORTER', 'OTEL_EXPORTER_OTLP_PROTOCOL', 'OTEL_EXPORTER_OTLP_ENDPOINT', 'OTEL_SERVICE_NAME', 'OTEL_RESOURCE_ATTRIBUTES'];
+const TELEMETRY_ENV_KEYS = ['CLAUDE_CODE_ENABLE_TELEMETRY', 'OTEL_METRICS_EXPORTER', 'OTEL_LOGS_EXPORTER', 'OTEL_EXPORTER_OTLP_PROTOCOL', 'OTEL_EXPORTER_OTLP_ENDPOINT', 'OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE', 'OTEL_SERVICE_NAME', 'OTEL_RESOURCE_ATTRIBUTES', 'OTEL_METRIC_EXPORT_INTERVAL'];
 
 function parseArguments(argv) {
   const parsed = { purge: false };

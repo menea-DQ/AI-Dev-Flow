@@ -44,15 +44,23 @@ export OTEL_METRICS_EXPORTER=otlp
 export OTEL_LOGS_EXPORTER=otlp
 export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://<host>:4318
+export OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=cumulative
 export OTEL_SERVICE_NAME=ai-dev-flow
 export OTEL_RESOURCE_ATTRIBUTES=project.name=<nome-progetto>
 export OTEL_METRIC_EXPORT_INTERVAL=10000
 ```
 
+`OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=cumulative` è **necessaria**: Prometheus (e quindi
+otel-lgtm) accetta solo metriche con temporalità cumulativa; senza, le metriche non compaiono.
+
+Le stesse variabili vengono scritte **anche** in `.claude/settings.json` (`env`), oltre che nel `.envrc`:
+il `.envrc` è ciò che le attiva nel processo `claude` al lancio (config di startup), mentre settings.json
+le rende disponibili ai sottoprocessi/strumenti e tiene la config visibile nel repo.
+
 Requisiti: **direnv installato** + un `direnv allow` iniziale nel progetto; poi è trasparente. Lancia
 `claude` dalla cartella del progetto (così eredita le variabili). L'endpoint è preconfigurato in
 `flow.config.telemetry.otlpEndpoint` (default `http://localhost:4318`). `flow.config.telemetry.enabled = false`
-disattiva. L'`uninstall` rimuove il blocco dal `.envrc`.
+disattiva. L'`uninstall` rimuove il blocco dal `.envrc` e le variabili da settings.json.
 
 Nota team: committa il `.envrc` per condividerlo coi colleghi (non contiene segreti — solo l'endpoint);
 ognuno esegue `direnv allow` una volta. Senza committarlo, la telemetria resta solo sulla tua macchina.

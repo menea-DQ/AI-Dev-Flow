@@ -26,7 +26,7 @@ AI-Dev-Flow/                         radice = marketplace + plugin
 │   ├── marketplace.json             dichiara il marketplace e il plugin (source "./")
 │   └── plugin.json                  manifest del plugin (name, version, keywords)
 ├── README.md
-├── VERSION                          0.0.3
+├── VERSION                          0.0.4
 ├── PROCESS.md                       fonte di verità del processo
 ├── INSTALL.md                       procedura di installazione per-progetto
 │
@@ -93,12 +93,12 @@ vengono copiati nel progetto: li fornisce il plugin.
 ## 1. `VERSION` e versionamento
 
 ```
-0.0.3
+0.0.4
 ```
 
 `0.0.x` è la fase **beta**: finché siamo sotto `1.0.0`, anche piccoli incrementi possono introdurre
 cambiamenti non retro-compatibili (convenzione semver per le 0.x). Il manifest del plugin e il lockfile
-per-progetto dichiarano la versione; i passaggi `0.0.1 → 0.0.2` e `0.0.2 → 0.0.3` hanno migrazioni che allineano gli artefatti dei
+per-progetto dichiarano la versione; i passaggi `0.0.1 → 0.0.2`, `0.0.2 → 0.0.3` e `0.0.3 → 0.0.4` hanno migrazioni che allineano gli artefatti dei
 progetti già installati (vedi `migrations/`).
 
 ---
@@ -113,7 +113,7 @@ entrambi in `.claude-plugin/`.
 {
   "name": "ai-dev-flow",
   "displayName": "AI-Dev Flow",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Processo di sviluppo software AI-assistito (human-in-the-loop), abilitabile e configurabile per singolo progetto.",
   "author": { "name": "Massimiliano Enea", "email": "massimiliano.enea@donq.io" },
   "repository": "https://github.com/menea-DQ/AI-Dev-Flow",
@@ -305,12 +305,13 @@ I dati accurati di token/costo vengono **solo** dall'**OpenTelemetry nativo** di
 non espongono token/costo/durata e il transcript li sottostima (~100×). Quindi niente DB o connettore
 custom — il kit usa l'OTLP nativo verso uno **stack OTLP standard** con **Grafana**.
 
-- **Cattura per-progetto via `.envrc` (direnv)**: abilitare l'OTEL è una config di **startup** di Claude
-  Code — l'`env` di `.claude/settings.json` NON la attiva (la doc avverte che certe variabili di avvio
-  vanno nell'ambiente reale prima di lanciare `claude`; verificato anche sul campo). Per restare
-  per-progetto, l'install scrive un blocco (tra marcatori) nel **`.envrc`** del progetto con gli `export`
-  OTEL; con direnv, entrando nella cartella le variabili si attivano e uscendo si disattivano → telemetria
-  solo in quel progetto, nessun leak. Richiede `direnv` + un `direnv allow` iniziale.
+- **Cattura per-progetto via `.envrc` (direnv) + `settings.json`**: abilitare l'OTEL è una config di
+  **startup** di Claude Code; ciò che la attiva nel processo `claude` al lancio è il **`.envrc`** (direnv —
+  entrando nella cartella le variabili si attivano, uscendo si disattivano → solo quel progetto, nessun
+  leak; richiede `direnv` + `direnv allow`). Le stesse variabili sono scritte **anche** in
+  `.claude/settings.json` (`env`), per disponibilità ai sottoprocessi/strumenti e per tenere la config
+  visibile nel repo. Tra le variabili, `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=cumulative` è
+  **necessaria** (Prometheus accetta solo temporalità cumulativa, altrimenti niente metriche).
 - **Non anonimo**: `project.name` (nome progetto reale) iniettato via `OTEL_RESOURCE_ATTRIBUTES`; l'attore
   arriva dagli attributi OTEL `user.email`/`user.id`. Solo metriche/metadati: nessun contenuto (il logging
   dei prompt resta spento). `OTEL_METRIC_EXPORT_INTERVAL=10000` per un feedback rapido nel pilota.
@@ -321,8 +322,10 @@ custom — il kit usa l'OTLP nativo verso uno **stack OTLP standard** con **Graf
 
 **Perché così.** Due pivot, entrambi da fatti verificati: (1) niente connettore Postgres + endpoint
 custom, perché i token accurati esistono solo via OTEL e l'OTLP di Claude Code è solo
-`http/protobuf`/`grpc`; (2) niente env di telemetria in `settings.json`, perché è config di startup e da
-lì non viene applicata — si usa `.envrc`/direnv per avere l'ambiente reale al lancio restando per-progetto.
+`http/protobuf`/`grpc`; (2) ciò che abilita davvero la telemetria al lancio è il `.envrc`/direnv (ambiente
+reale, per-progetto) — l'`env` di `settings.json` da solo non basta perché è config di startup, ma le
+variabili sono tenute anche lì per i sottoprocessi e per visibilità nel repo. La temporalità cumulativa è
+un requisito di Prometheus emerso sul campo.
 
 ---
 
