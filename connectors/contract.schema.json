@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Output normalizzato di un connettore AI-Dev Flow",
+  "type": "object",
+  "required": ["connector", "kind", "id", "title"],
+  "properties": {
+    "connector": { "type": "string" },
+    "kind": { "type": "string", "enum": ["ticketing", "helpdesk"] },
+    "id": { "type": ["string", "number"] },
+    "number": { "type": ["string", "null"] },
+    "title": { "type": ["string", "null"] },
+    "description": { "type": ["string", "null"] },
+    "references": { "type": "array", "items": { "type": "string" } },
+    "customer": { "type": ["string", "number", "null"] },
+    "raw": { "type": "object" }
+  }
+}

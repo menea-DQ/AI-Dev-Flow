@@ -51,6 +51,11 @@ in variabili d'ambiente (vedi [`connectors/.env.example`](connectors/.env.exampl
 connettore (o aggiungerne uno, es. Jira) si tocca solo `flow.config`, senza reimplementare nulla.
 Vedi [`connectors/README.md`](connectors/README.md) per il contratto.
 
+**Contract-check** (Fase 2): la skill `connectors-check` (o `node "<plugin>/connectors/check.mjs"`)
+verifica che i connettori configurati rispondano ancora come previsto (auth + raggiungibilità +
+contratto), segnalando le rotture (token scaduto, API cambiata) **prima** che blocchino il lavoro.
+Lo eseguono anche il doctor e l'intake-parser come pre-controllo.
+
 ## Essenzialità del codice (Ponytail)
 
 Il kit non reimplementa l'essenzialità: si appoggia al plugin esterno
@@ -82,8 +87,11 @@ salvo `--purge` che rimuove tutto.
 
 ## Aggiornare il kit
 
-`/plugin marketplace update ai-dev-flow` e reinstalla la versione. I tuoi override in `flow.config.json`
-non vengono toccati.
+Aggiorna il plugin con `/plugin marketplace update ai-dev-flow`. Poi, **per-progetto**, invoca la skill
+`migrate` (o `node "<plugin>/bin/migrate.mjs" --project "$(pwd)"`): porta gli artefatti del progetto
+dalla versione installata a quella corrente, applicando le migrazioni di formato (vedi
+[`migrations/`](migrations/)). È idempotente e transazionale; i tuoi override non vengono persi. Un
+**drift-notice** a inizio sessione ti ricorda di migrare dove la versione è vecchia.
 
 ## Struttura del repo (marketplace + plugin)
 
@@ -96,18 +104,20 @@ AI-Dev-Flow/                     radice = marketplace + plugin
 ├── VERSION                      versione semantica
 ├── PROCESS.md                   fonte di verità del processo
 ├── INSTALL.md                   procedura di installazione per-progetto
-├── skills/<nome>/SKILL.md       install, uninstall, flow-settings + skill di processo
+├── skills/<nome>/SKILL.md       install, uninstall, migrate, flow-settings, connectors-check + skill di processo
 ├── agents/test-author.md        sub-agent isolato che scrive i test dalla sola spec
 ├── hooks/
-│   ├── hooks.json               aggancio agli eventi nativi (PreToolUse, Stop)
+│   ├── hooks.json               aggancio agli eventi nativi (SessionStart, PreToolUse, Stop)
 │   ├── README.md                cosa fa ogni hook
 │   └── scripts/*.mjs            script degli hook (guardia: no-op se manca flow.config.json)
-├── connectors/                  connettori ticketing/helpdesk pronti (productive, zammad) + contratto
+├── connectors/                  connettori ticketing/helpdesk pronti + contratto + check.mjs (contract-check)
 ├── telemetry/                   stack OTLP + Grafana (docker-compose) per la telemetria (Fase 2)
+├── migrations/                  migrazioni di formato versionate (<from>-to-<to>.mjs) + convenzione
 ├── templates/                   modelli degli artefatti (spec, plan, changelog, architecture, …)
 ├── bin/
 │   ├── install.mjs              installer deterministico per-progetto (scrive un manifest)
-│   └── uninstall.mjs            disinstaller per-progetto (legge il manifest, ripulisce)
+│   ├── uninstall.mjs            disinstaller per-progetto (legge il manifest, ripulisce)
+│   └── migrate.mjs              motore di migrazione per-progetto (idempotente, transazionale)
 └── project-files/               template di config e lock per-progetto
 ```
 

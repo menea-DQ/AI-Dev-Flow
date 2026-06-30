@@ -4,9 +4,12 @@
 // Env richiesto: ZAMMAD_API_TOKEN. Opzionale (istanze dietro Cloudflare Access): ZAMMAD_CF_AUTHORIZATION.
 
 async function main() {
+  if (process.argv[2] === '--check') {
+    return runCheck();
+  }
   const ticketUrl = process.argv[2];
   if (!ticketUrl) {
-    fail('Uso: node zammad.mjs <url-del-ticket-zammad>');
+    fail('Uso: node zammad.mjs <url-del-ticket-zammad> | --check');
   }
 
   const zammadApiToken = process.env.ZAMMAD_API_TOKEN;
@@ -58,6 +61,36 @@ function normalizeTicket(ticket, articles) {
     customer: ticket?.customer_id ?? null,
     raw: { articleCount: publicArticles.length },
   };
+}
+
+async function runCheck() {
+  const zammadApiToken = process.env.ZAMMAD_API_TOKEN;
+  const baseUrl = process.env.ZAMMAD_BASE_URL;
+  if (!zammadApiToken || !baseUrl) {
+    return reportCheck({ ok: false, status: 'config-missing', detail: 'Servono ZAMMAD_API_TOKEN e ZAMMAD_BASE_URL per il probe.' });
+  }
+  const cloudflareAuthorizationCookie = process.env.ZAMMAD_CF_AUTHORIZATION ?? null;
+  const headers = { Authorization: `Token token=${zammadApiToken}` };
+  if (cloudflareAuthorizationCookie) {
+    headers.Cookie = `CF_Authorization=${cloudflareAuthorizationCookie}`;
+  }
+  let response;
+  try {
+    response = await fetch(`${baseUrl.replace(/\/$/, '')}/api/v1/users/me`, { headers });
+  } catch (error) {
+    return reportCheck({ ok: false, status: 'unreachable', detail: error.message });
+  }
+  if (response.status === 401 || response.status === 403) {
+    return reportCheck({ ok: false, status: 'auth-failed', detail: `HTTP ${response.status}: token o cookie Cloudflare non validi.` });
+  }
+  if (!response.ok) {
+    return reportCheck({ ok: false, status: 'drift', detail: `HTTP ${response.status} su /api/v1/users/me: la API potrebbe essere cambiata.` });
+  }
+  return reportCheck({ ok: true, status: 'ok', detail: 'Autenticazione e raggiungibilità verificate.' });
+}
+
+function reportCheck(result) {
+  process.stdout.write(`${JSON.stringify({ connector: 'zammad', kind: 'helpdesk', ...result })}\n`);
 }
 
 function fail(message) {

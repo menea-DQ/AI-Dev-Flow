@@ -33,7 +33,9 @@ AI-Dev-Flow/                         radice = marketplace + plugin
 ├── skills/                          skill auto-scoperte dal plugin (cartella per skill)
 │   ├── install/SKILL.md             ENTRYPOINT: scaffolding per-progetto
 │   ├── uninstall/SKILL.md           rimuove il kit dal progetto e ripulisce gli artefatti
+│   ├── migrate/SKILL.md             aggiorna gli artefatti per-progetto alla versione corrente
 │   ├── flow-settings/SKILL.md       modifica guidata di flow.config.json
+│   ├── connectors-check/SKILL.md    contract-check dei connettori configurati
 │   ├── intake-parser/SKILL.md       normalizza la richiesta (CR/BUG) via connettore
 │   ├── spec-context/SKILL.md        cosa caricare per la spec (legge gli architecture doc)
 │   ├── impl-runbook/SKILL.md        convenzioni di implementazione (da flow.config)
@@ -43,30 +45,37 @@ AI-Dev-Flow/                         radice = marketplace + plugin
 │   └── test-author.md               sub-agent isolato che scrive i test dalla sola spec
 │
 ├── hooks/
-│   ├── hooks.json                   aggancio agli eventi nativi (PreToolUse, Stop)
+│   ├── hooks.json                   aggancio agli eventi nativi (SessionStart, PreToolUse, Stop)
 │   ├── README.md                    cosa fa ogni hook + gli eventi che restano agent-driven
 │   └── scripts/
 │       ├── hookShared.mjs           utility (stdin, config, glob→regex, marker, guardia)
+│       ├── versionDrift.mjs         SessionStart: avvisa se la versione installata è vecchia
 │       ├── preEditGuard.mjs         file di test read-only durante l'implementazione
 │       ├── preWorkSnapshot.mjs      snapshot "before" su modifiche ai dati
 │       └── postWorkVerification.mjs verifica post-work dal test-playbook (evento Stop)
 │
 ├── connectors/                      connettori ticketing/helpdesk PRONTI + contratto agnostico
 │   ├── README.md                    il contratto (interfaccia) per aggiungere/sostituire connettori
-│   ├── productive.mjs               ticketing: Productive (REST)
-│   ├── zammad.mjs                   helpdesk: Zammad (REST, cookie CF opzionale)
+│   ├── contract.schema.json         schema dell'output normalizzato (usato dal contract-check)
+│   ├── check.mjs                    contract-check: probe auth/raggiungibilità + validazione forma
+│   ├── productive.mjs               ticketing: Productive (REST) + modalità --check
+│   ├── zammad.mjs                   helpdesk: Zammad (REST, cookie CF opzionale) + --check
 │   └── .env.example                 variabili d'ambiente delle credenziali
 │
 ├── telemetry/                       stack OTLP + Grafana per la telemetria (Fase 2)
 │   ├── docker-compose.yml           grafana/otel-lgtm (OTLP-in + Prometheus/Loki/Tempo + Grafana)
 │   └── README.md                    cosa cattura, come gira, wiring per-progetto via settings.json env
 │
+├── migrations/                      migrazioni di formato versionate
+│   └── README.md                    convenzione <from>-to-<to>.mjs + il context delle migrazioni
+│
 ├── templates/                       spec, plan, changelog, qa-log, architecture,
 │   └── …                            test-playbook, AGENT.md, CLAUDE.md
 │
 ├── bin/
 │   ├── install.mjs                  installer deterministico, transazionale, PER-PROGETTO (scrive un manifest)
-│   └── uninstall.mjs                disinstaller per-progetto (legge il manifest, ripulisce in sicurezza)
+│   ├── uninstall.mjs                disinstaller per-progetto (legge il manifest, ripulisce in sicurezza)
+│   └── migrate.mjs                  motore di migrazione per-progetto (idempotente, transazionale)
 │
 └── project-files/
     ├── flow.config.template.json    config per-progetto (override locali)
@@ -180,7 +189,7 @@ vengono copiati (li fornisce il plugin). Testo canonico in `INSTALL.md` del repo
 
 ## 4. Le skill (auto-scoperte dal plugin)
 
-Ogni skill è `skills/<nome>/SKILL.md` con frontmatter (`name`, `description`). Tre sono di *servizio*
+Ogni skill è `skills/<nome>/SKILL.md` con frontmatter (`name`, `description`). Cinque sono di *servizio*
 (entrypoint che l'utente invoca), quattro sono di *processo* (usate dalle fasi).
 
 - **install** — esegue `INSTALL.md` (assessment → intervista → installer → doctor). Lancia l'installer
@@ -188,10 +197,15 @@ Ogni skill è `skills/<nome>/SKILL.md` con frontmatter (`name`, `description`). 
 - **uninstall** — rimuove il kit dal progetto (`node "<plugin>/bin/uninstall.mjs" --project "$(pwd)"`):
   disabilita il plugin, rimuove il blocco da `CLAUDE.md`, cancella gli artefatti. Preserva i file che
   l'utente ha modificato (config/architecture/changelog) salvo `--purge`.
+- **migrate** — aggiorna gli artefatti per-progetto alla versione corrente del kit
+  (`node "<plugin>/bin/migrate.mjs" --project "$(pwd)"`): applica le migrazioni di formato, idempotente,
+  transazionale, no downgrade.
 - **flow-settings** — editor guidato di `flow.config.json`: test-playbook, convenzioni di progetto,
   `architectureDocs`, `dataProducingPaths`, soglie, connettori. Scrive SOLO `flow.config.json`, mai il
   core del plugin. Mostra un diff e l'effetto pratico prima di salvare.
-- **intake-parser** — Fase 0: normalizza la richiesta (tipo, priorità, riferimenti, fast-path-eligibility).
+- **connectors-check** — contract-check dei connettori (`node "<plugin>/connectors/check.mjs"`): probe
+  auth/raggiungibilità + validazione della forma; segnala le rotture prima che blocchino il lavoro.
+- **intake-parser** — Fase 0: pre-controllo col contract-check, poi normalizza la richiesta (tipo, priorità, riferimenti, fast-path-eligibility).
 - **spec-context** — Fase 1: prima di leggere il codice di un contesto, **legge il suo documento di
   architettura**; se è in drift, lo segnala. Carica il minimo sufficiente.
 - **impl-runbook** — Fase 2: applica le **convenzioni dichiarate** in `flow.config.projectConventions`
@@ -273,6 +287,14 @@ perché in azienda si usano sempre questi: **Productive** (ticketing) e **Zammad
 **Perché così.** L'astrazione resta (sostituibile), ma i connettori concreti sono già pronti e uniformi:
 nessuno spreco di token per "crearseli" a ogni install, nessuna implementazione divergente. Le
 credenziali sono env-based (vedi `connectors/.env.example`), mai committate.
+
+**Contract-check (Fase 2).** `connectors/check.mjs` (skill `connectors-check`) verifica che i connettori
+configurati rispondano ancora come previsto, **prima** che blocchino il lavoro. Ogni connettore ha una
+modalità `--check` (probe autenticato a un endpoint leggero: Productive `/people`, Zammad `/users/me`)
+che riporta `ok | config-missing | auth-failed | drift | unreachable`. Il runner aggrega i risultati e,
+se viene passato un campione, valida anche la **forma** dell'output contro `contract.schema.json`. Stati:
+credenziali assenti = AVVISO (non un guasto); auth-failed/drift/contract-mismatch/missing-file = ROTTO
+(exit 1). Lo eseguono il doctor (Passo 5) e l'intake-parser come pre-controllo.
 
 ---
 
@@ -366,7 +388,7 @@ Sezioni popolate per intervista in install: `architectureDocs` (registro dei doc
 
 ---
 
-## 8. `bin/install.mjs` e `bin/uninstall.mjs` — install/uninstall per-progetto
+## 8. `bin/` — install / uninstall / migrate per-progetto
 
 Funzionanti e testati. Sintesi di `install.mjs`:
 
@@ -398,17 +420,28 @@ e lo segnala (non inferisce test né convenzioni).
 - **preserva** i file che l'utente ha modificato dopo l'install (hash diverso da quello del manifest) —
   `flow.config.json`, `AGENT.md`, architecture, changelog — a meno di `--purge` (rimuove tutto).
 
+`migrate.mjs` (Fase 2) porta gli artefatti per-progetto dalla `kitVersion` installata a quella corrente:
+applica in ordine le migrazioni `migrations/<from>-to-<to>.mjs` (trasformazioni di formato), poi aggiorna
+il lockfile. Le versioni senza cambi di formato sono semplici bump. Idempotente, transazionale (rollback),
+no downgrade. Il drift è segnalato a inizio sessione dall'hook `versionDrift` (SessionStart). La migrazione
+è **per-progetto**: "su tutti i progetti" avviene man mano che ciascuno viene aperto.
+
 ---
 
 ## Riepilogo della revisione
 
-Il kit MVP (Fase 1) è implementato come **plugin Claude Code abilitabile per singolo progetto**. Copre:
+Il kit è implementato come **plugin Claude Code abilitabile per singolo progetto**. Copre:
 installazione per-progetto **per intervista** (chiedi, non inferire), i 3 gate umani, la **regola del
 98%**, la selezione test guidata dal **test-playbook dichiarato**, i **documenti di architettura
 per-contesto**, le **convenzioni di progetto dichiarate**, il **gate di snapshot pre-work** per i dati,
 l'isolamento strutturale dei test (sub-agent + hook), i **connettori pronti** (Productive/Zammad) con
-interfaccia agnostica, le **tre skill di servizio** (`install`, `uninstall`, `flow-settings`) e una
-**disinstallazione pulita** basata su manifest.
+interfaccia agnostica, le **cinque skill di servizio** (`install`, `uninstall`, `migrate`,
+`flow-settings`, `connectors-check`) e una **disinstallazione pulita** basata su manifest.
+
+Della **Fase 2** sono implementati: la **telemetria** (OTEL nativo per-progetto → stack OTLP/Grafana),
+il **contract-check dei connettori** e la **migrazione automatica** per-progetto (con drift-notice a
+inizio sessione). Restano per le fasi successive: telemetria → dashboard di analisi (Fase 3) e la
+compressione del contesto/Headroom (Fase 4).
 
 Le idee nascono dall'osservazione di un progetto reale gestito a mano, ma sono state **generalizzate**:
 il plugin non eredita liste o procedure di quel progetto, eredita i *pattern*. Tutto ciò che è specifico

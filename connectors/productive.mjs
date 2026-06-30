@@ -6,9 +6,12 @@
 const PRODUCTIVE_API_BASE_URL = 'https://api.productive.io/api/v2';
 
 async function main() {
+  if (process.argv[2] === '--check') {
+    return runCheck();
+  }
   const taskReference = process.argv[2];
   if (!taskReference) {
-    fail('Uso: node productive.mjs <url-o-id-del-task-productive>');
+    fail('Uso: node productive.mjs <url-o-id-del-task-productive> | --check');
   }
 
   const productiveApiToken = process.env.PRODUCTIVE_API_TOKEN;
@@ -75,6 +78,37 @@ function extractReferences(customFields) {
     }
   }
   return references;
+}
+
+async function runCheck() {
+  const productiveApiToken = process.env.PRODUCTIVE_API_TOKEN;
+  const organizationId = process.env.PRODUCTIVE_ORG_ID;
+  if (!productiveApiToken || !organizationId) {
+    return reportCheck({ ok: false, status: 'config-missing', detail: 'Servono PRODUCTIVE_API_TOKEN e PRODUCTIVE_ORG_ID per il probe.' });
+  }
+  let response;
+  try {
+    response = await fetch(`${PRODUCTIVE_API_BASE_URL}/people?page[size]=1`, {
+      headers: {
+        'X-Auth-Token': productiveApiToken,
+        'X-Organization-Id': organizationId,
+        'Content-Type': 'application/vnd.api+json',
+      },
+    });
+  } catch (error) {
+    return reportCheck({ ok: false, status: 'unreachable', detail: error.message });
+  }
+  if (response.status === 401 || response.status === 403) {
+    return reportCheck({ ok: false, status: 'auth-failed', detail: `HTTP ${response.status}: token/organization non validi.` });
+  }
+  if (!response.ok) {
+    return reportCheck({ ok: false, status: 'drift', detail: `HTTP ${response.status} sull'endpoint di probe: la API potrebbe essere cambiata.` });
+  }
+  return reportCheck({ ok: true, status: 'ok', detail: 'Autenticazione e raggiungibilità verificate.' });
+}
+
+function reportCheck(result) {
+  process.stdout.write(`${JSON.stringify({ connector: 'productive', kind: 'ticketing', ...result })}\n`);
 }
 
 function fail(message) {

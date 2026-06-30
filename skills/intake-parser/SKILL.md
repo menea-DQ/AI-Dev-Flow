@@ -12,6 +12,9 @@ Scopo: normalizzare una richiesta in ingresso (CR/BUG) in un "contesto richiesta
 Quando usarla: Fase 0 (Intake), all'arrivo di un ticket.
 
 Cosa fare:
+0. PRE-CONTROLLO (contract-check): prima di affidarti al connettore, esegui
+   `node "${CLAUDE_PLUGIN_ROOT}/connectors/check.mjs" --project "$(pwd)"`. Se il connettore che ti
+   serve risulta ROTTO (auth/API cambiata), avvisa subito l'utente e non procedere finché non è risolto.
 1. Leggi il ticket usando il CONNETTORE configurato in flow.config.connectors (default già pronti:
    `productive` per il ticketing, `zammad` per l'helpdesk). NON chiedere quale tool usare e NON
    reimplementare nulla: esegui il connettore bundlato nel plugin, che stampa un JSON normalizzato:

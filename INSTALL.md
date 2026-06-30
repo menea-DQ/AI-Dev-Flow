@@ -84,7 +84,8 @@ INSTALLAZIONE TRANSAZIONALE: se un passo fallisce, annulla tutto (rollback). O t
 - Test funzionale dell'hook pre-edit-guard: prova a modificare un file di test fittizio; deve bloccare.
 - Verifica che esista un documento di architettura per ogni contesto registrato in flow.config.
 - Verifica che il test-playbook non sia vuoto (se lo è, avvisa: il test-selector non avrà regole).
-- Verifica che i connettori richiesti siano raggiungibili.
+- Contract-check dei connettori: esegui `node "${CLAUDE_PLUGIN_ROOT}/connectors/check.mjs" --project "$(pwd)"`
+  e riporta lo stato (OK/AVVISO/ROTTO). Se le credenziali non sono ancora impostate è un AVVISO, non un guasto.
 - Riporta lo stato: cosa è a posto, cosa manca, cosa richiede una tua decisione successiva.
 - Onesto sui limiti: non posso garantire che l'agente USI una skill, solo che è installata.
 
