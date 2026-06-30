@@ -1,6 +1,6 @@
 {
-  "kitVersion": "0.0.1",
-  "processVersion": "0.0.1",
+  "kitVersion": "0.0.2",
+  "processVersion": "0.0.2",
   "installedAt": "[data]",
   "assessment": {
     "type": "[new|existing]",

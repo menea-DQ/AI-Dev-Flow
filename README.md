@@ -3,7 +3,7 @@
 Plugin Claude Code per uno sviluppo software AI-assistito (human-in-the-loop), **abilitabile e
 configurabile per singolo progetto**.
 
-> Versione **0.0.1** — prima beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
+> Versione **0.0.2** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
 > possono introdurre cambiamenti non retro-compatibili (convenzione semver per le 0.x).
 
 ## Cos'è

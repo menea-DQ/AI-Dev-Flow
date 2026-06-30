@@ -1,5 +1,5 @@
 # AI-Dev Flow — Processo
-process-version: 0.0.1
+process-version: 0.0.2
 compatibile-con: ">=0.0.1 <0.1.0"
 
 ## Principio fondante

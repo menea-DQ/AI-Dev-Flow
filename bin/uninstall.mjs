@@ -23,6 +23,7 @@ import { join, resolve } from 'node:path';
 const MARKER_START = '<!-- ai-dev-flow:start -->';
 const MARKER_END = '<!-- ai-dev-flow:end -->';
 const DEFAULT_SETTINGS = { relPath: '.claude/settings.json', fileCreatedByUs: false, enabledPluginKeys: ['ai-dev-flow@ai-dev-flow'], marketplaceNames: ['ai-dev-flow'] };
+const TELEMETRY_ENV_KEYS = ['CLAUDE_CODE_ENABLE_TELEMETRY', 'OTEL_METRICS_EXPORTER', 'OTEL_LOGS_EXPORTER', 'OTEL_EXPORTER_OTLP_PROTOCOL', 'OTEL_EXPORTER_OTLP_ENDPOINT', 'OTEL_SERVICE_NAME', 'OTEL_RESOURCE_ATTRIBUTES'];
 
 function parseArguments(argv) {
   const parsed = { purge: false };
@@ -153,7 +154,8 @@ async function disablePluginInSettings(projectRoot, settingsDescriptor, removed)
     }
   }
   if (settings.env) {
-    for (const envKey of settingsDescriptor.envKeys ?? []) {
+    const envKeysToRemove = new Set([...(settingsDescriptor.envKeys ?? []), ...TELEMETRY_ENV_KEYS]);
+    for (const envKey of envKeysToRemove) {
       delete settings.env[envKey];
     }
     if (Object.keys(settings.env).length === 0) {
