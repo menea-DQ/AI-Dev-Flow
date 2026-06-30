@@ -70,7 +70,7 @@ Poiché ogni utilizzo dell'AI ha un costo, il sistema integra fin da subito alcu
 
 ---
 
-## Il piano di realizzazione in tre fasi
+## Il piano di realizzazione in quattro fasi
 
 Abbiamo scelto deliberatamente di **non costruire tutto insieme**, ma di rilasciare per fasi, così da avere qualcosa di reale e utilizzabile in tempi brevi e da affinare il sistema sul campo prima di estenderlo. Coerentemente con la filosofia di essenzialità del sistema stesso.
 
@@ -93,7 +93,6 @@ L'obiettivo è rendere il sistema affidabile su molti progetti contemporaneament
 - **Telemetria dei costi** — la misurazione automatica di quanto costa ogni attività (token, tempo, tipo di percorso). Serve a sapere con numeri reali se stiamo risparmiando, e costituisce la base dati per le analisi future. Senza misurare, l'ottimizzazione sarebbe un'impressione, non un fatto.
 - **Verifica dei connettori (contract-check)** — un controllo automatico che garantisce che le integrazioni con i sistemi esterni (es. il sistema di ticketing) continuino a funzionare come previsto, segnalando subito eventuali rotture dovute a cambiamenti esterni, prima che blocchino il lavoro.
 - **Sistema di aggiornamento automatico (migrazione)** — il meccanismo che permette di aggiornare il sistema su tutti i progetti in modo indolore, trasformando automaticamente i dati dal vecchio al nuovo formato, senza interventi manuali ripetuti su ogni progetto.
-- Attivazione opzionale della **compressione del contesto** per l'ulteriore risparmio sui costi.
 
 ### Fase 3 — Analisi e dashboard aziendale
 
@@ -103,6 +102,10 @@ L'obiettivo è trasformare i dati raccolti in conoscenza utile per l'azienda. Co
 - Una **dashboard di analisi aziendale** agganciata al sistema, per avere una visione d'insieme di quanto, dove e come usiamo l'AI, e di quanto risparmiamo.
 
 > La Fase 3 sarà oggetto di un'analisi dedicata a parte. È inserita qui perché la raccolta dei dati che la rende possibile (la telemetria della Fase 2) va progettata fin dall'inizio con questo obiettivo in mente.
+
+### Fase 4 — Compressione del contesto (Headroom)
+
+L'obiettivo è ridurre ulteriormente i costi comprimendo le informazioni inviate all'AI, **senza compromettere il vincolo di isolamento per-progetto**. È stata scorporata in una fase a sé perché lo strumento di compressione valutato ([Headroom](https://github.com/headroomlabs-ai/headroom)), nella modalità che dà compressione trasparente a Claude Code (proxy / `headroom wrap`), si installa **a livello macchina** e agirebbe su **tutte** le sessioni dell'utente, non solo su quelle del progetto: un comportamento invasivo che non vogliamo. L'unica via compatibile col nostro vincolo è la modalità **MCP per-progetto** (compressione opt-in, attiva solo nel progetto dove il plugin è abilitato), da progettare e validare con attenzione. Finché non è chiaro il compromesso, la compressione del contesto **resta fuori dall'installazione** (flag spento di default).
 
 ---
 
@@ -116,6 +119,6 @@ L'obiettivo è trasformare i dati raccolti in conoscenza utile per l'azienda. Co
 | **Su cosa si applica** | Progetti nuovi ed esistenti, con un comando |
 | **Perché è solido** | Qualità garantita strutturalmente, aggiornamento centralizzato, indipendente dallo strumento |
 | **Perché conviene** | Ottimizzazione dei costi AI come priorità di progettazione, con risparmio misurabile |
-| **Come lo realizziamo** | In tre fasi: cuore funzionante → robustezza → analisi |
+| **Come lo realizziamo** | In quattro fasi: cuore funzionante → robustezza → analisi → compressione contesto |
 
 Il documento è accompagnato dal **diagramma di processo** che illustra nel dettaglio le fasi, i punti di controllo umano e i punti di automazione AI.
