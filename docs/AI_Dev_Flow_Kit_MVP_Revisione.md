@@ -57,6 +57,10 @@ AI-Dev-Flow/                         radice = marketplace + plugin
 │   ├── zammad.mjs                   helpdesk: Zammad (REST, cookie CF opzionale)
 │   └── .env.example                 variabili d'ambiente delle credenziali
 │
+├── telemetry/                       stack OTLP + Grafana per la telemetria (Fase 2)
+│   ├── docker-compose.yml           grafana/otel-lgtm (OTLP-in + Prometheus/Loki/Tempo + Grafana)
+│   └── README.md                    cosa cattura, come gira, wiring per-progetto via settings.json env
+│
 ├── templates/                       spec, plan, changelog, qa-log, architecture,
 │   └── …                            test-playbook, AGENT.md, CLAUDE.md
 │
@@ -272,6 +276,31 @@ credenziali sono env-based (vedi `connectors/.env.example`), mai committate.
 
 ---
 
+## 5-ter. Telemetria (Fase 2) — OTEL nativo + stack OTLP/Grafana
+
+I dati accurati di token/costo vengono **solo** dall'**OpenTelemetry nativo** di Claude Code: gli hook
+non espongono token/costo/durata e il transcript li sottostima (~100×). Quindi niente DB o connettore
+custom — il kit usa l'OTLP nativo verso uno **stack OTLP standard** con **Grafana**.
+
+- **Cattura per-progetto**: l'install scrive nel `.claude/settings.json` del progetto un blocco `env`
+  (`CLAUDE_CODE_ENABLE_TELEMETRY=1`, `OTEL_*`, `OTEL_RESOURCE_ATTRIBUTES=project.name=<nome reale>`).
+  Verificato: l'`env` di settings.json è **scoped al progetto** → la telemetria gira solo lì, mai nelle
+  altre chat dell'utente (stesso vincolo di isolamento del resto del kit).
+- **Non anonimo**: `project.name` (nome progetto reale) iniettato via resource attribute; l'attore arriva
+  dagli attributi OTEL `user.email`/`user.id`. Solo metriche/metadati: nessun contenuto (il logging dei
+  prompt resta spento).
+- **Backend**: `telemetry/docker-compose.yml` con `grafana/otel-lgtm` (OTLP-in + Prometheus/Loki/Tempo +
+  Grafana). L'endpoint è preconfigurato in `flow.config.telemetry.otlpEndpoint`. `enabled=false` disattiva.
+- **Swappabilità**: l'OTLP **è** il layer agnostico — si cambia backend cambiando l'endpoint, senza
+  riscrivere nulla (niente più "connettore di storage" custom). L'uninstall rimuove le variabili env.
+
+**Perché così.** Il pivot rispetto all'idea iniziale (connettore Postgres + endpoint di ingestione
+custom) nasce da due fatti verificati: i token accurati esistono solo via OTEL, e l'OTLP di Claude Code
+è solo `http/protobuf`/`grpc` (un endpoint JSON custom sarebbe stato goffo). Uno stack OTLP standard è
+più semplice, più robusto e già pronto per Grafana.
+
+---
+
 ## 6. Template degli artefatti
 
 `templates/`: `spec.md`, `plan.md`, `changelog.md`, `qa-log.md`, `architecture.md`, `test-playbook.md`,
@@ -321,7 +350,8 @@ con la skill `flow-settings`.
   "dataProducingPaths": [],
   "monorepo": { "tool": "auto", "affectedBase": "pre-task" },
   "tokenEconomy": { "ponytail": "lite", "headroom": false },
-  "connectors": { "ticketing": null, "helpdesk": null, "instances": {} }
+  "telemetry": { "enabled": true, "otlpEndpoint": "http://localhost:4318", "otlpProtocol": "http/protobuf", "serviceName": "ai-dev-flow", "projectName": null },
+  "connectors": { "ticketing": "productive", "helpdesk": "zammad", "envFile": ".ai-dev/connectors.env", "instances": {} }
 }
 ```
 

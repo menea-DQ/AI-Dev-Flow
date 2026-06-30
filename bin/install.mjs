@@ -324,6 +324,8 @@ async function enablePluginsForProject(installer, projectRoot, kitRoot, mergedCo
     marketplaceNames.push(PONYTAIL_MARKETPLACE_NAME);
   }
 
+  const telemetryEnvKeys = applyTelemetryEnv(settings, mergedConfig?.telemetry, projectRoot);
+
   const serialized = `${JSON.stringify(settings, null, 2)}\n`;
   if (settingsExisted) {
     await installer.modifyFile(settingsPath, serialized);
@@ -331,7 +333,31 @@ async function enablePluginsForProject(installer, projectRoot, kitRoot, mergedCo
     await installer.createFile(settingsPath, serialized);
   }
   console.log(`Abilitati SOLO in questo progetto: ${enabledPluginKeys.join(', ')} (modalità Ponytail: ${ponytailMode}).`);
-  return { relPath: '.claude/settings.json', fileCreatedByUs: !settingsExisted, enabledPluginKeys, marketplaceNames };
+  if (telemetryEnvKeys.length > 0) {
+    console.log(`Telemetria OTEL abilitata SOLO in questo progetto → ${settings.env.OTEL_EXPORTER_OTLP_ENDPOINT}.`);
+  }
+  return { relPath: '.claude/settings.json', fileCreatedByUs: !settingsExisted, enabledPluginKeys, marketplaceNames, envKeys: telemetryEnvKeys };
+}
+
+function applyTelemetryEnv(settings, telemetry, projectRoot) {
+  if (!telemetry?.enabled) {
+    return [];
+  }
+  const projectName = telemetry.projectName || basename(projectRoot);
+  const telemetryEnv = {
+    CLAUDE_CODE_ENABLE_TELEMETRY: '1',
+    OTEL_METRICS_EXPORTER: 'otlp',
+    OTEL_LOGS_EXPORTER: 'otlp',
+    OTEL_EXPORTER_OTLP_PROTOCOL: telemetry.otlpProtocol ?? 'http/protobuf',
+    OTEL_EXPORTER_OTLP_ENDPOINT: telemetry.otlpEndpoint,
+    OTEL_SERVICE_NAME: telemetry.serviceName ?? 'ai-dev-flow',
+    OTEL_RESOURCE_ATTRIBUTES: `project.name=${projectName}`,
+  };
+  settings.env ??= {};
+  for (const [key, value] of Object.entries(telemetryEnv)) {
+    settings.env[key] = value;
+  }
+  return Object.keys(telemetryEnv);
 }
 
 async function installAgentInstructions(installer, kitRoot, projectRoot) {

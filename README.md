@@ -59,6 +59,15 @@ necessario). Quando `flow.config.tokenEconomy.ponytail` ≠ `"off"`, l'install *
 per-progetto** insieme al kit (stesso meccanismo `enabledPlugins`/`extraKnownMarketplaces`). La
 modalità (`lite`|`full`|`ultra`) segue quel flag; l'impl-runbook la allinea con `/ponytail <modalità>`.
 
+## Telemetria (Fase 2)
+
+I dati di costo/uso accurati vengono solo dall'**OpenTelemetry nativo** di Claude Code (gli hook non li
+espongono). Il kit quindi **non usa DB o connettori custom**: abilita l'OTEL **per-progetto** (blocco
+`env` nel `.claude/settings.json`, scritto dall'install — attivo solo in quel progetto, mai nelle altre
+chat) e lo manda a uno **stack OTLP standard** con **Grafana**. OTLP è il layer agnostico: cambi backend
+cambiando l'endpoint, senza riscrivere nulla. Dettagli e stack in [`telemetry/`](telemetry/). Si
+disattiva con `flow.config.telemetry.enabled = false`; l'uninstall rimuove le variabili.
+
 ## Cambiare le impostazioni di un progetto
 
 Invoca la skill `flow-settings`: «cambia come si fanno i test», «aggiungi una convenzione di progetto»,
@@ -94,6 +103,7 @@ AI-Dev-Flow/                     radice = marketplace + plugin
 │   ├── README.md                cosa fa ogni hook
 │   └── scripts/*.mjs            script degli hook (guardia: no-op se manca flow.config.json)
 ├── connectors/                  connettori ticketing/helpdesk pronti (productive, zammad) + contratto
+├── telemetry/                   stack OTLP + Grafana (docker-compose) per la telemetria (Fase 2)
 ├── templates/                   modelli degli artefatti (spec, plan, changelog, architecture, …)
 ├── bin/
 │   ├── install.mjs              installer deterministico per-progetto (scrive un manifest)

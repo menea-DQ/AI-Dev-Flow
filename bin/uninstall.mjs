@@ -152,6 +152,14 @@ async function disablePluginInSettings(projectRoot, settingsDescriptor, removed)
       delete settings.extraKnownMarketplaces;
     }
   }
+  if (settings.env) {
+    for (const envKey of settingsDescriptor.envKeys ?? []) {
+      delete settings.env[envKey];
+    }
+    if (Object.keys(settings.env).length === 0) {
+      delete settings.env;
+    }
+  }
   if (Object.keys(settings).length === 0 && settingsDescriptor.fileCreatedByUs) {
     await rm(settingsPath, { force: true });
     removed.push(settingsDescriptor.relPath);
