@@ -26,7 +26,7 @@ AI-Dev-Flow/                         radice = marketplace + plugin
 │   ├── marketplace.json             dichiara il marketplace e il plugin (source "./")
 │   └── plugin.json                  manifest del plugin (name, version, keywords)
 ├── README.md
-├── VERSION                          0.0.4
+├── VERSION                          0.0.5
 ├── PROCESS.md                       fonte di verità del processo
 ├── INSTALL.md                       procedura di installazione per-progetto
 │
@@ -93,7 +93,7 @@ vengono copiati nel progetto: li fornisce il plugin.
 ## 1. `VERSION` e versionamento
 
 ```
-0.0.4
+0.0.5
 ```
 
 `0.0.x` è la fase **beta**: finché siamo sotto `1.0.0`, anche piccoli incrementi possono introdurre
@@ -113,7 +113,7 @@ entrambi in `.claude-plugin/`.
 {
   "name": "ai-dev-flow",
   "displayName": "AI-Dev Flow",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Processo di sviluppo software AI-assistito (human-in-the-loop), abilitabile e configurabile per singolo progetto.",
   "author": { "name": "Massimiliano Enea", "email": "massimiliano.enea@donq.io" },
   "repository": "https://github.com/menea-DQ/AI-Dev-Flow",
@@ -280,6 +280,9 @@ perché in azienda si usano sempre questi: **Productive** (ticketing) e **Zammad
   normalizzato (`connector`, `kind`, `id`, `number`, `title`, `description`, `references`, `customer`, `raw`).
 - **`productive.mjs`** — ticketing, REST `api.productive.io/api/v2` (header `X-Auth-Token` +
   `X-Organization-Id`). Env: `PRODUCTIVE_API_TOKEN`. Estrae eventuali URL di helpdesk dai custom field.
+  **Scarica gli allegati** del task (`?include=attachments`) in `.ai-dev/attachments/productive-<id>/`
+  (cartella gitignorata) e li elenca in `attachments` con il percorso locale; il download usa
+  `files.productive.io` con `?token=<PRODUCTIVE_API_TOKEN>`.
 - **`zammad.mjs`** — helpdesk, REST `<base>/api/v1/...`. Env: `ZAMMAD_API_TOKEN` e, se l'istanza è
   dietro Cloudflare Access, `ZAMMAD_CF_AUTHORIZATION` (cookie).
 - **Sostituire/aggiungere**: crea `connectors/<nome>.mjs` che rispetta il contratto e imposta

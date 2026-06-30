@@ -2,8 +2,14 @@
 // Connettore ticketing: Productive (REST api.productive.io/api/v2).
 // Contratto: node productive.mjs <url-o-id> → stampa JSON normalizzato su stdout.
 // Env richiesto: PRODUCTIVE_API_TOKEN. L'organization id si ricava dall'URL.
+// Scarica gli allegati del task (include=attachments) in .ai-dev/attachments/productive-<id>/
+// (cartella gitignorata) e li elenca nell'output con il percorso locale.
 
-const PRODUCTIVE_API_BASE_URL = 'https://api.productive.io/api/v2';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
+const PRODUCTIVE_API_BASE_URL = process.env.PRODUCTIVE_API_BASE_URL ?? 'https://api.productive.io/api/v2';
 
 async function main() {
   if (process.argv[2] === '--check') {
@@ -24,7 +30,7 @@ async function main() {
     fail('Impossibile ricavare l\'organization id: passa un URL Productive completo (app.productive.io/<org>-…/tasks/task/<id>).');
   }
 
-  const response = await fetch(`${PRODUCTIVE_API_BASE_URL}/tasks/${taskId}`, {
+  const response = await fetch(`${PRODUCTIVE_API_BASE_URL}/tasks/${taskId}?include=attachments`, {
     headers: {
       'X-Auth-Token': productiveApiToken,
       'X-Organization-Id': organizationId,
@@ -36,7 +42,9 @@ async function main() {
   }
 
   const payload = await response.json();
-  process.stdout.write(`${JSON.stringify(normalizeTask(payload), null, 2)}\n`);
+  const normalized = normalizeTask(payload);
+  normalized.attachments = await downloadAttachments(payload, taskId, productiveApiToken);
+  process.stdout.write(`${JSON.stringify(normalized, null, 2)}\n`);
 }
 
 function parseTaskReference(taskReference) {
@@ -78,6 +86,61 @@ function extractReferences(customFields) {
     }
   }
   return references;
+}
+
+async function downloadAttachments(payload, taskId, productiveApiToken) {
+  const included = Array.isArray(payload?.included) ? payload.included : [];
+  const attachmentResources = included.filter((resource) => resource.type === 'attachments');
+  if (attachmentResources.length === 0) {
+    return [];
+  }
+
+  const relativeDirectory = join('.ai-dev', 'attachments', `productive-${taskId}`);
+  const absoluteDirectory = join(process.cwd(), relativeDirectory);
+  await mkdir(absoluteDirectory, { recursive: true });
+  await ensureAttachmentsGitignore();
+
+  const downloaded = [];
+  for (const resource of attachmentResources) {
+    const attributes = resource.attributes ?? {};
+    const fileName = sanitizeFileName(attributes.name || `attachment-${resource.id}`);
+    const downloadUrl = attributes.url || attributes.temp_url || null;
+    const base = { name: fileName, contentType: attributes.content_type ?? null, size: attributes.size ?? null, url: downloadUrl };
+    if (!downloadUrl) {
+      downloaded.push({ ...base, localPath: null, error: 'nessun url di download' });
+      continue;
+    }
+    try {
+      const fileResponse = await fetch(appendToken(downloadUrl, productiveApiToken));
+      if (!fileResponse.ok) {
+        throw new Error(`HTTP ${fileResponse.status}`);
+      }
+      const fileBytes = Buffer.from(await fileResponse.arrayBuffer());
+      await writeFile(join(absoluteDirectory, fileName), fileBytes);
+      downloaded.push({ ...base, localPath: join(relativeDirectory, fileName) });
+    } catch (error) {
+      downloaded.push({ ...base, localPath: null, error: error.message });
+    }
+  }
+  return downloaded;
+}
+
+function appendToken(downloadUrl, productiveApiToken) {
+  const parsed = new URL(downloadUrl);
+  parsed.searchParams.set('token', productiveApiToken);
+  return parsed.toString();
+}
+
+function sanitizeFileName(name) {
+  const cleaned = name.replace(/[\\/]/g, '_').replace(/^\.+/, '').trim();
+  return cleaned === '' ? 'attachment' : cleaned;
+}
+
+async function ensureAttachmentsGitignore() {
+  const gitignorePath = join(process.cwd(), '.ai-dev', 'attachments', '.gitignore');
+  if (!existsSync(gitignorePath)) {
+    await writeFile(gitignorePath, '*\n!.gitignore\n');
+  }
 }
 
 async function runCheck() {

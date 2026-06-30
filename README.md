@@ -3,7 +3,7 @@
 Plugin Claude Code per uno sviluppo software AI-assistito (human-in-the-loop), **abilitabile e
 configurabile per singolo progetto**.
 
-> Versione **0.0.4** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
+> Versione **0.0.5** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
 > possono introdurre cambiamenti non retro-compatibili (convenzione semver per le 0.x).
 
 ## Cos'è
@@ -49,7 +49,9 @@ L'interfaccia dei connettori è **agnostica e sostituibile**, ma il kit ne ship 
 L'install NON chiede quale tool usare: i default sono `productive` e `zammad`. Le credenziali stanno
 in variabili d'ambiente (vedi [`connectors/.env.example`](connectors/.env.example)). Per cambiare
 connettore (o aggiungerne uno, es. Jira) si tocca solo `flow.config`, senza reimplementare nulla.
-Vedi [`connectors/README.md`](connectors/README.md) per il contratto.
+Vedi [`connectors/README.md`](connectors/README.md) per il contratto. Il connettore Productive **scarica
+gli allegati del task** in `.ai-dev/attachments/productive-<id>/` (cartella gitignorata) e li elenca
+nell'output col percorso locale, così l'agente può aprirli (es. screenshot).
 
 **Contract-check** (Fase 2): la skill `connectors-check` (o `node "<plugin>/connectors/check.mjs"`)
 verifica che i connettori configurati rispondano ancora come previsto (auth + raggiungibilità +

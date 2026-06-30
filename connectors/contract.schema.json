@@ -12,6 +12,20 @@
     "description": { "type": ["string", "null"] },
     "references": { "type": "array", "items": { "type": "string" } },
     "customer": { "type": ["string", "number", "null"] },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "contentType": { "type": ["string", "null"] },
+          "size": { "type": ["number", "null"] },
+          "url": { "type": ["string", "null"] },
+          "localPath": { "type": ["string", "null"] },
+          "error": { "type": "string" }
+        }
+      }
+    },
     "raw": { "type": "object" }
   }
 }

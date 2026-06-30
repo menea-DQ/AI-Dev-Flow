@@ -24,9 +24,18 @@ poi rifinisce):
   "description": "…",
   "references": ["https://helpdesk.example.org/#ticket/zoom/42"],
   "customer": null,
+  "attachments": [
+    { "name": "screenshot.png", "contentType": "image/png", "size": 20481,
+      "url": "https://files.productive.io/…", "localPath": ".ai-dev/attachments/productive-4567/screenshot.png" }
+  ],
   "raw": { "…": "payload grezzo, opzionale" }
 }
 ```
+
+Gli **allegati** (campo `attachments`, opzionale) sono scaricati su disco e referenziati col percorso
+locale, così l'agente può aprirli (es. screenshot). Sono salvati in `.ai-dev/attachments/<connector>-<id>/`,
+cartella **gitignorata** (il connettore crea `.ai-dev/attachments/.gitignore`). Su Productive il download
+usa il dominio `files.productive.io` con `?token=<PRODUCTIVE_API_TOKEN>` (auth diversa dalla lettura del task).
 
 In caso di errore: messaggio chiaro su **stderr** ed exit code ≠ 0 (es. credenziale mancante con
 indicazione di quale variabile d'ambiente impostare).
