@@ -34,6 +34,8 @@ const MARKETPLACE_NAME = 'ai-dev-flow';
 const PONYTAIL_PLUGIN_NAME = 'ponytail';
 const PONYTAIL_MARKETPLACE_NAME = 'ponytail';
 const PONYTAIL_REPO = 'DietrichGebert/ponytail';
+const ENVRC_BLOCK_START = '# >>> ai-dev-flow telemetry >>>';
+const ENVRC_BLOCK_END = '# <<< ai-dev-flow telemetry <<<';
 
 function parseArguments(argv) {
   const parsed = { force: false };
@@ -247,7 +249,7 @@ async function run() {
     const contexts = await detectContexts(projectRoot);
     console.log(`Contesti rilevati: ${contexts.join(', ')}`);
 
-    const manifest = { createdFiles: [], createdDirectories: [], settings: null, claudeMd: null };
+    const manifest = { createdFiles: [], createdDirectories: [], settings: null, claudeMd: null, envrc: null };
 
     const configTemplate = await readJsonIfPresent(join(kitRoot, 'project-files', 'flow.config.template.json'));
     const mergedConfig = deepMerge(configTemplate, decisions?.config ?? {});
@@ -255,6 +257,7 @@ async function run() {
     manifest.createdFiles.push({ relPath: 'flow.config.json', userContent: true });
 
     manifest.settings = await enablePluginsForProject(installer, projectRoot, kitRoot, mergedConfig);
+    manifest.envrc = await writeTelemetryEnvrc(installer, projectRoot, mergedConfig.telemetry);
     const agentInstructions = await installAgentInstructions(installer, kitRoot, projectRoot);
     if (agentInstructions.agentMd.fileCreatedByUs) {
       manifest.createdFiles.push({ relPath: 'AGENT.md', userContent: true });
@@ -324,8 +327,6 @@ async function enablePluginsForProject(installer, projectRoot, kitRoot, mergedCo
     marketplaceNames.push(PONYTAIL_MARKETPLACE_NAME);
   }
 
-  const telemetryEnvKeys = applyTelemetryEnv(settings, mergedConfig?.telemetry, projectRoot);
-
   const serialized = `${JSON.stringify(settings, null, 2)}\n`;
   if (settingsExisted) {
     await installer.modifyFile(settingsPath, serialized);
@@ -333,31 +334,43 @@ async function enablePluginsForProject(installer, projectRoot, kitRoot, mergedCo
     await installer.createFile(settingsPath, serialized);
   }
   console.log(`Abilitati SOLO in questo progetto: ${enabledPluginKeys.join(', ')} (modalità Ponytail: ${ponytailMode}).`);
-  if (telemetryEnvKeys.length > 0) {
-    console.log(`Telemetria OTEL abilitata SOLO in questo progetto → ${settings.env.OTEL_EXPORTER_OTLP_ENDPOINT}.`);
-  }
-  return { relPath: '.claude/settings.json', fileCreatedByUs: !settingsExisted, enabledPluginKeys, marketplaceNames, envKeys: telemetryEnvKeys };
+  return { relPath: '.claude/settings.json', fileCreatedByUs: !settingsExisted, enabledPluginKeys, marketplaceNames };
 }
 
-function applyTelemetryEnv(settings, telemetry, projectRoot) {
+function buildTelemetryEnvrcBlock(telemetry, projectName) {
+  return [
+    ENVRC_BLOCK_START,
+    'export CLAUDE_CODE_ENABLE_TELEMETRY=1',
+    'export OTEL_METRICS_EXPORTER=otlp',
+    'export OTEL_LOGS_EXPORTER=otlp',
+    `export OTEL_EXPORTER_OTLP_PROTOCOL=${telemetry.otlpProtocol ?? 'http/protobuf'}`,
+    `export OTEL_EXPORTER_OTLP_ENDPOINT=${telemetry.otlpEndpoint}`,
+    `export OTEL_SERVICE_NAME=${telemetry.serviceName ?? 'ai-dev-flow'}`,
+    `export OTEL_RESOURCE_ATTRIBUTES=project.name=${projectName}`,
+    'export OTEL_METRIC_EXPORT_INTERVAL=10000',
+    ENVRC_BLOCK_END,
+  ].join('\n');
+}
+
+async function writeTelemetryEnvrc(installer, projectRoot, telemetry) {
   if (!telemetry?.enabled) {
-    return [];
+    return null;
+  }
+  const envrcPath = join(projectRoot, '.envrc');
+  const existed = await pathExists(envrcPath);
+  const existing = existed ? await readFile(envrcPath, 'utf8') : '';
+  if (existing.includes(ENVRC_BLOCK_START)) {
+    return { relPath: '.envrc', fileCreatedByUs: false, blockAdded: false };
   }
   const projectName = telemetry.projectName || basename(projectRoot);
-  const telemetryEnv = {
-    CLAUDE_CODE_ENABLE_TELEMETRY: '1',
-    OTEL_METRICS_EXPORTER: 'otlp',
-    OTEL_LOGS_EXPORTER: 'otlp',
-    OTEL_EXPORTER_OTLP_PROTOCOL: telemetry.otlpProtocol ?? 'http/protobuf',
-    OTEL_EXPORTER_OTLP_ENDPOINT: telemetry.otlpEndpoint,
-    OTEL_SERVICE_NAME: telemetry.serviceName ?? 'ai-dev-flow',
-    OTEL_RESOURCE_ATTRIBUTES: `project.name=${projectName}`,
-  };
-  settings.env ??= {};
-  for (const [key, value] of Object.entries(telemetryEnv)) {
-    settings.env[key] = value;
+  const block = buildTelemetryEnvrcBlock(telemetry, projectName);
+  if (existed) {
+    await installer.modifyFile(envrcPath, `${existing.replace(/\n*$/, '')}\n\n${block}\n`);
+  } else {
+    await installer.createFile(envrcPath, `${block}\n`);
   }
-  return Object.keys(telemetryEnv);
+  console.log(`Telemetria scritta in .envrc (endpoint ${telemetry.otlpEndpoint}). Esegui \`direnv allow\` per attivarla (richiede direnv).`);
+  return { relPath: '.envrc', fileCreatedByUs: !existed, blockAdded: true };
 }
 
 async function installAgentInstructions(installer, kitRoot, projectRoot) {

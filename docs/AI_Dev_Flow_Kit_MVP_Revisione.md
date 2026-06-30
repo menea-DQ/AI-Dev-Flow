@@ -26,7 +26,7 @@ AI-Dev-Flow/                         radice = marketplace + plugin
 │   ├── marketplace.json             dichiara il marketplace e il plugin (source "./")
 │   └── plugin.json                  manifest del plugin (name, version, keywords)
 ├── README.md
-├── VERSION                          0.0.2
+├── VERSION                          0.0.3
 ├── PROCESS.md                       fonte di verità del processo
 ├── INSTALL.md                       procedura di installazione per-progetto
 │
@@ -64,7 +64,7 @@ AI-Dev-Flow/                         radice = marketplace + plugin
 │
 ├── telemetry/                       stack OTLP + Grafana per la telemetria (Fase 2)
 │   ├── docker-compose.yml           grafana/otel-lgtm (OTLP-in + Prometheus/Loki/Tempo + Grafana)
-│   └── README.md                    cosa cattura, come gira, wiring per-progetto via settings.json env
+│   └── README.md                    cosa cattura, come gira, wiring per-progetto via .envrc (direnv)
 │
 ├── migrations/                      migrazioni di formato versionate
 │   └── README.md                    convenzione <from>-to-<to>.mjs + il context delle migrazioni
@@ -93,13 +93,13 @@ vengono copiati nel progetto: li fornisce il plugin.
 ## 1. `VERSION` e versionamento
 
 ```
-0.0.2
+0.0.3
 ```
 
 `0.0.x` è la fase **beta**: finché siamo sotto `1.0.0`, anche piccoli incrementi possono introdurre
 cambiamenti non retro-compatibili (convenzione semver per le 0.x). Il manifest del plugin e il lockfile
-per-progetto dichiarano la versione; il passaggio `0.0.1 → 0.0.2` ha una migrazione che allinea gli
-artefatti dei progetti già installati (vedi `migrations/`).
+per-progetto dichiarano la versione; i passaggi `0.0.1 → 0.0.2` e `0.0.2 → 0.0.3` hanno migrazioni che allineano gli artefatti dei
+progetti già installati (vedi `migrations/`).
 
 ---
 
@@ -113,7 +113,7 @@ entrambi in `.claude-plugin/`.
 {
   "name": "ai-dev-flow",
   "displayName": "AI-Dev Flow",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Processo di sviluppo software AI-assistito (human-in-the-loop), abilitabile e configurabile per singolo progetto.",
   "author": { "name": "Massimiliano Enea", "email": "massimiliano.enea@donq.io" },
   "repository": "https://github.com/menea-DQ/AI-Dev-Flow",
@@ -305,22 +305,24 @@ I dati accurati di token/costo vengono **solo** dall'**OpenTelemetry nativo** di
 non espongono token/costo/durata e il transcript li sottostima (~100×). Quindi niente DB o connettore
 custom — il kit usa l'OTLP nativo verso uno **stack OTLP standard** con **Grafana**.
 
-- **Cattura per-progetto**: l'install scrive nel `.claude/settings.json` del progetto un blocco `env`
-  (`CLAUDE_CODE_ENABLE_TELEMETRY=1`, `OTEL_*`, `OTEL_RESOURCE_ATTRIBUTES=project.name=<nome reale>`).
-  Verificato: l'`env` di settings.json è **scoped al progetto** → la telemetria gira solo lì, mai nelle
-  altre chat dell'utente (stesso vincolo di isolamento del resto del kit).
-- **Non anonimo**: `project.name` (nome progetto reale) iniettato via resource attribute; l'attore arriva
-  dagli attributi OTEL `user.email`/`user.id`. Solo metriche/metadati: nessun contenuto (il logging dei
-  prompt resta spento).
+- **Cattura per-progetto via `.envrc` (direnv)**: abilitare l'OTEL è una config di **startup** di Claude
+  Code — l'`env` di `.claude/settings.json` NON la attiva (la doc avverte che certe variabili di avvio
+  vanno nell'ambiente reale prima di lanciare `claude`; verificato anche sul campo). Per restare
+  per-progetto, l'install scrive un blocco (tra marcatori) nel **`.envrc`** del progetto con gli `export`
+  OTEL; con direnv, entrando nella cartella le variabili si attivano e uscendo si disattivano → telemetria
+  solo in quel progetto, nessun leak. Richiede `direnv` + un `direnv allow` iniziale.
+- **Non anonimo**: `project.name` (nome progetto reale) iniettato via `OTEL_RESOURCE_ATTRIBUTES`; l'attore
+  arriva dagli attributi OTEL `user.email`/`user.id`. Solo metriche/metadati: nessun contenuto (il logging
+  dei prompt resta spento). `OTEL_METRIC_EXPORT_INTERVAL=10000` per un feedback rapido nel pilota.
 - **Backend**: `telemetry/docker-compose.yml` con `grafana/otel-lgtm` (OTLP-in + Prometheus/Loki/Tempo +
   Grafana). L'endpoint è preconfigurato in `flow.config.telemetry.otlpEndpoint`. `enabled=false` disattiva.
 - **Swappabilità**: l'OTLP **è** il layer agnostico — si cambia backend cambiando l'endpoint, senza
-  riscrivere nulla (niente più "connettore di storage" custom). L'uninstall rimuove le variabili env.
+  riscrivere nulla (niente più "connettore di storage" custom). L'uninstall rimuove il blocco dal `.envrc`.
 
-**Perché così.** Il pivot rispetto all'idea iniziale (connettore Postgres + endpoint di ingestione
-custom) nasce da due fatti verificati: i token accurati esistono solo via OTEL, e l'OTLP di Claude Code
-è solo `http/protobuf`/`grpc` (un endpoint JSON custom sarebbe stato goffo). Uno stack OTLP standard è
-più semplice, più robusto e già pronto per Grafana.
+**Perché così.** Due pivot, entrambi da fatti verificati: (1) niente connettore Postgres + endpoint
+custom, perché i token accurati esistono solo via OTEL e l'OTLP di Claude Code è solo
+`http/protobuf`/`grpc`; (2) niente env di telemetria in `settings.json`, perché è config di startup e da
+lì non viene applicata — si usa `.envrc`/direnv per avere l'ambiente reale al lancio restando per-progetto.
 
 ---
 

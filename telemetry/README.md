@@ -32,26 +32,30 @@ I dati persistono nel volume `telemetry-data`. Per retention industriale e aggre
 
 ## Come i progetti inviano i dati (per-progetto, mai globale)
 
-L'`install` del kit scrive nel `.claude/settings.json` **del progetto** un blocco `env` che abilita
-l'OTEL nativo di Claude Code **solo in quel progetto** (le altre chat dell'utente non sono toccate):
+Abilitare l'OTEL di Claude Code è una config di **startup**: l'`env` di `.claude/settings.json` NON la
+attiva (la doc avverte che certe variabili di avvio vanno nell'ambiente reale prima di lanciare `claude`).
+Per restare **per-progetto** senza renderla globale, l'`install` scrive un **`.envrc`** (direnv) nel
+progetto: entrando nella cartella le variabili si attivano, uscendo si disattivano.
 
-```json
-{
-  "env": {
-    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
-    "OTEL_METRICS_EXPORTER": "otlp",
-    "OTEL_LOGS_EXPORTER": "otlp",
-    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
-    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://<host>:4318",
-    "OTEL_SERVICE_NAME": "ai-dev-flow",
-    "OTEL_RESOURCE_ATTRIBUTES": "project.name=<nome-progetto>"
-  }
-}
+```bash
+# .envrc (generato dall'install, tra i marcatori # >>> ai-dev-flow telemetry >>> ... <<<)
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+export OTEL_METRICS_EXPORTER=otlp
+export OTEL_LOGS_EXPORTER=otlp
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://<host>:4318
+export OTEL_SERVICE_NAME=ai-dev-flow
+export OTEL_RESOURCE_ATTRIBUTES=project.name=<nome-progetto>
+export OTEL_METRIC_EXPORT_INTERVAL=10000
 ```
 
-L'endpoint è preconfigurato in `flow.config.telemetry.otlpEndpoint` (default `http://localhost:4318`,
-da puntare all'host dello stack). L'utilizzatore del kit non configura nulla. `flow.config.telemetry.enabled = false`
-disattiva la telemetria per quel progetto. L'`uninstall` rimuove queste variabili.
+Requisiti: **direnv installato** + un `direnv allow` iniziale nel progetto; poi è trasparente. Lancia
+`claude` dalla cartella del progetto (così eredita le variabili). L'endpoint è preconfigurato in
+`flow.config.telemetry.otlpEndpoint` (default `http://localhost:4318`). `flow.config.telemetry.enabled = false`
+disattiva. L'`uninstall` rimuove il blocco dal `.envrc`.
+
+Nota team: committa il `.envrc` per condividerlo coi colleghi (non contiene segreti — solo l'endpoint);
+ognuno esegue `direnv allow` una volta. Senza committarlo, la telemetria resta solo sulla tua macchina.
 
 ## Visualizzazione
 

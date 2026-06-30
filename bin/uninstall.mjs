@@ -22,6 +22,8 @@ import { join, resolve } from 'node:path';
 
 const MARKER_START = '<!-- ai-dev-flow:start -->';
 const MARKER_END = '<!-- ai-dev-flow:end -->';
+const ENVRC_BLOCK_START = '# >>> ai-dev-flow telemetry >>>';
+const ENVRC_BLOCK_END = '# <<< ai-dev-flow telemetry <<<';
 const DEFAULT_SETTINGS = { relPath: '.claude/settings.json', fileCreatedByUs: false, enabledPluginKeys: ['ai-dev-flow@ai-dev-flow'], marketplaceNames: ['ai-dev-flow'] };
 const TELEMETRY_ENV_KEYS = ['CLAUDE_CODE_ENABLE_TELEMETRY', 'OTEL_METRICS_EXPORTER', 'OTEL_LOGS_EXPORTER', 'OTEL_EXPORTER_OTLP_PROTOCOL', 'OTEL_EXPORTER_OTLP_ENDPOINT', 'OTEL_SERVICE_NAME', 'OTEL_RESOURCE_ATTRIBUTES'];
 
@@ -95,6 +97,7 @@ async function run() {
 
   await disablePluginInSettings(projectRoot, manifest.settings ?? DEFAULT_SETTINGS, removed);
   await removeClaudeBlock(projectRoot, manifest.claudeMd, removed);
+  await removeEnvrcBlock(projectRoot, manifest.envrc, removed);
   for (const entry of manifest.createdFiles ?? []) {
     await removeCreatedFile(projectRoot, entry, args.purge, removed, kept);
   }
@@ -189,6 +192,26 @@ async function removeClaudeBlock(projectRoot, claudeDescriptor, removed) {
   } else {
     await writeFile(claudePath, `${cleaned.replace(/^\n+/, '').replace(/\n{3,}/g, '\n\n')}`, 'utf8');
     removed.push(`${claudeDescriptor.relPath} (blocco AI-Dev Flow rimosso)`);
+  }
+}
+
+async function removeEnvrcBlock(projectRoot, envrcDescriptor, removed) {
+  const envrcPath = join(projectRoot, '.envrc');
+  if (!(await pathExists(envrcPath))) {
+    return;
+  }
+  const content = await readFile(envrcPath, 'utf8');
+  if (!content.includes(ENVRC_BLOCK_START)) {
+    return;
+  }
+  const blockPattern = new RegExp(`\\n*${escapeForRegExp(ENVRC_BLOCK_START)}[\\s\\S]*?${escapeForRegExp(ENVRC_BLOCK_END)}\\n?`);
+  const cleaned = content.replace(blockPattern, '\n').replace(/^\n+/, '');
+  if ((envrcDescriptor?.fileCreatedByUs ?? false) && cleaned.trim() === '') {
+    await rm(envrcPath, { force: true });
+    removed.push('.envrc');
+  } else {
+    await writeFile(envrcPath, cleaned, 'utf8');
+    removed.push('.envrc (blocco telemetria rimosso)');
   }
 }
 

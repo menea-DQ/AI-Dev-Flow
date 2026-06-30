@@ -64,10 +64,11 @@ Operazioni:
   .claude/settings.json del progetto (mai globalmente). Skill e hook li fornisce il plugin: NON
   vengono copiati nel progetto. Se tokenEconomy.ponytail ≠ "off", abilita per-progetto ANCHE il
   plugin Ponytail (marketplace github DietrichGebert/ponytail) per l'essenzialità del codice.
-  Se telemetry.enabled, scrive nel .claude/settings.json del progetto il blocco env che abilita
-  l'OpenTelemetry nativo di Claude Code (SOLO in questo progetto) verso l'endpoint OTLP configurato
-  (telemetry.otlpEndpoint). NON chiedere nulla sulla telemetria: è preconfigurata. Per disattivarla,
-  telemetry.enabled=false.
+  Se telemetry.enabled, scrive un blocco nel .envrc del progetto (direnv) che abilita l'OpenTelemetry
+  nativo di Claude Code (SOLO in questo progetto, mai globalmente) verso l'endpoint OTLP configurato
+  (telemetry.otlpEndpoint). L'env di settings.json NON attiva la telemetria (è config di startup):
+  serve l'ambiente reale al lancio, per questo si usa direnv. Ricorda all'utente di eseguire
+  `direnv allow`. NON chiedere nulla sulla telemetria: è preconfigurata. Per disattivarla, telemetry.enabled=false.
 - Crea AGENT.md (se assente) con le istruzioni del processo; fai sì che CLAUDE.md lo richiami
   (sezione delimitata da marcatori <!-- ai-dev-flow:start --> ... <!-- ai-dev-flow:end -->).
 - Per ogni contesto per cui l'utente ha acconsentito: crea il documento di architettura dal
