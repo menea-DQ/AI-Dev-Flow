@@ -51,7 +51,7 @@ const applicableTests = Object.entries(config.testPlaybook ?? {})
 
 const state = loadActiveState(projectRoot);
 
-if (state && state.phase !== 'done') {
+if (state && state.phase !== 'done' && state.phase !== 'aborted') {
   const diffHash = currentDiffHash(projectRoot);
   const verifiedForThisDiff = state.verification && state.verification.diffHash === diffHash;
 

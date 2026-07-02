@@ -13,6 +13,8 @@
 //
 // Uso come CLI (è così che l'agente registra i fatti; ogni comando aggiorna anche il log):
 //   node flowState.mjs start --task <id> [--type cr|bug] [--title <t>] [--connector <n>] [--reference <url-o-id>]
+//   node flowState.mjs next            ← IL SEQUENCER: legge i fatti e dice il prossimo passo (deterministico)
+//   node flowState.mjs abort --reason <r>   ← abbandono con compensazioni (chiude lo stato, elenca cosa ripulire)
 //   node flowState.mjs active | show | close | clear-active
 //   node flowState.mjs set-phase <intake|spec|plan|implementation|quality|documentation|delivery|done>
 //   node flowState.mjs approve-gate <spec|plan|diff>
@@ -34,7 +36,7 @@ import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 export const STATE_VERSION = 1;
-export const PHASES = ['intake', 'spec', 'plan', 'implementation', 'quality', 'documentation', 'delivery', 'done'];
+export const PHASES = ['intake', 'spec', 'plan', 'implementation', 'quality', 'documentation', 'delivery', 'done', 'aborted'];
 export const GATES = ['spec', 'plan', 'diff'];
 
 const TASKS_DIRECTORY = join('.ai-dev', 'tasks');
@@ -118,6 +120,121 @@ export function hasOverride(state, gateName) {
   return (state?.overrides ?? []).some((entry) => entry.gate === gateName);
 }
 
+// ————— Il sequencer deterministico (comando `next`) —————
+// Il "qual è il prossimo passo" NON è una decisione dell'LLM: è una funzione dei FATTI registrati.
+// Prima condizione non soddisfatta = prossimo passo. L'orchestratore esegue, registra, richiama.
+export function nextStep(state, projectRoot) {
+  const cli = 'node "${CLAUDE_PLUGIN_ROOT}/bin/flowState.mjs"';
+  const conn = state.task?.connector ?? '<ticketing>';
+  const ref = state.task?.reference ?? state.task?.id;
+
+  if (state.phase === 'done') {
+    return { phase: 'done', action: 'Task già chiuso. Nulla da fare.', record: null };
+  }
+  if (state.phase === 'aborted') {
+    return { phase: 'aborted', action: 'Task abbandonato. Nulla da fare (lo stato resta come audit trail).', record: null };
+  }
+  if (state.phase === 'intake') {
+    return {
+      phase: 'F0 · Intake',
+      action: 'Completa l\'intake: contract-check dei connettori, lettura del ticket via connettore, normalizzazione col sub-agent intake (niente codebase).',
+      record: `${cli} set-phase spec`,
+    };
+  }
+  if (!state.gates?.spec) {
+    return {
+      phase: 'F1 · Specifica',
+      action: 'Produci/raffina la specifica col sub-agent spec-author (architecture doc prima del codice, impact analysis, domande sui buchi) e presentala al GATE UMANO 1.',
+      record: `ad approvazione dell'utente: ${cli} approve-gate spec`,
+    };
+  }
+  if (!state.spec?.path) {
+    return {
+      phase: 'F1 · Specifica (chiusura)',
+      action: 'Salva la specifica approvata nello Spec Store (flow.config.specStore.path).',
+      record: `${cli} record-spec --path <file>`,
+    };
+  }
+  if ((state.ticketUpdates ?? []).length === 0) {
+    return {
+      phase: 'F1 · Specifica (chiusura)',
+      action: `Commenta il task nel ticketing col riferimento alla spec: node "\${CLAUDE_PLUGIN_ROOT}/connectors/${conn}.mjs" --comment "${ref}" "Spec approvata: <path>"`,
+      record: `${cli} record-ticket-update --status "spec-approvata"`,
+    };
+  }
+  if (!state.gates?.plan) {
+    return {
+      phase: 'F2 · Piano',
+      action: 'Proponi il PIANO (approccio, file toccati, rischi) e presentalo al GATE UMANO 2.',
+      record: `ad approvazione dell'utente: ${cli} approve-gate plan`,
+    };
+  }
+  if (!state.branch?.name) {
+    return {
+      phase: 'F2 · Branch',
+      action: 'Crea il branch di lavoro PRIMA di ogni commit: chiedi all\'utente il branch base e proponi <fix|feat>/<nome-breve-esplicativo> (nome custom ammesso). Poi: git checkout -b <branch>.',
+      record: `${cli} set-branch --name <branch> --base <base>`,
+    };
+  }
+  if (!state.testsAuthored && !hasOverride(state, 'fast-path')) {
+    return {
+      phase: 'F2 · Test (test-author)',
+      action: 'Lancia il sub-agent test-author passandogli SOLO la spec: deriva i test dal contratto e li COMMITTA prima del codice (ramo BUG: il red-test).',
+      record: `${cli} record-tests-authored`,
+    };
+  }
+  if (!state.gates?.diff) {
+    return {
+      phase: 'F2 · Implementazione',
+      action: 'Implementa (impl-runbook: convenzioni dichiarate, contesto minimo, test intoccabili) e presenta il diff al GATE UMANO 3.',
+      record: `ad approvazione dell'utente: ${cli} approve-gate diff`,
+    };
+  }
+  const diffHash = currentDiffHash(projectRoot);
+  if (!state.verification || state.verification.diffHash !== diffHash) {
+    return {
+      phase: 'F3 · Qualità',
+      action: `Seleziona i test dal test-playbook (test-selector) e falli eseguire al sub-agent test-runner${state.verification ? ' — il codice è CAMBIATO dopo l\'ultima verifica: va rifatta' : ''}. Rossi → si torna all'implementazione.`,
+      record: `${cli} record-verification --status done --tests "<nomi>"`,
+    };
+  }
+  if (!state.docReview) {
+    return {
+      phase: 'F4 · Documentazione',
+      action: 'Lancia il sub-agent doc-author (spec + diff + registro flow.config.documentation.docs + architecture doc): aggiorna i documenti impattati o dichiara "nessun impatto, perché…".',
+      record: `${cli} record-doc-review --status done|none-impacted [--docs "<csv>"] [--reason "<r>"]`,
+    };
+  }
+  if (!state.changelog) {
+    return {
+      phase: 'F4 · Changelog',
+      action: 'Scrivi la voce di changelog (la scelta fatta e il perché).',
+      record: `${cli} record-changelog`,
+    };
+  }
+  if (!state.pr) {
+    return {
+      phase: 'F5 · Consegna (PR)',
+      action: `Proponi la PR da ${state.branch.name} verso ${state.branch.base} (titolo dalla spec, corpo con link a spec/changelog/ticket).`,
+      record: `${cli} record-pr --url <url>`,
+    };
+  }
+  const prTime = state.pr?.at ?? '';
+  const finalTicketUpdate = (state.ticketUpdates ?? []).some((u) => u.at > prTime);
+  if (!finalTicketUpdate) {
+    return {
+      phase: 'F5 · Consegna (ticket)',
+      action: `Aggiorna lo stato del ticket (chiedi all'utente: Review o Done): node "\${CLAUDE_PLUGIN_ROOT}/connectors/${conn}.mjs" --update-status "${ref}" "<stato>"`,
+      record: `${cli} record-ticket-update --status "<stato>"`,
+    };
+  }
+  return {
+    phase: 'F5 · Chiusura',
+    action: 'Tutto fatto: chiudi il task.',
+    record: `${cli} close`,
+  };
+}
+
 export function newTaskState({ id, type, title, connector, reference }) {
   const now = new Date().toISOString();
   return {
@@ -129,8 +246,10 @@ export function newTaskState({ id, type, title, connector, reference }) {
     gates: {},
     spec: null,
     branch: null,
+    testsAuthored: null,
     snapshot: null,
     verification: null,
+    aborted: null,
     docReview: null,
     changelog: null,
     ticketUpdates: [],
@@ -219,6 +338,42 @@ function runCli() {
   switch (command) {
     case 'show': {
       console.log(JSON.stringify(state, null, 2));
+      return;
+    }
+    case 'next': {
+      const step = nextStep(state, projectRoot);
+      console.log(`Task "${state.task.id}" · prossimo passo → ${step.phase}`);
+      console.log(`AZIONE: ${step.action}`);
+      if (step.record) {
+        console.log(`POI REGISTRA: ${step.record}`);
+      }
+      const derogated = (state.overrides ?? []).map((o) => o.gate);
+      if (derogated.length > 0) {
+        console.log(`(deroghe attive: ${derogated.join(', ')})`);
+      }
+      return;
+    }
+    case 'record-tests-authored': {
+      state.testsAuthored = { at: new Date().toISOString() };
+      appendLog(state, 'test scritti e committati dal test-author (prima del codice)');
+      break;
+    }
+    case 'abort': {
+      const reason = requireOption(options, 'reason');
+      state.phase = 'aborted';
+      state.aborted = { reason, at: new Date().toISOString() };
+      appendLog(state, `task ABBANDONATO: ${reason}`);
+      saveTaskState(projectRoot, state);
+      rmSync(activePointerPath(projectRoot), { force: true });
+      console.log(`Task "${state.task.id}" abbandonato (motivo registrato). ACTIVE rimosso; lo stato resta come audit trail.`);
+      console.log('COMPENSAZIONI da proporre all\'utente:');
+      if (state.branch?.name) {
+        console.log(`  • eliminare il branch di lavoro: git branch -D ${state.branch.name} (le modifiche restano solo nella sua storia)`);
+      }
+      if ((state.ticketUpdates ?? []).length > 0 && state.task?.connector) {
+        console.log(`  • annotare il ticket: node "\${CLAUDE_PLUGIN_ROOT}/connectors/${state.task.connector}.mjs" --comment "${state.task.reference ?? state.task.id}" "Task abbandonato: ${reason}"`);
+      }
+      console.log('  • se era stato catturato uno snapshot "before", può essere rimosso.');
       return;
     }
     case 'set-phase': {

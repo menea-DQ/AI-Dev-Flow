@@ -1,5 +1,5 @@
 # AI-Dev Flow — Processo
-process-version: 0.0.7
+process-version: 0.0.8
 compatibile-con: ">=0.0.1 <0.1.0"
 
 ## Principio fondante
@@ -33,6 +33,19 @@ Ogni task ha uno stato persistito (`.ai-dev/tasks/<id>/state.json`, unico access
 deroghe. È un registro di FATTI, non un workflow engine. Effetti: gli hook possono far rispettare
 i contratti di fase; un task interrotto RIPRENDE da dov'era; un collega può SUBENTRARE leggendo lo
 stato. Lo stato punta agli artefatti, non li contiene: è ricostruibile, mai un ostaggio.
+
+## Sequencer deterministico (anti single-point-of-failure cognitivo)
+"Qual è il prossimo passo" NON è una decisione dell'AI: è una funzione dei fatti registrati,
+calcolata dal comando `flowState.mjs next` (prima condizione non soddisfatta = prossimo passo,
+con l'azione da svolgere e il comando di registrazione). L'orchestratore esegue un loop:
+next → esegui → registra → next. Così la DIREZIONE del flusso è codice (meccanico), non memoria
+dell'agente; gli hook restano l'ENFORCEMENT indipendente. L'orchestratore è usa-e-getta: qualunque
+sessione, letto lo stato, produce la stessa sequenza.
+
+## Abbandono e compensazioni
+Un task si può abbandonare solo per scelta umana motivata: `flowState.mjs abort --reason "<r>"`.
+Lo stato si chiude e resta come audit trail; il comando elenca le COMPENSAZIONI da proporre
+(eliminare il branch di lavoro, annotare il ticket via --comment, ripulire lo snapshot).
 
 ## Agenti per fase (modello per fase)
 Il lavoro cognitivo di ogni fase è svolto da un sub-agent dedicato, eseguito col modello adatto

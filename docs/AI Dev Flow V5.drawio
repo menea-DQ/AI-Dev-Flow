@@ -5,7 +5,7 @@
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
-        <mxCell id="title" value="&lt;b&gt;Processo AI-Dev Flow v0.0.7 — 6 fasi · 3 gate umani · stato per-task · agenti per fase&lt;/b&gt;" style="text;html=1;fontSize=20;align=center;" vertex="1" parent="1">
+        <mxCell id="title" value="&lt;b&gt;Processo AI-Dev Flow v0.0.8 — 6 fasi · 3 gate umani · stato per-task + sequencer · agenti per fase&lt;/b&gt;" style="text;html=1;fontSize=20;align=center;" vertex="1" parent="1">
           <mxGeometry x="40" y="20" width="1560" height="30" as="geometry" />
         </mxCell>
         <mxCell id="legend" value="&lt;b&gt;Azzurro&lt;/b&gt;: automazione AI · &lt;b&gt;Verde&lt;/b&gt;: sub-agent dedicato (modello per fase) · &lt;b&gt;Arancio&lt;/b&gt;: GATE UMANO · &lt;b&gt;Viola&lt;/b&gt;: stato / knowledge-store · &lt;b&gt;Grigio&lt;/b&gt;: HOOK (guardiano deterministico, scatta sempre) · &lt;b&gt;Rosso&lt;/b&gt;: sistema esterno" style="text;html=1;fontSize=12;align=center;" vertex="1" parent="1">
@@ -199,7 +199,7 @@
         <mxCell id="sb4" value="&lt;b&gt;AGENTI PER FASE — modello per natura del lavoro&lt;/b&gt;&lt;br&gt;&lt;br&gt;F0 intake → haiku (parsing meccanico)&lt;br&gt;F1 spec-author → opus (fase a più leverage)&lt;br&gt;F2 test-author → opus (test dal contratto, ISOLATO)&lt;br&gt;F3 test-runner → haiku (esegue e riporta)&lt;br&gt;F4 doc-author → sonnet (scrittura fedele)&lt;br&gt;F5 — (meccanica pura: script/hook)&lt;br&gt;&lt;br&gt;I sub-agent ricevono SOLO i loro input dichiarati (contratti fisici). I GATE restano SEMPRE all'orchestratore (skill flow): gli agenti preparano, l'utente decide." style="rounded=1;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1">
           <mxGeometry x="1180" y="1180" width="420" height="290" as="geometry" />
         </mxCell>
-        <mxCell id="sb5" value="&lt;b&gt;ENTRYPOINT: skill `flow`&lt;/b&gt;&lt;br&gt;&lt;br&gt;«Lavora su questo ticket» → l'orchestratore guida le 6 fasi leggendo lo stato: le fasi già registrate non si rifanno. Doctor invocabile in ogni momento. Risparmio: retrieval mirato, test solo su ciò che cambia, modelli per natura del lavoro, Ponytail per l'essenzialità." style="rounded=1;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1">
+        <mxCell id="sb5" value="&lt;b&gt;ENTRYPOINT: skill `flow` + SEQUENCER&lt;/b&gt;&lt;br&gt;&lt;br&gt;«Lavora su questo ticket» → l'orchestratore esegue un loop deterministico: &lt;b&gt;flowState next&lt;/b&gt; (il prossimo passo calcolato dai FATTI) → esegui → registra → next. La direzione del flusso è codice, non memoria dell'LLM (niente SPOF cognitivo); i gate restano dialogo umano. Abbandono governato: &lt;b&gt;abort --reason&lt;/b&gt; con compensazioni (branch, ticket, snapshot). Doctor invocabile in ogni momento." style="rounded=1;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1">
           <mxGeometry x="1180" y="1490" width="420" height="190" as="geometry" />
         </mxCell>
         <mxCell id="sb6" value="&lt;b&gt;STRATI&lt;/b&gt;: processo, artefatti .md e regole = AGNOSTICI dal tool · skill/hook/agenti/connettori = strato ADATTATORE Claude Code, sottile e sostituibile." style="rounded=1;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1">

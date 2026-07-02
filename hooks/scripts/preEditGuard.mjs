@@ -56,7 +56,7 @@ if (matchesAnyPattern(relativePath, config.testPaths ?? [])) {
 // ————— Guardia 2: gate di fase sul codice sorgente (solo con task attivo) —————
 const projectRoot = projectDirectory();
 const state = loadActiveState(projectRoot);
-if (!state || state.phase === 'done') {
+if (!state || state.phase === 'done' || state.phase === 'aborted') {
   process.exit(0);
 }
 if (matchesAnyPattern(relativePath, PHASE_GATE_EXEMPT_PATTERNS)) {

@@ -1,11 +1,13 @@
 {
-  "kitVersion": "0.0.7",
-  "processVersion": "0.0.7",
+  "kitVersion": "0.0.8",
+  "processVersion": "0.0.8",
   "installedAt": "[data]",
   "assessment": {
     "type": "[new|existing]",
     "monorepo": true,
-    "contexts": ["[elenco contesti rilevati]"],
+    "contexts": [
+      "[elenco contesti rilevati]"
+    ],
     "filesHash": "[hash dei file-chiave: package.json, turbo.json, struttura]"
   }
 }

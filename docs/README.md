@@ -11,7 +11,8 @@ e il razionale.
   vincoli dello standard, convenzioni, esempi d'uso end-to-end, best practice e limiti dichiarati.
 - [`AI_Dev_Flow_Gap_Analysis.md`](AI_Dev_Flow_Gap_Analysis.md) — gap analysis: i buchi tra processo
   dichiarato e implementazione, con severità e proposta di soluzione per ciascuno.
-  **CHIUSA: implementata nella 0.0.7** (conservata come razionale delle scelte).
+  **CHIUSA: implementata nella 0.0.7/0.0.8** (conservata come razionale delle scelte; in 0.0.8:
+  GAP-17, sequencer deterministico + abort).
 - [`AI Dev Flow V5.drawio`](AI%20Dev%20Flow%20V5.drawio) — **diagramma di processo corrente (0.0.7)**,
   ricreato da zero: le 6 fasi, i 3 gate umani, lo stato per-task, i guardiani (hook), gli agenti
   per fase con il modello dedicato, il perimetro enforced.

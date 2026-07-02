@@ -47,7 +47,9 @@ prescritti dai blocchi degli hook.
 
 - **`.ai-dev/tasks/<id>/state.json`** — lo stato per-task (fase, gate, branch, snapshot, verifiche,
   doc-review, changelog, ticket, deroghe + log). Persistente e committabile: rende il task
-  riprendibile e passabile tra colleghi. Unico punto di accesso: `bin/flowState.mjs`.
+  riprendibile e passabile tra colleghi. Unico punto di accesso: `bin/flowState.mjs` — che espone
+  anche il **sequencer** (`next`: il prossimo passo calcolato dai fatti) e l'**abbandono governato**
+  (`abort --reason`, con compensazioni). Gli hook ignorano i task in fase `done`/`aborted`.
 - Marcatori di sessione in `/tmp` (fallback senza task attivo / anti-nag intra-sessione):
   `aidevflow-prework-<session>`, `aidevflow-verify-<session>` (contiene l'hash del diff verificato),
   `aidevflow-testauthoring-<session>` (autorizza il test-author a scrivere i test).

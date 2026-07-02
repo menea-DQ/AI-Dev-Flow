@@ -3,7 +3,7 @@
 Plugin Claude Code per uno sviluppo software AI-assistito (human-in-the-loop), **abilitabile e
 configurabile per singolo progetto**.
 
-> Versione **0.0.7** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
+> Versione **0.0.8** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
 > possono introdurre cambiamenti non retro-compatibili (convenzione semver per le 0.x).
 
 ## Cos'è
@@ -22,6 +22,12 @@ adatto** (spec-author/test-author sul modello top, intake/test-runner su quello 
 doc-author su quello intermedio) e vale il **perimetro dello standard**: nei progetti col kit si
 usano SOLO componenti del kit (hook di enforcement). Entrypoint: la skill **`flow`**
 («lavora su questo ticket»).
+
+Dalla **0.0.8** anche la *direzione* del flusso è deterministica: il **sequencer**
+(`flowState.mjs next`) calcola il prossimo passo dai fatti registrati — l'orchestratore esegue un
+loop `next → esegui → registra`, non decide la sequenza a memoria (niente single-point-of-failure
+cognitivo). E l'abbandono di un task è governato: `flowState.mjs abort --reason` chiude lo stato
+ed elenca le compensazioni (branch da eliminare, ticket da annotare).
 
 È confezionato come **plugin Claude Code**: il processo, le skill e i template restano agnostici nel
 contenuto; il plugin è l'adattatore per Claude Code (skill invocabili + hook di qualità). Si abilita
@@ -143,7 +149,7 @@ AI-Dev-Flow/                     radice = marketplace + plugin
 ├── migrations/                  migrazioni di formato versionate (<from>-to-<to>.mjs) + convenzione
 ├── templates/                   modelli degli artefatti (spec, plan, changelog, architecture, …)
 ├── bin/
-│   ├── flowState.mjs            stato per-task (libreria + CLI): fatti, gate, deroghe — auditabile
+│   ├── flowState.mjs            stato per-task (libreria + CLI) + sequencer `next` + `abort`
 │   ├── telemetry.mjs            riallineamento blocchi OTEL (.envrc/settings) ↔ flow.config
 │   ├── install.mjs              installer deterministico per-progetto (scrive un manifest)
 │   ├── uninstall.mjs            disinstaller per-progetto (legge il manifest, ripulisce)

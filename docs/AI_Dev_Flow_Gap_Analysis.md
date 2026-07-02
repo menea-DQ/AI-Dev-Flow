@@ -1,9 +1,9 @@
 # AI-Dev Flow — Gap Analysis
 
-> **STATO: CHIUSA — implementata nella 0.0.7** (2026-07-02). Tutti i gap implementabili
-> (GAP-01…10, 12…16) sono stati chiusi nel rilascio 0.0.7; GAP-11 (istruttoria MCP) resta una
-> decisione aperta con criteri definiti; i punti della sezione 5 restano parcheggiati.
-> Il documento è conservato come razionale delle scelte della 0.0.7.
+> **STATO: CHIUSA — implementata nella 0.0.7/0.0.8**. Tutti i gap implementabili
+> (GAP-01…10, 12…16 in 0.0.7; GAP-17 in 0.0.8) sono stati chiusi; GAP-11 (istruttoria MCP) resta
+> una decisione aperta con criteri definiti; i punti della sezione 5 restano parcheggiati.
+> Il documento è conservato come razionale delle scelte.
 
 > Analisi dei buchi tra il processo dichiarato (drawio V4 + `PROCESS.md` + manuale) e
 > l'implementazione reale (kit 0.0.6), integrata con il feedback di revisione del 2026-07-02.
@@ -444,6 +444,38 @@ uniforme tra sviluppatori. È lo stesso principio dell'isolamento del test-autho
 (abilitante per qualità e costi; dipende da GAP-01 per il passaggio dei contratti via stato e da
 GAP-10 per l'orchestratore).
 
+### GAP-17 — Il sequencing del flusso è affidato al giudizio dell'orchestratore (SPOF cognitivo) — *chiuso in 0.0.8*
+**Origine**: revisione 2026-07-03 (obiezione SAGA: l'orchestratore come single point of failure).
+
+**Descrizione.** La critica classica ai pattern di orchestrazione (SAGA) — l'orchestratore come
+single point of failure — si applica agli agenti AI in forma diversa: il rischio non è l'uptime
+(l'orchestratore non è un processo: lo stato per-task è il *saga log* e lo rende usa-e-getta) ma
+il **giudizio**. Nella 0.0.7 gli hook coprivano l'*enforcement* (choreography indipendente: un
+orchestratore che sbaglia viene bloccato, non produce flussi silenziosamente rotti), ma la
+**direzione** — "qual è il prossimo passo" — restava prosa nella skill `flow`, quindi memoria
+dell'LLM: dimenticabile, incoerente tra sessioni, degradabile col contesto.
+
+**Impatto.** L'ultimo pezzo di flusso non deterministico. Severità: **Medio-Alto**.
+
+**Soluzione implementata (0.0.8).**
+1. **Sequencer deterministico**: `flowState.mjs next` calcola il prossimo passo come funzione dei
+   fatti registrati (prima condizione non soddisfatta = prossimo passo, con azione e comando di
+   registrazione; rispetta le deroghe, es. fast-path). La skill `flow` diventa un loop sottile:
+   *next → esegui → registra → next*. La direzione è codice; all'LLM restano il lavoro cognitivo
+   e il dialogo ai gate — l'unico punto che *vogliamo* centrale.
+2. **Fatto mancante registrabile**: aggiunto `record-tests-authored` (il completamento del
+   test-author non era un fatto tracciato: il sequencer ne ha bisogno).
+3. **Abbandono governato** (la metà "compensazioni" del SAGA): `flowState.mjs abort --reason`
+   chiude lo stato (fase `aborted`, audit trail preservato, ACTIVE rimosso, hook disarmati) ed
+   elenca le compensazioni da proporre all'utente: branch da eliminare, ticket da annotare via
+   `--comment`, snapshot da ripulire.
+4. Igiene raccomandata (manuale): una sessione per fase — la ripresa via stato è gratuita, i
+   contesti dell'orchestratore restano corti.
+
+*Scartata* la choreography pura come sostituzione totale: gli eventi disponibili non coprono le
+transizioni di processo, i gate umani richiedono un interlocutore, e il flusso implicito è
+l'opposto di uno standard leggibile.
+
 ---
 
 ## 5. Punti parcheggiati (decisioni rimandate, non gap da risolvere ora)
@@ -480,6 +512,7 @@ peggio che non offrirla.
 | GAP-14 | Riferimento config nel manuale | Basso | **chiuso** |
 | GAP-15 | Telemetria: `enabled=false` non spegne davvero (config ≠ `.envrc`) | Medio | — |
 | GAP-16 | Agenti specializzati per fase con modello per fase (doc-author, intake, test-runner) | Alto | GAP-01, 10 |
+| GAP-17 | Sequencing affidato all'LLM (SPOF cognitivo) → sequencer `next` + `abort` | Medio-Alto | GAP-01 · **chiuso in 0.0.8** |
 
 **Esito (0.0.7, 2026-07-02)** — tutte e tre le ondate implementate in un unico rilascio, su
 decisione di revisione:

@@ -1,6 +1,6 @@
 # AI-Dev Flow — Manuale di progetto
 
-> Documento di riferimento dello standard aziendale AI-Dev Flow, versione kit **0.0.7**.
+> Documento di riferimento dello standard aziendale AI-Dev Flow, versione kit **0.0.8**.
 > Lettore: lo sviluppatore che deve installare il kit su un progetto e lavorarci dentro.
 > Questo manuale è discorsivo per scelta: spiega il perché delle cose, non solo il cosa.
 > La fonte di verità normativa resta il repo (`PROCESS.md`, `INSTALL.md`, skill, hook, codice);
@@ -123,6 +123,27 @@ Tre effetti pratici che cambiano il lavoro quotidiano:
 > ★ **Un collega può subentrare** — lo stato è committabile: tu porti il task alla spec approvata,
 > chi apre il progetto dopo di te vede esattamente cosa è fatto e cosa manca.
 
+Dalla 0.0.8 lo stato non è solo il registro: è anche la **fonte della transizione**. Il comando
+`flowState.mjs next` — il **sequencer deterministico** — calcola il prossimo passo dai fatti
+registrati (prima condizione non soddisfatta = prossimo passo, con l'azione da svolgere e il
+comando di registrazione). E l'abbandono di un task è governato: `flowState.mjs abort --reason`
+chiude lo stato (che resta come audit trail) ed elenca le **compensazioni** da proporre —
+eliminare il branch di lavoro, annotare il ticket, ripulire lo snapshot.
+
+**Perché il sequencer esiste (l'obiezione SAGA).** Un orchestratore centrale è il classico single
+point of failure dei pattern di orchestrazione — e per un orchestratore *AI* il rischio non è
+l'uptime ma il **giudizio**: può dimenticare un passo, convincersi che una fase sia fatta,
+degradare col contesto lungo. L'architettura del kit risponde su tre livelli, ed è di fatto un
+ibrido orchestrazione/choreography:
+1. lo **stato è il saga log**: l'orchestratore è usa-e-getta — muore la sessione, se ne apre
+   un'altra, si riparte dai fatti;
+2. gli **hook sono choreography di enforcement**: guardiani indipendenti che reagiscono a eventi e
+   non dipendono da ciò che l'orchestratore pensa — il suo fallimento produce "bloccato con
+   l'istruzione di cosa manca", mai "flusso silenziosamente rotto";
+3. il **sequencer toglie all'LLM anche la direzione**: "qual è il prossimo passo" è meccanico,
+   quindi è codice (regola d'oro). L'orchestratore resta un single point of *dialogo* (qualcuno
+   deve presentarti i gate), che è l'unica parte che *vogliamo* centrale.
+
 ### 3.2 Gli agenti per fase, ciascuno col suo modello
 
 Il lavoro cognitivo di ogni fase è svolto da un **sub-agent dedicato** (`agents/` del plugin),
@@ -154,8 +175,10 @@ spec, esiti dei test, aggiornamenti di doc), l'orchestratore *presenta* al gate 
 
 ### 3.3 Skill, hook e connettori
 
-Le **skill**: `flow` è l'**entrypoint** — «lavora su questo ticket» — e orchestra le sei fasi
-leggendo lo stato; `doctor` è la verifica di salute invocabile in ogni momento; `install`,
+Le **skill**: `flow` è l'**entrypoint** — «lavora su questo ticket» — e orchestra le sei fasi con
+un loop deterministico: chiede al sequencer il prossimo passo (`flowState next`), lo esegue
+(delegando ai sub-agent, presentando a te i gate), registra il fatto, ripete; `doctor` è la
+verifica di salute invocabile in ogni momento; `install`,
 `uninstall`, `migrate`, `flow-settings`, `connectors-check` sono le skill di servizio; le quattro
 skill di processo (`intake-parser`, `spec-context`, `impl-runbook`, `test-selector`) definiscono
 il *come* delle fasi e restano usabili anche da sole dove ha senso (es. `test-selector` dopo una
@@ -436,7 +459,9 @@ per l'attribuzione), mai contenuti. Per spegnerla davvero: `flow-settings` (che 
 
 > **Tu:** «Lavora su questo task: https://app.productive.io/12345-acme/tasks/task/67890»
 
-L'agente invoca la skill **`flow`** e da lì è il processo a guidare: contract-check, stato avviato,
+L'agente invoca la skill **`flow`** e da lì è il processo a guidare — letteralmente: a ogni giro
+l'orchestratore chiede al sequencer «qual è il prossimo passo?» (`flowState next`) ed esegue ciò
+che risponde. In sequenza: contract-check, stato avviato,
 intake (sub-agent economico), spec-author che ti porta bozza + domande, **Gate 1**, salvataggio
 spec + commento sul ticket (garantiti), piano, **Gate 2**, richiesta del branch («da `main`?
 Propongo `feat/export-csv-ordini`»), test-author che committa i test, implementazione (con
@@ -445,8 +470,10 @@ test-runner, doc-author che aggiorna documenti e changelog, PR proposta verso il
 ticket in Review. A ogni passo lo stato registra; a ogni mancanza il guardiano blocca.
 
 Se ti interrompi a metà — riunione, fine giornata — alla sessione dopo l'hook ti accoglie con
-«Task in corso: productive-67890, fase quality» e si riparte da lì. Se il task lo prende un
-collega, per lui vale lo stesso.
+«Task in corso: productive-67890, fase quality» e si riparte da lì: il sequencer risponde la
+stessa cosa a qualunque sessione. Se il task lo prende un collega, per lui vale lo stesso. E se il
+task muore (cliente che ritira la richiesta): «abbandona il task» → `abort --reason`, che chiude
+lo stato e ti propone le compensazioni (branch da eliminare, ticket da annotare).
 
 ### 7.2 Un BUG
 
@@ -504,17 +531,19 @@ la strada è la whitelist committata o la proposta di adozione nel kit — mai l
 
 ## 9. Limiti noti (dichiarati)
 
-Onestà sui confini della 0.0.7. Il **pre-bash-guard è un'euristica**: copre i vettori comuni di
+Onestà sui confini. Il **pre-bash-guard è un'euristica**: copre i vettori comuni di
 scrittura via shell, non ogni percorso possibile — la garanzia forte resta la coppia hook + git
 history. Il **perimetro** blocca skill e MCP a livello di tool; non può impedire ciò che accade
 fuori da Claude Code. L'**override per-progetto del modello degli agenti** non è ancora
 configurabile da `flow.config` (i tier vivono nel frontmatter degli agenti del kit). Le
 **scritture dei connettori** sono implementate secondo le API documentate di Productive/Zammad ma
-vanno validate sul campo con credenziali reali (il contract-check probe copre la lettura). E
-l'**istruttoria MCP** per i connettori (GAP-11) resta una decisione aperta, con i criteri definiti
-nella gap analysis. Tutto il resto di ciò che era "prescritto ma affidato all'agente" nella 0.0.6 —
-salvataggio spec, aggiornamento ticket, esecuzione test, doc e changelog, vincolo di perimetro — è
-oggi **garantito da hook e stato**.
+vanno validate sul campo con credenziali reali (il contract-check probe copre la lettura). Il
+**sequencer** dipende dai fatti registrati: un fatto vero ma non registrato produce un `next`
+"indietro" — la regola è registrare il fatto mancante, mai forzare. E l'**istruttoria MCP** per i
+connettori (GAP-11) resta una decisione aperta, con i criteri definiti nella gap analysis. Tutto
+il resto di ciò che era "prescritto ma affidato all'agente" nella 0.0.6 — salvataggio spec,
+aggiornamento ticket, esecuzione test, doc e changelog, vincolo di perimetro, e dalla 0.0.8 anche
+la **sequenza stessa del flusso** — è oggi **garantito da hook, stato e sequencer**.
 
 ---
 
@@ -683,5 +712,9 @@ verifica la coerenza). Serve `direnv` + `direnv allow`.
 ### Lo stato per-task (non è in `flow.config`)
 
 Lo stato non si configura: vive in `.ai-dev/tasks/<id>/state.json` ed è gestito esclusivamente da
-`bin/flowState.mjs` (comandi: `start`, `show`, `approve-gate`, `set-branch`, `record-*`, `close`).
-È committabile (riprendibilità e handoff), versionato (`stateVersion`) e coperto dalle migrazioni.
+`bin/flowState.mjs`. Comandi: `start` (avvia/riprende), **`next`** (il sequencer: il prossimo
+passo calcolato dai fatti), `show`, `approve-gate <spec|plan|diff>`, `set-branch`, `record-spec`,
+`record-tests-authored`, `record-snapshot`, `record-verification`, `record-doc-review`,
+`record-changelog`, `record-ticket-update`, `record-pr`, `record-override` (deroghe, sempre con
+motivo), `close` e **`abort --reason`** (abbandono governato, con compensazioni). È committabile
+(riprendibilità e handoff), versionato (`stateVersion`) e coperto dalle migrazioni.
