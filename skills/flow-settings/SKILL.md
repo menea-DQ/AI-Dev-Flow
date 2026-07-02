@@ -22,11 +22,22 @@ senza che l'utente debba editare il JSON a mano.
      che l'impl-runbook applicherà), o il puntatore a un documento sorgente.
    - `architectureDocs`: registra/diregistra un contesto e il path del suo documento di architettura.
    - `dataProducingPaths`: i pattern che armano il gate pre-work-snapshot.
+   - `documentation.docs`: il registro dei documenti di progetto (percorso + descrizione
+     dell'AMBITO di ciascuno) che il doc-author valuta in Fase 4.
+   - `branching`: il pattern del nome branch (`namePattern`, default `<fix|feat>/<slug>`).
+   - `perimeter`: `enforce` + whitelist esplicite (`allowedMcpServers`, `allowedSkills`).
+     Whitelistare un componente esterno è una DECISIONE DELL'UTENTE, committata: mai farlo di
+     iniziativa.
    - `maxRefine`, `fastPath`, `connectors`, `tokenEconomy`: soglie e opzioni.
 3. Valida la modifica contro lo schema di `flow.config`. Se una scelta è ambigua, applica la
    Regola del 98% e CHIEDI; non indovinare.
 4. Scrivi SOLO `flow.config.json`. NON toccare mai il core del kit (il plugin), né gli artefatti di
    lavoro (spec/changelog), né i file di test.
+4-bis. ECCEZIONE TELEMETRIA: `flow.config.telemetry` è solo la sorgente di intento — ciò che
+   attiva l'OTEL sono i blocchi in `.envrc` e `.claude/settings.json`. Quando tocchi
+   `telemetry.*`, DOPO aver salvato la config riallinea i blocchi:
+       node "${CLAUDE_PLUGIN_ROOT}/bin/telemetry.mjs" --project "$(pwd)" --apply
+   (con `enabled=false` usa `--remove`). Altrimenti config e realtà divergono.
 5. Mostra un diff prima di salvare e chiedi conferma. Riepiloga l'effetto pratico della modifica
    (es. "d'ora in poi le modifiche ai file *.sql faranno scattare il data-diff").
 

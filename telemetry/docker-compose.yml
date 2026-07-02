@@ -8,6 +8,19 @@ services:
       - "4318:4318"   # OTLP HTTP (i progetti puntano qui)
     volumes:
       - telemetry-data:/data
+      - ./prometheus.yaml:/otel-lgtm/prometheus.yaml:ro
+    restart: unless-stopped
+    depends_on:
+      - plan-exporter
+
+  plan-exporter:
+    image: node:slim
+    container_name: ai-dev-flow-plan-exporter
+    working_dir: /app
+    volumes:
+      - ./plan-exporter.mjs:/app/plan-exporter.mjs:ro
+      - ./plans.json:/app/plans.json:ro
+    command: node plan-exporter.mjs
     restart: unless-stopped
 
 volumes:

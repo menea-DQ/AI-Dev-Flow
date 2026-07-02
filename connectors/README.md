@@ -40,6 +40,20 @@ usa il dominio `files.productive.io` con `?token=<PRODUCTIVE_API_TOKEN>` (auth d
 In caso di errore: messaggio chiaro su **stderr** ed exit code ≠ 0 (es. credenziale mancante con
 indicazione di quale variabile d'ambiente impostare).
 
+## Contratto di scrittura (0.0.7 — operazioni deterministiche di fine fase)
+
+Oltre alla lettura, ogni connettore espone due operazioni di scrittura uniformi, usate dal flusso
+per aggiornare il ticketing in modo **garantito** (fine Fase 1 e Fase 5), non a discrezione
+dell'agente:
+
+    node "${CLAUDE_PLUGIN_ROOT}/connectors/<nome>.mjs" --update-status "<url-o-id>" "<nome-stato>"
+    node "${CLAUDE_PLUGIN_ROOT}/connectors/<nome>.mjs" --comment       "<url-o-id>" "<testo>"
+
+Output su stdout: `{ "connector": "...", "action": "update-status|comment", "ok": true, ... }`.
+Su Productive lo stato è risolto per NOME tra i `workflow_statuses` (se non esiste, l'errore elenca
+i disponibili) e il commento è un `comment` sul task; su Zammad lo stato è il nome dello `state` e
+il commento è una **nota interna** (non visibile al cliente).
+
 ## Connettori pronti
 
 - `productive.mjs` — ticketing. REST `api.productive.io/api/v2`. Env: `PRODUCTIVE_API_TOKEN`

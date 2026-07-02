@@ -14,6 +14,18 @@
           { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/preEditGuard.mjs\"" },
           { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/preWorkSnapshot.mjs\"" }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/preBashGuard.mjs\"" }
+        ]
+      },
+      {
+        "matcher": "Skill|mcp__.*",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/perimeterGuard.mjs\"" }
+        ]
       }
     ],
     "Stop": [

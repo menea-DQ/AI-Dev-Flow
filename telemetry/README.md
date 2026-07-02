@@ -69,3 +69,48 @@ ognuno esegue `direnv allow` una volta. Senza committarlo, la telemetria resta s
 
 In Grafana → Explore → datasource Prometheus → query sulle metriche `claude_code_*` (token, costo,
 sessioni), filtrabili per `project_name` e `user_email`. Le dashboard avanzate sono Fase 3.
+
+## Costo reale vs valore equivalente
+
+`claude_code.cost.usage` è **sempre** calcolato da Claude Code a pricing API a consumo (list price per
+token), indipendentemente da come l'utente accede. Nella nostra azienda non tutti pagano così:
+
+- chi fa **login con un abbonamento Claude.ai (Pro/Max)** paga una **quota fissa mensile**, con la quota
+  di utilizzo applicata via rate-limit/blocco — non esiste un vero overage a pagamento in dollari;
+- chi usa una **API key Anthropic Console** paga davvero a consumo: qui `cost.usage` È il costo reale.
+
+Per chi è in abbonamento, `cost.usage` non è quindi il costo fatturato all'azienda: è solo un indicatore
+di **quanto valore/utilizzo** quella persona sta consumando rispetto al piano (utile per capire chi si
+sta avvicinando ai limiti, non per il budget).
+
+Per avere entrambe le viste si usa un piccolo exporter Prometheus aggiuntivo:
+
+- **`plans.json`** — mappatura versionata `user_email → plan/billing_type/monthly_cost_usd`. Aggiornalo
+  quando un dipendente cambia piano (nuovo Pro/Max) o passa a/da API key. `billing_type` è `subscription`
+  o `api_key` (per `api_key` lascia `monthly_cost_usd: 0`, il costo reale è già `cost.usage`).
+- **`plan-exporter.mjs`** — legge `plans.json` e serve `http://plan-exporter:9105/metrics` con la gauge
+  `ai_dev_flow_plan_cost_monthly_usd{user_email,plan,billing_type}`.
+- **`prometheus.yaml`** — montato su `/otel-lgtm/prometheus.yaml` nel container `otel-lgtm` (di default
+  l'immagine non ha `scrape_configs`, ingerisce solo via OTLP/remote-write): aggiunge lo scrape job verso
+  `plan-exporter:9105`.
+
+Query PromQL per i due pannelli (Grafana, datasource Prometheus):
+
+```promql
+# B — Utilizzo / valore equivalente (con etichetta piano)
+sum by (user_email, plan, billing_type) (
+  increase(claude_code_cost_usage_total[$__range])
+) * on(user_email) group_left(plan, billing_type) (ai_dev_flow_plan_cost_monthly_usd * 0 + 1)
+
+# A — Costo reale fatturato (proroga mensile approssimata a 30.44 giorni)
+sum by (user_email, plan, billing_type) (
+  (
+    increase(claude_code_cost_usage_total[$__range])
+    * on(user_email) group_left(plan, billing_type) (ai_dev_flow_plan_cost_monthly_usd{billing_type="api_key"} * 0 + 1)
+  )
+  or
+  (
+    ai_dev_flow_plan_cost_monthly_usd{billing_type="subscription"} * ($__range_s / 86400 / 30.44)
+  )
+)
+```

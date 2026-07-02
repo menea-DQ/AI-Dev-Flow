@@ -3,7 +3,7 @@
 Plugin Claude Code per uno sviluppo software AI-assistito (human-in-the-loop), **abilitabile e
 configurabile per singolo progetto**.
 
-> Versione **0.0.6** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
+> Versione **0.0.7** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
 > possono introdurre cambiamenti non retro-compatibili (convenzione semver per le 0.x).
 
 ## Cos'è
@@ -11,6 +11,17 @@ configurabile per singolo progetto**.
 Il kit prende il processo di sviluppo AI-assistito e lo rende uno **standard unico, ripetibile e
 configurabile**, applicabile a ogni progetto. L'AI esegue, la persona decide nei tre punti chiave
 (specifica, piano, revisione del diff). La fonte di verità del processo è [`PROCESS.md`](PROCESS.md).
+
+Dalla **0.0.7** il flusso è **garantito, non solo prescritto**: ogni task ha uno **stato
+persistito** (`.ai-dev/tasks/<id>/state.json` — riprendibile, passabile tra colleghi) e gli hook
+sono i **guardiani dei contratti di fase** (niente codice senza spec+piano approvati e branch di
+lavoro; niente chiusura senza test, doc-review, changelog e ticket aggiornato — o skip espliciti e
+registrati). Le fasi sono **sei** (intake → specifica → implementazione → qualità → documentazione
+→ consegna con PR), il lavoro cognitivo è svolto da **agenti dedicati per fase con il modello
+adatto** (spec-author/test-author sul modello top, intake/test-runner su quello economico,
+doc-author su quello intermedio) e vale il **perimetro dello standard**: nei progetti col kit si
+usano SOLO componenti del kit (hook di enforcement). Entrypoint: la skill **`flow`**
+(«lavora su questo ticket»).
 
 È confezionato come **plugin Claude Code**: il processo, le skill e i template restano agnostici nel
 contenuto; il plugin è l'adattatore per Claude Code (skill invocabili + hook di qualità). Si abilita
@@ -112,19 +123,28 @@ AI-Dev-Flow/                     radice = marketplace + plugin
 │   └── plugin.json              manifest del plugin
 ├── README.md                    questo file
 ├── VERSION                      versione semantica
-├── PROCESS.md                   fonte di verità del processo
+├── PROCESS.md                   fonte di verità del processo (6 fasi, 3 gate, stato per-task)
 ├── INSTALL.md                   procedura di installazione per-progetto
-├── skills/<nome>/SKILL.md       install, uninstall, migrate, flow-settings, connectors-check + skill di processo
-├── agents/test-author.md        sub-agent isolato che scrive i test dalla sola spec
+├── skills/<nome>/SKILL.md       flow (ENTRYPOINT), doctor, install, uninstall, migrate,
+│                                flow-settings, connectors-check + skill di processo
+├── agents/                      sub-agent per-fase, ciascuno col suo modello:
+│   ├── intake.md                Fase 0 — normalizzazione richiesta (haiku)
+│   ├── spec-author.md           Fase 1 — bozza spec + impact analysis (opus)
+│   ├── test-author.md           Fase 2 — test dalla sola spec, isolato (opus)
+│   ├── test-runner.md           Fase 3 — esecuzione test (haiku)
+│   └── doc-author.md            Fase 4 — doc-review + changelog (sonnet)
 ├── hooks/
 │   ├── hooks.json               aggancio agli eventi nativi (SessionStart, PreToolUse, Stop)
-│   ├── README.md                cosa fa ogni hook
-│   └── scripts/*.mjs            script degli hook (guardia: no-op se manca flow.config.json)
-├── connectors/                  connettori ticketing/helpdesk pronti + contratto + check.mjs (contract-check)
-├── telemetry/                   stack OTLP + Grafana (docker-compose) per la telemetria (Fase 2)
+│   ├── README.md                cosa fa ogni hook (guardiani dei contratti di fase)
+│   └── scripts/*.mjs            preEditGuard, preBashGuard, perimeterGuard, preWorkSnapshot,
+│                                postWorkVerification, versionDrift (no-op se manca flow.config.json)
+├── connectors/                  connettori pronti (lettura + scritture --update-status/--comment)
+├── telemetry/                   stack OTLP + Grafana (docker-compose) per la telemetria
 ├── migrations/                  migrazioni di formato versionate (<from>-to-<to>.mjs) + convenzione
 ├── templates/                   modelli degli artefatti (spec, plan, changelog, architecture, …)
 ├── bin/
+│   ├── flowState.mjs            stato per-task (libreria + CLI): fatti, gate, deroghe — auditabile
+│   ├── telemetry.mjs            riallineamento blocchi OTEL (.envrc/settings) ↔ flow.config
 │   ├── install.mjs              installer deterministico per-progetto (scrive un manifest)
 │   ├── uninstall.mjs            disinstaller per-progetto (legge il manifest, ripulisce)
 │   └── migrate.mjs              motore di migrazione per-progetto (idempotente, transazionale)
@@ -133,8 +153,19 @@ AI-Dev-Flow/                     radice = marketplace + plugin
 
 ## Documentazione di design
 
-In [`docs/`](docs/) trovi il documento di revisione (architettura + razionale), la presentazione per
-la direzione e i diagrammi di processo (`.drawio`).
+In [`docs/`](docs/) trovi il **manuale di progetto** (architettura, fasi, contratti, esempi d'uso —
+il documento da cui partire), la gap analysis (razionale delle scelte 0.0.7), la presentazione per
+il team (`.pptx`) e i diagrammi di processo (`.drawio`, corrente: V5).
+
+## Note tecniche sul manifest del plugin
+
+Due insidie da conoscere se tocchi `.claude-plugin/`:
+- `skills/`, `agents/` e `hooks/hooks.json` sono **auto-scoperti**: NON dichiarare `hooks/hooks.json`
+  nel campo `hooks` del manifest — causa un doppio caricamento (errore "Duplicate hooks file").
+  Quel campo serve solo per file di hook aggiuntivi/non standard.
+- Nel `marketplace.json`, la sorgente del plugin alla radice del repo è `"./"` — il path relativo
+  DEVE iniziare con `./` (`"."` viene rifiutato dallo schema). Per ospitare più plugin, un domani:
+  sottocartelle e `source: "./plugins/<nome>"`.
 
 ## Versione
 

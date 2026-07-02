@@ -44,6 +44,15 @@ Decisioni dell'intervista:
 - CONVENZIONI/PREFERENZE di progetto (sempre chieste): naming, struttura, stile, regole UI, vincoli.
   Se esiste già un documento che le descrive, chiedi se usarlo come fonte; altrimenti raccoglile in
   intervista. Verranno salvate in flow.config e applicate dall'impl-runbook.
+- REGISTRO DELLA DOCUMENTAZIONE (per la Fase 4): censisci i documenti di progetto esistenti (o da
+  creare) con, per ciascuno, percorso e DESCRIZIONE DELL'AMBITO ("docs/api.md — i contratti REST
+  esposti"). È ciò che il doc-author valuta a ogni chiusura. Salvato in flow.config.documentation.docs.
+  Se il progetto non ha documentazione, proponi di iniziare con i soli architecture doc.
+- BRANCHING: il pattern del nome branch. Default `<fix|feat>/<nome-breve-esplicativo>` (fix=BUG,
+  feat=CR). Chiedi anche qual è il branch base abituale (default: il default del repo).
+- PERIMETRO: informa (non chiedere) che `perimeter.enforce=true` è parte dello standard — nei
+  progetti col kit si usano SOLO componenti del kit; le whitelist (`allowedMcpServers`,
+  `allowedSkills`) si gestiscono dopo, con flow-settings, su decisione esplicita.
 - MAX_REFINE: default avviso=3, blocco=6.
 - Connettori: NON chiedere quale tool usare. I default sono già pronti — `productive` (ticketing) e
   `zammad` (helpdesk) — e l'interfaccia è agnostica/sostituibile via flow.config. L'unica cosa da
@@ -81,14 +90,19 @@ Operazioni:
 INSTALLAZIONE TRANSAZIONALE: se un passo fallisce, annulla tutto (rollback). O tutto o niente.
 
 ## Passo 5 — Verifica (doctor)
+Esegui la skill `doctor` (che da 0.0.7 è invocabile anche in qualsiasi momento successivo):
 - Controlla che ogni elemento del processo abbia un corrispettivo reale installato.
-- Test funzionale dell'hook pre-edit-guard: prova a modificare un file di test fittizio; deve bloccare.
+- Test funzionale del pre-edit-guard: prova a modificare un file di test fittizio (Edit E Bash);
+  entrambi i vettori devono bloccare.
 - Verifica che esista un documento di architettura per ogni contesto registrato in flow.config.
-- Verifica che il test-playbook non sia vuoto (se lo è, avvisa: il test-selector non avrà regole).
+- Verifica che il test-playbook non sia vuoto (se lo è, avvisa: il test-selector non avrà regole)
+  e che il registro documentazione sia popolato (se vuoto: la Fase 4 valuterà solo gli architecture doc).
 - Contract-check dei connettori: esegui `node "${CLAUDE_PLUGIN_ROOT}/connectors/check.mjs" --project "$(pwd)"`
   e riporta lo stato (OK/AVVISO/ROTTO). Se le credenziali non sono ancora impostate è un AVVISO, non un guasto.
+- Coerenza telemetria: `node "${CLAUDE_PLUGIN_ROOT}/bin/telemetry.mjs" --project "$(pwd)" --status`.
 - Riporta lo stato: cosa è a posto, cosa manca, cosa richiede una tua decisione successiva.
-- Onesto sui limiti: non posso garantire che l'agente USI una skill, solo che è installata.
+- Onesto sui limiti: il doctor garantisce che i pezzi sono installati e funzionanti; il rispetto del
+  flusso lo garantiscono gli hook (che bloccano) e lo stato per-task (che registra).
 
 ## Nota sull'idempotenza
 Questa procedura può essere rieseguita senza danni: se qualcosa è già installato e coerente,

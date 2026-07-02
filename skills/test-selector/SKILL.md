@@ -31,5 +31,11 @@ Cosa fare:
      coinvolto) e AVVISA che la selezione fine non è disponibile.
 5. Requisito: serve una base git pulita o uno stato pre-task catturato. Per i test pre/post sui
    dati, lo stato "before" è quello catturato dal gate pre-work-snapshot.
+6. ESECUZIONE: delega al sub-agent **test-runner** (modello economico), passandogli i comandi
+   ESATTI selezionati e il riferimento allo snapshot "before" dove serve. Al suo ritorno:
+   - tutti verdi → registra `node "${CLAUDE_PLUGIN_ROOT}/bin/flowState.mjs" record-verification --status done --tests "<nomi>"`
+   - rossi → si torna all'implementazione (fix); i test NON si toccano.
+   (Il guardiano di fine turno verifica che la registrazione esista per l'esatto diff corrente:
+   se il codice cambia dopo la verifica, il gate si ri-arma da solo.)
 
-Output: l'elenco mirato dei test da eseguire (con i comandi dal playbook) + motivazione.
+Output: l'elenco mirato dei test da eseguire (con i comandi dal playbook) + motivazione + esiti.

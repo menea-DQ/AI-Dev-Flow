@@ -24,6 +24,17 @@
     "rules": [],
     "sourceDoc": null
   },
+  "documentation": {
+    "docs": []
+  },
+  "branching": {
+    "namePattern": "<fix|feat>/<nome-breve-esplicativo>"
+  },
+  "perimeter": {
+    "enforce": true,
+    "allowedMcpServers": [],
+    "allowedSkills": []
+  },
   "maxRefine": { "warn": 3, "block": 6 },
   "fastPath": { "askEachTime": true, "autoUnderThreshold": false, "thresholdLines": 20 },
   "testPaths": ["**/*.test.*", "**/*.spec.*", "tests/**", "e2e/**"],

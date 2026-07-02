@@ -4,6 +4,7 @@ description: >
   Scrive i test derivandoli SOLO dalla specifica approvata, alla cieca rispetto al codice di
   implementazione, PRIMA che il codice esista. Realizza l'anti teaching-to-the-test in modo
   strutturale. Usa in Fase 2 di AI-Dev Flow, prima dell'implementazione.
+model: opus
 ---
 
 # Sub-agent: test-author (ISOLATO)

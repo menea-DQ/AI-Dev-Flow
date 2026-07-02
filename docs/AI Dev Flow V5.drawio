@@ -1,0 +1,212 @@
+<mxfile host="app.diagrams.net" agent="ai-dev-flow" version="24.0.0">
+  <diagram name="AI Dev Flow V5" id="ai-dev-flow-v5">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="2100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="&lt;b&gt;Processo AI-Dev Flow v0.0.7 — 6 fasi · 3 gate umani · stato per-task · agenti per fase&lt;/b&gt;" style="text;html=1;fontSize=20;align=center;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1560" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" value="&lt;b&gt;Azzurro&lt;/b&gt;: automazione AI · &lt;b&gt;Verde&lt;/b&gt;: sub-agent dedicato (modello per fase) · &lt;b&gt;Arancio&lt;/b&gt;: GATE UMANO · &lt;b&gt;Viola&lt;/b&gt;: stato / knowledge-store · &lt;b&gt;Grigio&lt;/b&gt;: HOOK (guardiano deterministico, scatta sempre) · &lt;b&gt;Rosso&lt;/b&gt;: sistema esterno" style="text;html=1;fontSize=12;align=center;" vertex="1" parent="1">
+          <mxGeometry x="40" y="55" width="1560" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="principio" value="&lt;b&gt;Regola d'oro:&lt;/b&gt; il MECCANICO lo fa un hook/script (garantito) · il COGNITIVO lo fa un agente dedicato · le DECISIONI le prende l'umano · ogni deroga è esplicita e REGISTRATA" style="text;html=1;fontSize=12;align=center;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="40" y="85" width="1560" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== FASE 0 ==================== -->
+        <mxCell id="band0" value="FASE 0 · INTAKE — niente lettura della codebase (risparmio)" style="rounded=0;fillColor=none;strokeColor=#b3b3b3;dashed=1;verticalAlign=top;align=left;fontStyle=1;fontSize=13;spacing=8;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="125" width="1100" height="215" as="geometry" />
+        </mxCell>
+        <mxCell id="t1" value="Ticketing (Productive)&lt;br&gt;CR / BUG — via connettore" style="rounded=1;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="60" y="165" width="190" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="t2" value="Helpdesk (Zammad)&lt;br&gt;contesto cliente — via connettore" style="rounded=1;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="60" y="250" width="190" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="h1" value="&lt;b&gt;HOOK/script&lt;/b&gt;: contract-check&lt;br&gt;connettori (auth + API + contratto)" style="rounded=1;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="300" y="165" width="210" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="s1" value="&lt;b&gt;STATO&lt;/b&gt;: flowState start&lt;br&gt;.ai-dev/tasks/&amp;lt;id&amp;gt;/state.json" style="rounded=1;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="300" y="250" width="210" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="a1" value="&lt;b&gt;sub-agent intake (haiku)&lt;/b&gt;&lt;br&gt;normalizza: tipo, priorità,&lt;br&gt;riferimenti, allegati" style="rounded=1;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="560" y="195" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="o1" value="Contesto richiesta&lt;br&gt;(fast-path: solo CANDIDATURA&lt;br&gt;dai segnali del ticket)" style="rounded=1;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="840" y="195" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="e01" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="t1" target="h1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e02" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="t2" target="h1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e03" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="h1" target="s1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e04" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="s1" target="a1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e05" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="a1" target="o1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ==================== FASE 1 ==================== -->
+        <mxCell id="band1" value="FASE 1 · SPECIFICA (tecnico-funzionale)" style="rounded=0;fillColor=none;strokeColor=#b3b3b3;dashed=1;verticalAlign=top;align=left;fontStyle=1;fontSize=13;spacing=8;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="360" width="1100" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="k1" value="&lt;b&gt;Architecture doc per-contesto&lt;/b&gt;&lt;br&gt;(letti PRIMA del codice;&lt;br&gt;drift segnalato SUBITO)" style="rounded=1;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="60" y="400" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="k2" value="Changelog + constraint&lt;br&gt;di progetto" style="rounded=1;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="60" y="490" width="220" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" value="&lt;b&gt;sub-agent spec-author (opus)&lt;/b&gt;&lt;br&gt;retrieval mirato · impact analysis&lt;br&gt;sul changelog · bozza spec +&lt;br&gt;domande sui buchi" style="rounded=1;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="330" y="410" width="250" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="q1" value="Intervista sui buchi&lt;br&gt;(registro Q&amp;amp;A)" style="rounded=1;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="630" y="400" width="180" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="fp1" value="Fast-path: PROPOSTA vera&lt;br&gt;(post-retrieval; per i BUG&lt;br&gt;post-riproduzione) — decide l'utente" style="rounded=1;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="630" y="480" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="g1" value="&lt;b&gt;GATE UMANO 1&lt;/b&gt;&lt;br&gt;Approvi la SPECIFICA?&lt;br&gt;(→ approve-gate spec)" style="rounded=1;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="860" y="400" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="gar1" value="&lt;b&gt;GARANTITO&lt;/b&gt;: spec → Spec Store&lt;br&gt;(record-spec) + commento sul&lt;br&gt;ticket (--comment) registrato" style="rounded=1;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="860" y="500" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="o1" target="a2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="k1" target="a2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="k2" target="a2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="a2" target="q1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;" edge="1" parent="1" source="a2" target="fp1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="q1" target="g1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e17" value="NO · raffina (soglie maxRefine)" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;fontSize=10;exitX=0.5;exitY=0;entryX=0.5;entryY=0;" edge="1" parent="1" source="g1" target="q1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e18" value="SÌ" style="edgeStyle=orthogonalEdgeStyle;html=1;fontStyle=1;" edge="1" parent="1" source="g1" target="gar1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ==================== FASE 2 ==================== -->
+        <mxCell id="band2" value="FASE 2 · IMPLEMENTAZIONE" style="rounded=0;fillColor=none;strokeColor=#b3b3b3;dashed=1;verticalAlign=top;align=left;fontStyle=1;fontSize=13;spacing=8;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="670" width="1100" height="360" as="geometry" />
+        </mxCell>
+        <mxCell id="p1" value="PIANO&lt;br&gt;approccio · file toccati · rischi" style="rounded=1;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="710" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="g2" value="&lt;b&gt;GATE UMANO 2&lt;/b&gt;&lt;br&gt;Approvi il PIANO?&lt;br&gt;(→ approve-gate plan)" style="rounded=1;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="310" y="710" width="190" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="b1" value="&lt;b&gt;BRANCH di lavoro&lt;/b&gt; (PRIMA dei commit)&lt;br&gt;&amp;lt;fix|feat&amp;gt;/&amp;lt;nome-esplicativo&amp;gt; da base scelto&lt;br&gt;→ stato (set-branch)" style="rounded=1;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="550" y="705" width="260" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" value="&lt;b&gt;sub-agent test-author (opus)&lt;/b&gt;&lt;br&gt;riceve SOLO la spec · deriva i test&lt;br&gt;dal contratto · li COMMITTA prima&lt;br&gt;del codice (prova: git history)" style="rounded=1;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="550" y="805" width="260" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="i1" value="&lt;b&gt;Implementazione&lt;/b&gt; (impl-runbook)&lt;br&gt;convenzioni DICHIARATE · contesto&lt;br&gt;minimo (spec+piano+arch doc) ·&lt;br&gt;NON tocca i test" style="rounded=1;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="860" y="805" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="h2" value="&lt;b&gt;HOOK preEditGuard + preBashGuard&lt;/b&gt;&lt;br&gt;test read-only (Edit E shell) · niente codice&lt;br&gt;senza spec+piano+branch · mai sul branch base" style="rounded=1;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="60" y="805" width="280" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="h3" value="&lt;b&gt;HOOK preWorkSnapshot&lt;/b&gt;&lt;br&gt;snapshot &quot;before&quot; sui dataProducingPaths&lt;br&gt;(decisione umana → stato)" style="rounded=1;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="60" y="915" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="g3" value="&lt;b&gt;GATE UMANO 3&lt;/b&gt; (rapido)&lt;br&gt;Occhiata al diff (→ approve-gate diff)" style="rounded=1;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="860" y="935" width="240" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="e21" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="gar1" target="p1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e22" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="p1" target="g2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e23" value="SÌ" style="edgeStyle=orthogonalEdgeStyle;html=1;fontStyle=1;" edge="1" parent="1" source="g2" target="b1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e24" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="b1" target="a3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e25" value="test blindati" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" parent="1" source="a3" target="i1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e26" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="i1" target="g3"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ==================== FASE 3 ==================== -->
+        <mxCell id="band3" value="FASE 3 · QUALITÀ — test dal PLAYBOOK dichiarato, mai inferiti" style="rounded=0;fillColor=none;strokeColor=#b3b3b3;dashed=1;verticalAlign=top;align=left;fontStyle=1;fontSize=13;spacing=8;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1050" width="1100" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="sel1" value="&lt;b&gt;test-selector&lt;/b&gt;: classifica il diff,&lt;br&gt;consulta flow.config.testPlaybook&lt;br&gt;(monorepo: --affected nativo)" style="rounded=1;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1095" width="240" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="a4" value="&lt;b&gt;sub-agent test-runner (haiku)&lt;/b&gt;&lt;br&gt;esegue i comandi ESATTI&lt;br&gt;e riporta fatti (pass/fail)" style="rounded=1;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="360" y="1095" width="230" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="d1" value="Tutti&lt;br&gt;verdi?" style="rhombus;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="650" y="1090" width="120" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="v1" value="&lt;b&gt;STATO&lt;/b&gt;: record-verification&lt;br&gt;(con HASH del diff verificato)" style="rounded=1;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="830" y="1100" width="230" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="h4" value="&lt;b&gt;HOOK Stop · postWorkVerification&lt;/b&gt;: il turno NON si chiude con modifiche coperte dal playbook e verifica assente/stantia.&lt;br&gt;Se il codice cambia dopo la verifica, il gate SI RI-ARMA da solo (hash del diff). Skip solo umano, motivato, registrato." style="rounded=1;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1210" width="1000" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="e31" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="g3" target="sel1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e32" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="sel1" target="a4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e33" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="a4" target="d1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e34" value="SÌ" style="edgeStyle=orthogonalEdgeStyle;html=1;fontStyle=1;" edge="1" parent="1" source="d1" target="v1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e35" value="NO · fix (i test non si toccano)" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;fontSize=10;exitX=0.5;exitY=0;entryX=1;entryY=0.5;" edge="1" parent="1" source="d1" target="i1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ==================== FASE 4 ==================== -->
+        <mxCell id="band4" value="FASE 4 · DOCUMENTAZIONE" style="rounded=0;fillColor=none;strokeColor=#b3b3b3;dashed=1;verticalAlign=top;align=left;fontStyle=1;fontSize=13;spacing=8;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1340" width="1100" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="k3" value="&lt;b&gt;Registro documentazione&lt;/b&gt;&lt;br&gt;documentation.docs: percorso +&lt;br&gt;AMBITO di ogni documento (dichiarato)" style="rounded=1;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1385" width="260" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="a5" value="&lt;b&gt;sub-agent doc-author (sonnet)&lt;/b&gt;&lt;br&gt;valutazione d'impatto COGNITIVA (ambiti, non path) ·&lt;br&gt;aggiorna architecture doc + doc impattati (solo presente,&lt;br&gt;mai storia) · voce di CHANGELOG (scelta + perché) ·&lt;br&gt;&quot;nessun impatto, perché…&quot; è un esito valido" style="rounded=1;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="380" y="1380" width="360" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="v2" value="&lt;b&gt;STATO&lt;/b&gt;: record-doc-review&lt;br&gt;+ record-changelog" style="rounded=1;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="800" y="1395" width="230" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="h5" value="&lt;b&gt;GUARDIANO di chiusura&lt;/b&gt;: senza doc-review + changelog + ticket registrati (o skip espliciti), il turno non si chiude." style="rounded=1;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1495" width="970" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e41" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="v1" target="a5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e42" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="k3" target="a5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e43" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="a5" target="v2"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ==================== FASE 5 ==================== -->
+        <mxCell id="band5" value="FASE 5 · CONSEGNA" style="rounded=0;fillColor=none;strokeColor=#b3b3b3;dashed=1;verticalAlign=top;align=left;fontStyle=1;fontSize=13;spacing=8;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1590" width="1100" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="pr1" value="&lt;b&gt;PR&lt;/b&gt;: branch di lavoro → branch base&lt;br&gt;(dallo stato; titolo dalla spec,&lt;br&gt;link a spec/changelog/ticket)" style="rounded=1;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1635" width="270" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="up1" value="&lt;b&gt;Ticket aggiornato&lt;/b&gt; via connettore&lt;br&gt;--update-status (Review/Done —&lt;br&gt;stato scelto dall'utente) — GARANTITO" style="rounded=1;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="390" y="1635" width="280" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="cl1" value="&lt;b&gt;STATO&lt;/b&gt;: flowState close&lt;br&gt;(lo state.json resta: audit trail)" style="rounded=1;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="730" y="1640" width="250" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="e51" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="v2" target="pr1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e52" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="pr1" target="up1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e53" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="up1" target="cl1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ==================== RAMO BUG ==================== -->
+        <mxCell id="bandBug" value="RAMO BUG (variante F1-F2) — TDD da regressione" style="rounded=0;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=left;fontStyle=1;fontSize=13;spacing=8;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1790" width="1100" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="r1" value="Riproduzione: caso minimo&lt;br&gt;(changelog per l'origine)&lt;br&gt;→ SOLO DOPO si valuta il fast-path" style="rounded=1;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1830" width="260" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="r2" value="&lt;b&gt;RED-test&lt;/b&gt; (test-author) che cattura il bug&lt;br&gt;→ fix → GREEN → il red-test entra&lt;br&gt;stabilmente nella suite di non-regression" style="rounded=1;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="380" y="1830" width="320" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="eb1" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="r1" target="r2"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ==================== SIDEBAR ==================== -->
+        <mxCell id="sb1" value="&lt;b&gt;STATO PER-TASK&lt;/b&gt;&lt;br&gt;.ai-dev/tasks/&amp;lt;id&amp;gt;/state.json — unico accesso: bin/flowState.mjs&lt;br&gt;&lt;br&gt;Registro di FATTI, non workflow engine: fase, gate approvati, branch+base, snapshot, verifiche (hash diff), doc-review, changelog, ticket, PR, DEROGHE motivate + log.&lt;br&gt;&lt;br&gt;★ Gli hook fanno rispettare i contratti di fase&lt;br&gt;★ Un task interrotto RIPRENDE da dov'era&lt;br&gt;★ Un collega può SUBENTRARE (stato committabile)&lt;br&gt;★ Sacrificabile: punta agli artefatti, non li contiene" style="rounded=1;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="360" width="420" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="sb2" value="&lt;b&gt;GUARDIANI (hook — scattano SEMPRE)&lt;/b&gt;&lt;br&gt;&lt;br&gt;• versionDrift (SessionStart): drift versione + task in corso, VISIBILI all'utente&lt;br&gt;• preEditGuard: test read-only · niente codice senza spec+piano+branch · mai sul branch base&lt;br&gt;• preBashGuard: test read-only anche via shell&lt;br&gt;• perimeterGuard: solo componenti del kit&lt;br&gt;• preWorkSnapshot: &quot;before&quot; sui dati, a codice pristino&lt;br&gt;• postWorkVerification (Stop): verifica per hash del diff + checklist di chiusura&lt;br&gt;&lt;br&gt;Ogni valvola di sfogo = skip umano, motivato, registrato." style="rounded=1;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="670" width="420" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="sb3" value="&lt;b&gt;PERIMETRO DELLO STANDARD (enforced)&lt;/b&gt;&lt;br&gt;&lt;br&gt;Nei progetti col kit si usano SOLO componenti del kit (+ Ponytail, abilitato dal kit). Skill personali e server MCP utente: BLOCCATI dall'hook.&lt;br&gt;Eccezioni: whitelist esplicite in flow.config.perimeter — decisione umana, committata." style="rounded=1;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="990" width="420" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="sb4" value="&lt;b&gt;AGENTI PER FASE — modello per natura del lavoro&lt;/b&gt;&lt;br&gt;&lt;br&gt;F0 intake → haiku (parsing meccanico)&lt;br&gt;F1 spec-author → opus (fase a più leverage)&lt;br&gt;F2 test-author → opus (test dal contratto, ISOLATO)&lt;br&gt;F3 test-runner → haiku (esegue e riporta)&lt;br&gt;F4 doc-author → sonnet (scrittura fedele)&lt;br&gt;F5 — (meccanica pura: script/hook)&lt;br&gt;&lt;br&gt;I sub-agent ricevono SOLO i loro input dichiarati (contratti fisici). I GATE restano SEMPRE all'orchestratore (skill flow): gli agenti preparano, l'utente decide." style="rounded=1;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="1180" width="420" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="sb5" value="&lt;b&gt;ENTRYPOINT: skill `flow`&lt;/b&gt;&lt;br&gt;&lt;br&gt;«Lavora su questo ticket» → l'orchestratore guida le 6 fasi leggendo lo stato: le fasi già registrate non si rifanno. Doctor invocabile in ogni momento. Risparmio: retrieval mirato, test solo su ciò che cambia, modelli per natura del lavoro, Ponytail per l'essenzialità." style="rounded=1;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="1490" width="420" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="sb6" value="&lt;b&gt;STRATI&lt;/b&gt;: processo, artefatti .md e regole = AGNOSTICI dal tool · skill/hook/agenti/connettori = strato ADATTATORE Claude Code, sottile e sostituibile." style="rounded=1;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="1700" width="420" height="100" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
