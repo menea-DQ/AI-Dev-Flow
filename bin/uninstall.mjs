@@ -19,6 +19,7 @@ import { readFile, writeFile, rm, readdir, access } from 'node:fs/promises';
 import { constants as fsConstants, createReadStream } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
+import { escapeForRegExp } from '../lib/common.mjs';
 
 const MARKER_START = '<!-- ai-dev-flow:start -->';
 const MARKER_END = '<!-- ai-dev-flow:end -->';
@@ -66,10 +67,6 @@ async function hashOfFile(targetPath) {
     stream.on('data', (chunk) => hash.update(chunk));
     stream.on('end', () => resolveHash(hash.digest('hex')));
   });
-}
-
-function escapeForRegExp(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 async function run() {

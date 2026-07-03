@@ -25,6 +25,7 @@ import { execSync } from 'node:child_process';
 import { join, dirname, basename, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { telemetryEnvPairs } from '../lib/common.mjs';
 
 const KIT_ROOT_DEFAULT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MARKER_START = '<!-- ai-dev-flow:start -->';
@@ -349,20 +350,6 @@ async function enablePluginsForProject(installer, projectRoot, kitRoot, mergedCo
   }
   console.log(`Abilitati SOLO in questo progetto: ${enabledPluginKeys.join(', ')} (modalità Ponytail: ${ponytailMode}).`);
   return { relPath: '.claude/settings.json', fileCreatedByUs: !settingsExisted, enabledPluginKeys, marketplaceNames, envKeys };
-}
-
-function telemetryEnvPairs(telemetry, projectName) {
-  return {
-    CLAUDE_CODE_ENABLE_TELEMETRY: '1',
-    OTEL_METRICS_EXPORTER: 'otlp',
-    OTEL_LOGS_EXPORTER: 'otlp',
-    OTEL_EXPORTER_OTLP_PROTOCOL: telemetry.otlpProtocol ?? 'http/protobuf',
-    OTEL_EXPORTER_OTLP_ENDPOINT: telemetry.otlpEndpoint,
-    OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: 'cumulative',
-    OTEL_SERVICE_NAME: telemetry.serviceName ?? 'ai-dev-flow',
-    OTEL_RESOURCE_ATTRIBUTES: `project.name=${projectName}`,
-    OTEL_METRIC_EXPORT_INTERVAL: '10000',
-  };
 }
 
 function buildTelemetryEnvrcBlock(telemetry, projectName) {

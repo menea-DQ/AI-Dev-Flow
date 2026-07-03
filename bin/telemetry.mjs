@@ -12,6 +12,7 @@
 
 import { readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { join, resolve, basename } from 'node:path';
+import { escapeForRegExp, telemetryEnvPairs } from '../lib/common.mjs';
 
 const ENVRC_BLOCK_START = '# >>> ai-dev-flow telemetry >>>';
 const ENVRC_BLOCK_END = '# <<< ai-dev-flow telemetry <<<';
@@ -31,24 +32,6 @@ function parseArguments(argv) {
     }
   }
   return parsed;
-}
-
-function telemetryEnvPairs(telemetry, projectName) {
-  return {
-    CLAUDE_CODE_ENABLE_TELEMETRY: '1',
-    OTEL_METRICS_EXPORTER: 'otlp',
-    OTEL_LOGS_EXPORTER: 'otlp',
-    OTEL_EXPORTER_OTLP_PROTOCOL: telemetry.otlpProtocol ?? 'http/protobuf',
-    OTEL_EXPORTER_OTLP_ENDPOINT: telemetry.otlpEndpoint,
-    OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: 'cumulative',
-    OTEL_SERVICE_NAME: telemetry.serviceName ?? 'ai-dev-flow',
-    OTEL_RESOURCE_ATTRIBUTES: `project.name=${projectName}`,
-    OTEL_METRIC_EXPORT_INTERVAL: '10000',
-  };
-}
-
-function escapeForRegExp(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function removeEnvrcBlock(envrcPath) {

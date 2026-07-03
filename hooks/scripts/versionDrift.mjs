@@ -7,6 +7,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { compareSemver } from '../../lib/common.mjs';
 
 const projectDirectory = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
@@ -63,14 +64,3 @@ process.stdout.write(`${JSON.stringify({
   },
 })}\n`);
 process.exit(0);
-
-function compareSemver(left, right) {
-  const a = left.split('.').map((part) => Number.parseInt(part, 10));
-  const b = right.split('.').map((part) => Number.parseInt(part, 10));
-  for (let index = 0; index < 3; index += 1) {
-    if ((a[index] ?? 0) !== (b[index] ?? 0)) {
-      return (a[index] ?? 0) < (b[index] ?? 0) ? -1 : 1;
-    }
-  }
-  return 0;
-}
