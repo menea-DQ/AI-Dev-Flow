@@ -40,12 +40,12 @@ Il sequencer dice COSA; il COME delle fasi è questo:
   (+ helpdesk referenziato), normalizzazione col sub-agent **intake**. Niente codebase.
   Fast-path: solo candidatura.
 - **F1 Specifica** — sub-agent **spec-author** (passagli: contesto richiesta, path architecture
-  doc, constraint, changelog). Fai TU le domande sui buchi (registro Q&A) e presenta TU il
-  GATE 1. Fast-path: se spec-author lo propone (post-retrieval; BUG: post-riproduzione), chiedi
+  doc, constraint, changelog). Fai TU le domande sui buchi (registro Q&A, struttura in
+  `templates/qa-log.md`) e presenta TU il GATE 1. Fast-path: se spec-author lo propone (post-retrieval; BUG: post-riproduzione), chiedi
   all'utente con AskUserQuestion spiegando cosa salta; se accetta:
   `record-override --gate fast-path --reason "<scelta utente>"`.
   RAMO BUG: prima della spec, riproduci il bug (caso minimo, changelog per l'origine).
-- **F2 Piano/branch/test/codice** — piano al GATE 2; branch `<fix|feat>/<nome>` (chiedi base e
+- **F2 Piano/branch/test/codice** — piano al GATE 2 (struttura in `templates/plan.md`); branch `<fix|feat>/<nome>` (chiedi base e
   nome); sub-agent **test-author** con SOLO la spec (committa i test — ramo BUG: il red-test);
   implementazione secondo impl-runbook; diff al GATE 3.
 - **F3 Qualità** — skill test-selector (dal playbook, mai inventare) + sub-agent **test-runner**

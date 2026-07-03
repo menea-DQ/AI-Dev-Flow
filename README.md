@@ -3,7 +3,7 @@
 Plugin Claude Code per uno sviluppo software AI-assistito (human-in-the-loop), **abilitabile e
 configurabile per singolo progetto**.
 
-> Versione **0.0.8** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
+> Versione **0.1.0** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
 > possono introdurre cambiamenti non retro-compatibili (convenzione semver per le 0.x).
 
 ## Cos'è
@@ -29,9 +29,10 @@ loop `next → esegui → registra`, non decide la sequenza a memoria (niente si
 cognitivo). E l'abbandono di un task è governato: `flowState.mjs abort --reason` chiude lo stato
 ed elenca le compensazioni (branch da eliminare, ticket da annotare).
 
-È confezionato come **plugin Claude Code**: il processo, le skill e i template restano agnostici nel
-contenuto; il plugin è l'adattatore per Claude Code (skill invocabili + hook di qualità). Si abilita
-**per singolo progetto**, mai globalmente: skill e hook sono attivi solo nei progetti che lo abilitano.
+È confezionato come **plugin Claude Code**: il processo, gli artefatti e i template restano agnostici
+nel contenuto; il **plugin** (skill, hook, agenti, connettori) è lo strato adattatore per Claude Code.
+Si abilita **per singolo progetto**, mai globalmente: skill e hook sono attivi solo nei progetti che
+lo abilitano.
 
 ## Installare su un progetto
 
@@ -85,7 +86,7 @@ necessario). Quando `flow.config.tokenEconomy.ponytail` ≠ `"off"`, l'install *
 per-progetto** insieme al kit (stesso meccanismo `enabledPlugins`/`extraKnownMarketplaces`). La
 modalità (`lite`|`full`|`ultra`) segue quel flag; l'impl-runbook la allinea con `/ponytail <modalità>`.
 
-## Telemetria (Fase 2)
+## Telemetria
 
 I dati di costo/uso accurati vengono solo dall'**OpenTelemetry nativo** di Claude Code (gli hook non li
 espongono). Il kit quindi **non usa DB o connettori custom**: abilita l'OTEL **per-progetto** e lo manda
@@ -160,8 +161,9 @@ AI-Dev-Flow/                     radice = marketplace + plugin
 ## Documentazione di design
 
 In [`docs/`](docs/) trovi il **manuale di progetto** (architettura, fasi, contratti, esempi d'uso —
-il documento da cui partire), la gap analysis (razionale delle scelte 0.0.7), la presentazione per
-il team (`.pptx`) e i diagrammi di processo (`.drawio`, corrente: V5).
+il documento da cui partire) e il diagramma di processo corrente (`AI Dev Flow V5.drawio`). Gli
+artefatti storici e di lavoro (gap analysis chiusa, presentazione per il team `.pptx`, diagramma V4)
+sono in [`docs/archive/`](docs/archive/).
 
 ## Note tecniche sul manifest del plugin
 

@@ -14,6 +14,7 @@ import { constants as fsConstants } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pathToFileURL } from 'node:url';
+import { compareSemver } from '../lib/common.mjs';
 
 const KIT_ROOT_DEFAULT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -38,21 +39,6 @@ async function pathExists(targetPath) {
   } catch {
     return false;
   }
-}
-
-function parseSemver(version) {
-  return version.split('.').map((part) => Number.parseInt(part, 10));
-}
-
-function compareSemver(left, right) {
-  const a = parseSemver(left);
-  const b = parseSemver(right);
-  for (let index = 0; index < 3; index += 1) {
-    if ((a[index] ?? 0) !== (b[index] ?? 0)) {
-      return (a[index] ?? 0) < (b[index] ?? 0) ? -1 : 1;
-    }
-  }
-  return 0;
 }
 
 async function discoverMigrations(kitRoot) {

@@ -1,6 +1,6 @@
 # AI-Dev Flow — Processo
-process-version: 0.0.8
-compatibile-con: ">=0.0.1 <0.1.0"
+process-version: 0.1.0
+compatibile-con: ">=0.0.1 <0.2.0"
 
 ## Principio fondante
 L'AI esegue, la persona decide nei punti chiave (human-in-the-loop).

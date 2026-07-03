@@ -1,8 +1,14 @@
 [
   {
-    "user_email": "massimiliano.enea@donq.io",
+    "user_email": "utente.abbonamento@example.com",
     "plan": "max",
     "billing_type": "subscription",
     "monthly_cost_usd": 200
+  },
+  {
+    "user_email": "utente.apikey@example.com",
+    "plan": "api",
+    "billing_type": "api_key",
+    "monthly_cost_usd": 0
   }
 ]
