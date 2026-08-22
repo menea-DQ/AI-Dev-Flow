@@ -3,7 +3,7 @@
 Plugin Claude Code per uno sviluppo software AI-assistito (human-in-the-loop), **abilitabile e
 configurabile per singolo progetto**.
 
-> Versione **0.1.0** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
+> Versione **0.2.0** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
 > possono introdurre cambiamenti non retro-compatibili (convenzione semver per le 0.x).
 
 ## Cos'è
@@ -28,6 +28,19 @@ Dalla **0.0.8** anche la *direzione* del flusso è deterministica: il **sequence
 loop `next → esegui → registra`, non decide la sequenza a memoria (niente single-point-of-failure
 cognitivo). E l'abbandono di un task è governato: `flowState.mjs abort --reason` chiude lo stato
 ed elenca le compensazioni (branch da eliminare, ticket da annotare).
+
+Dalla **0.2.0** il flusso è anche **economico per costruzione**: il costo di un task non cresce col
+numero di task già svolti. Changelog e specifiche hanno una **parte normativa breve** che le fasi a
+valle leggono (testa «Vincolante» con tetto di 15 righe; parte normativa della spec autosufficiente)
+e una **narrativa** che si scrive sempre ma non si rilegge per intero; le **misure** si citano dalla
+fonte primaria (gli input di Fase 0 in `.ai-dev/tasks/<id>/inputs/`, ora nel contratto d'ingresso
+della Fase 1); ogni clausola della spec passa un **controllo di osservabilità** prima del gate (il
+test-author lavora alla cieca: ciò che non è osservabile diventerebbe un secondo passaggio della
+fase più cara); il **tier del modello** dichiarato nel frontmatter degli agenti non si sovrascrive
+alla chiamata. Nei progetti **senza git**, l'inventario del GATE 3 si ottiene per confronto con un
+manifest catturato a codice intatto (`flowState.mjs record-manifest` / `diff-manifest`), non con una
+ricerca a timestamp. Nessun presidio è stato rimosso: i sub-agent isolati, i tre gate umani e la
+Fase 4 come revisione restano invariati.
 
 È confezionato come **plugin Claude Code**: il processo, gli artefatti e i template restano agnostici
 nel contenuto; il **plugin** (skill, hook, agenti, connettori) è lo strato adattatore per Claude Code.
@@ -148,9 +161,11 @@ AI-Dev-Flow/                     radice = marketplace + plugin
 ├── connectors/                  connettori pronti (lettura + scritture --update-status/--comment)
 ├── telemetry/                   stack OTLP + Grafana (docker-compose) per la telemetria
 ├── migrations/                  migrazioni di formato versionate (<from>-to-<to>.mjs) + convenzione
-├── templates/                   modelli degli artefatti (spec, plan, changelog, architecture, …)
+├── templates/                   modelli degli artefatti (spec e changelog in due parti: normativa
+│                                + narrativa; plan, architecture, qa-log, AGENT)
 ├── bin/
 │   ├── flowState.mjs            stato per-task (libreria + CLI) + sequencer `next` + `abort`
+│   │                            + manifest "prima" per i progetti senza git (record/diff-manifest)
 │   ├── telemetry.mjs            riallineamento blocchi OTEL (.envrc/settings) ↔ flow.config
 │   ├── install.mjs              installer deterministico per-progetto (scrive un manifest)
 │   ├── uninstall.mjs            disinstaller per-progetto (legge il manifest, ripulisce)
@@ -161,7 +176,9 @@ AI-Dev-Flow/                     radice = marketplace + plugin
 ## Documentazione di design
 
 In [`docs/`](docs/) trovi il **manuale di progetto** (architettura, fasi, contratti, esempi d'uso —
-il documento da cui partire) e il diagramma di processo corrente (`AI Dev Flow V5.drawio`). Gli
+il documento da cui partire), il diagramma di processo corrente (`AI Dev Flow V5.drawio`) e la
+**proposta di riduzione costi** da cui nasce la 0.2.0 (`proposta-riduzione-costi.md`: le misure di
+un task reale, la diagnosi e i sei interventi). Gli
 artefatti storici e di lavoro (gap analysis chiusa, presentazione per il team `.pptx`, diagramma V4)
 sono in [`docs/archive/`](docs/archive/).
 

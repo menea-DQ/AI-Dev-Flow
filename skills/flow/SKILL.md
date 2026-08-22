@@ -40,14 +40,22 @@ Il sequencer dice COSA; il COME delle fasi è questo:
   (+ helpdesk referenziato), normalizzazione col sub-agent **intake**. Niente codebase.
   Fast-path: solo candidatura.
 - **F1 Specifica** — sub-agent **spec-author** (passagli: contesto richiesta, path architecture
-  doc, constraint, changelog). Fai TU le domande sui buchi (registro Q&A, struttura in
-  `templates/qa-log.md`) e presenta TU il GATE 1. Fast-path: se spec-author lo propone (post-retrieval; BUG: post-riproduzione), chiedi
+  doc, constraint, changelog, e il percorso di `.ai-dev/tasks/<task-id>/inputs/` — più gli
+  `inputs/` dei task precedenti dello stesso ticket, quando esistono: sono la fonte primaria
+  delle misure, non farle ricostruire di seconda mano). Fai TU le domande sui buchi (registro
+  Q&A, struttura in `templates/qa-log.md`) e presenta TU il GATE 1. Fast-path: se spec-author lo propone (post-retrieval; BUG: post-riproduzione), chiedi
   all'utente con AskUserQuestion spiegando cosa salta; se accetta:
   `record-override --gate fast-path --reason "<scelta utente>"`.
   RAMO BUG: prima della spec, riproduci il bug (caso minimo, changelog per l'origine).
 - **F2 Piano/branch/test/codice** — piano al GATE 2 (struttura in `templates/plan.md`); branch `<fix|feat>/<nome>` (chiedi base e
   nome); sub-agent **test-author** con SOLO la spec (committa i test — ramo BUG: il red-test);
   implementazione secondo impl-runbook; diff al GATE 3.
+  PROGETTI SENZA GIT (deroga `branch` registrata): non c'è diff, quindi l'inventario del GATE 3
+  si costruisce per CONFRONTO, non a memoria e non con una `find -newermt` a timestamp indovinato.
+  All'inizio della fase, da codice ancora intatto: `flowState.mjs record-manifest` (scrive
+  `.ai-dev/tasks/<task-id>/manifest-before.txt` e registra il fatto). Al GATE 3:
+  `flowState.mjs diff-manifest` per l'elenco di nuovi/modificati/rimossi. È il sequencer a
+  pretendere il manifest prima di dare il GATE 3 per approvabile.
 - **F3 Qualità** — skill test-selector (dal playbook, mai inventare) + sub-agent **test-runner**
   (comandi esatti + snapshot ref). Rossi → si torna all'implementazione; i test non si toccano.
 - **F4 Documentazione** — sub-agent **doc-author** (spec, diff, registro
@@ -59,6 +67,15 @@ Il sequencer dice COSA; il COME delle fasi è questo:
 
 - Regola del 98% sempre; i 3 gate non si saltano MAI senza scelta esplicita dell'utente.
 - I sub-agent preparano, TU presenti ai gate, l'utente decide, TU registri. Nessun gate delegato.
+- **Non passare MAI il parametro `model` quando invochi un sub-agent.** Il tier è dichiarato nel
+  frontmatter di ciascun agente (`haiku` per `intake` e `test-runner`, `sonnet` per `doc-author`,
+  `opus` per `spec-author` e `test-author`) ed è tarato sul lavoro che quella fase fa. Il parametro
+  della chiamata SOVRASCRIVE il frontmatter: passarlo, anche "per sicurezza", disattiva il tiering.
+  Se ritieni che un tier sia sbagliato, la correzione è nel frontmatter dell'agente, non nella
+  chiamata.
+- Se l'utente RIFIUTA una delega a un sub-agent, non forzarla: DICHIARA il costo di svolgere quel
+  lavoro in linea (gira sul modello del thread principale, quindi una fase tarata su un modello
+  economico la paghi al tier più alto) e procedi solo dopo che l'utente ha scelto in chiaro.
 - Ogni skip/deroga passa da `record-override`/`--reason`: auditabile, mai silenziosa.
 - Se un hook ti blocca, NON aggirarlo: fai ciò che l'istruzione del blocco dice.
 - Perimetro: usa SOLO i componenti del kit — l'hook di perimetro blocca il resto.

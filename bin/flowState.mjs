@@ -20,6 +20,8 @@
 //   node flowState.mjs approve-gate <spec|plan|diff>
 //   node flowState.mjs record-spec --path <relPath>
 //   node flowState.mjs set-branch --name <branch> --base <base>
+//   node flowState.mjs record-manifest      ← manifest "prima" dei progetti SENZA git (inventario del GATE 3)
+//   node flowState.mjs diff-manifest        ← confronto manifest vs stato corrente: nuovi/modificati/rimossi
 //   node flowState.mjs record-snapshot --status <captured|skipped> [--reason <r>]
 //   node flowState.mjs record-verification --status <done|skipped> [--tests <csv>] [--reason <r>]
 //   node flowState.mjs record-doc-review --status <done|none-impacted|skipped> [--docs <csv>] [--reason <r>]
@@ -29,11 +31,12 @@
 //   node flowState.mjs record-override --gate <nome> --reason <r>
 // Tutti i comandi accettano [--project <path>] (default: cwd) e [--task <id>] (default: ACTIVE).
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, readdirSync, statSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { join, dirname } from 'node:path';
+import { join, dirname, relative, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { readFlowConfig, matchesAnyPattern } from '../lib/common.mjs';
 
 export const STATE_VERSION = 1;
 export const PHASES = ['intake', 'spec', 'plan', 'implementation', 'quality', 'documentation', 'delivery', 'done', 'aborted'];
@@ -100,8 +103,8 @@ export function appendLog(state, event) {
 // il codice cambia ancora, l'hash cambia e il gate di verifica si ri-arma (GAP-05).
 export function currentDiffHash(projectRoot) {
   try {
-    const status = execSync('git status --porcelain --untracked-files=all', { cwd: projectRoot, encoding: 'utf8' });
-    const diff = execSync('git diff HEAD', { cwd: projectRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    const status = execSync('git status --porcelain --untracked-files=all', { cwd: projectRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const diff = execSync('git diff HEAD', { cwd: projectRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] });
     return createHash('sha256').update(status).update(diff).digest('hex');
   } catch {
     return null;
@@ -110,7 +113,7 @@ export function currentDiffHash(projectRoot) {
 
 export function currentGitBranch(projectRoot) {
   try {
-    return execSync('git rev-parse --abbrev-ref HEAD', { cwd: projectRoot, encoding: 'utf8' }).trim();
+    return execSync('git rev-parse --abbrev-ref HEAD', { cwd: projectRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   } catch {
     return null;
   }
@@ -118,6 +121,114 @@ export function currentGitBranch(projectRoot) {
 
 export function hasOverride(state, gateName) {
   return (state?.overrides ?? []).some((entry) => entry.gate === gateName);
+}
+
+// ————— Manifest "prima" (progetti SENZA git) —————
+// Senza git il GATE 3 non ha un diff: l'inventario di ciò che il task ha toccato va costruito per
+// CONFRONTO con uno stato registrato PRIMA del lavoro, non con una `find -newermt` a timestamp
+// indovinato (che sbaglia il taglio e pesca i file del task precedente). Stessa logica dello
+// snapshot "before" sui dati: la finestra per catturarlo è mentre il codice è ancora intatto.
+
+const MANIFEST_FILE = 'manifest-before.txt';
+
+// Esclusioni di default: ciò che non è "lavoro del task" (dipendenze, build, metadati, stato del
+// flusso stesso). Sovrascrivibili con branching.manifestExclude in flow.config.json.
+export const MANIFEST_DEFAULT_EXCLUDE = [
+  '.git/**',
+  'node_modules/**',
+  '.ai-dev/tasks/**',
+  'dist/**',
+  'build/**',
+  'coverage/**',
+  '**/.DS_Store',
+  '**/*.log',
+];
+
+export function manifestPath(projectRoot, taskId) {
+  return join(tasksDirectory(projectRoot), sanitizeTaskId(taskId), MANIFEST_FILE);
+}
+
+export function manifestSettings(projectRoot) {
+  const branching = readFlowConfig(projectRoot).branching ?? {};
+  return {
+    paths: Array.isArray(branching.manifestPaths) && branching.manifestPaths.length > 0 ? branching.manifestPaths : ['.'],
+    exclude: Array.isArray(branching.manifestExclude) ? branching.manifestExclude : MANIFEST_DEFAULT_EXCLUDE,
+  };
+}
+
+function toPosix(relativePath) {
+  return sep === '/' ? relativePath : relativePath.split(sep).join('/');
+}
+
+function toRelativeProjectPath(projectRoot, absolutePath) {
+  return toPosix(relative(projectRoot, absolutePath));
+}
+
+// Raccoglie {percorso relativo → hash del contenuto} sotto le directory dichiarate.
+export function collectManifest(projectRoot, settings) {
+  const { paths, exclude } = settings;
+  const entries = new Map();
+
+  const visit = (absolutePath) => {
+    const relativePath = toPosix(relative(projectRoot, absolutePath));
+    if (relativePath !== '' && matchesAnyPattern(relativePath, exclude)) {
+      return;
+    }
+    let stats;
+    try {
+      stats = statSync(absolutePath);
+    } catch {
+      return; // link rotto o file svanito durante la scansione: non è un fatto del task
+    }
+    if (stats.isDirectory()) {
+      for (const child of readdirSync(absolutePath)) {
+        visit(join(absolutePath, child));
+      }
+      return;
+    }
+    if (!stats.isFile()) {
+      return;
+    }
+    try {
+      entries.set(relativePath, createHash('sha256').update(readFileSync(absolutePath)).digest('hex'));
+    } catch {
+      // illeggibile: meglio ometterlo che far fallire l'inventario
+    }
+  };
+
+  for (const declaredPath of paths) {
+    const absolutePath = join(projectRoot, declaredPath);
+    if (existsSync(absolutePath)) {
+      visit(absolutePath);
+    }
+  }
+  return entries;
+}
+
+export function serializeManifest(entries) {
+  return [...entries.keys()].sort().map((relativePath) => `${entries.get(relativePath)}  ${relativePath}`).join('\n');
+}
+
+export function parseManifest(text) {
+  const entries = new Map();
+  for (const line of String(text).split('\n')) {
+    if (line.startsWith('#') || line.trim() === '') {
+      continue;
+    }
+    const separatorIndex = line.indexOf('  ');
+    if (separatorIndex > 0) {
+      entries.set(line.slice(separatorIndex + 2), line.slice(0, separatorIndex));
+    }
+  }
+  return entries;
+}
+
+// L'inventario del GATE 3: differenza fra il manifest registrato e lo stato corrente del progetto.
+export function compareManifest(before, after) {
+  const added = [...after.keys()].filter((path) => !before.has(path)).sort();
+  const removed = [...before.keys()].filter((path) => !after.has(path)).sort();
+  const modified = [...after.keys()].filter((path) => before.has(path) && before.get(path) !== after.get(path)).sort();
+  return { added, modified, removed };
 }
 
 // ————— Il sequencer deterministico (comando `next`) —————
@@ -169,11 +280,22 @@ export function nextStep(state, projectRoot) {
       record: `ad approvazione dell'utente: ${cli} approve-gate plan`,
     };
   }
-  if (!state.branch?.name) {
+  if (!state.branch?.name && !hasOverride(state, 'branch')) {
     return {
       phase: 'F2 · Branch',
-      action: 'Crea il branch di lavoro PRIMA di ogni commit: chiedi all\'utente il branch base e proponi <fix|feat>/<nome-breve-esplicativo> (nome custom ammesso). Poi: git checkout -b <branch>.',
+      action: 'Crea il branch di lavoro PRIMA di ogni commit: chiedi all\'utente il branch base e proponi <fix|feat>/<nome-breve-esplicativo> (nome custom ammesso). Poi: git checkout -b <branch>.'
+        + (currentGitBranch(projectRoot) === null ? ' — ATTENZIONE: qui non c\'è un repository git. Se il progetto non ne ha uno, la deroga va registrata: record-override --gate branch --reason "<motivo dell\'utente>".' : ''),
       record: `${cli} set-branch --name <branch> --base <base>`,
+    };
+  }
+  // Senza git il GATE 3 non ha un diff: l'inventario si costruisce per confronto con un manifest
+  // catturato da codice ancora intatto (prima anche dei test del test-author).
+  const withoutGit = hasOverride(state, 'branch') || currentGitBranch(projectRoot) === null;
+  if (withoutGit && !state.manifest) {
+    return {
+      phase: 'F2 · Manifest "prima" (progetto senza git)',
+      action: 'Registra ORA il manifest dello stato "prima", mentre il codice è ancora intatto: è ciò che rende l\'inventario del GATE 3 un CONFRONTO invece di una find con un timestamp indovinato.',
+      record: `${cli} record-manifest`,
     };
   }
   if (!state.testsAuthored && !hasOverride(state, 'fast-path')) {
@@ -186,7 +308,7 @@ export function nextStep(state, projectRoot) {
   if (!state.gates?.diff) {
     return {
       phase: 'F2 · Implementazione',
-      action: 'Implementa (impl-runbook: convenzioni dichiarate, contesto minimo, test intoccabili) e presenta il diff al GATE UMANO 3.',
+      action: `Implementa (impl-runbook: convenzioni dichiarate, contesto minimo, test intoccabili) e presenta ${withoutGit ? 'l\'inventario dei file toccati al GATE UMANO 3: ottienilo con `diff-manifest` (confronto col manifest "prima"), non con una find a timestamp' : 'il diff al GATE UMANO 3'}.`,
       record: `ad approvazione dell'utente: ${cli} approve-gate diff`,
     };
   }
@@ -247,6 +369,7 @@ export function newTaskState({ id, type, title, connector, reference }) {
     spec: null,
     branch: null,
     testsAuthored: null,
+    manifest: null,
     snapshot: null,
     verification: null,
     aborted: null,
@@ -353,6 +476,54 @@ function runCli() {
       }
       return;
     }
+    case 'record-manifest': {
+      const settings = manifestSettings(projectRoot);
+      const entries = collectManifest(projectRoot, settings);
+      const target = manifestPath(projectRoot, state.task.id);
+      const header = [
+        `# AI-Dev Flow — manifest "prima" del task ${state.task.id}`,
+        `# catturato: ${new Date().toISOString()}`,
+        `# radici: ${settings.paths.join(', ')}`,
+        `# esclusioni: ${settings.exclude.join(', ')}`,
+        '# formato: <sha256>  <percorso relativo>',
+      ].join('\n');
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, `${header}\n${serializeManifest(entries)}\n`, 'utf8');
+      state.manifest = {
+        path: toRelativeProjectPath(projectRoot, target),
+        files: entries.size,
+        paths: settings.paths,
+        at: new Date().toISOString(),
+      };
+      appendLog(state, `manifest "prima" catturato: ${entries.size} file (${state.manifest.path})`);
+      saveTaskState(projectRoot, state);
+      console.log(`Manifest "prima" registrato: ${entries.size} file sotto ${settings.paths.join(', ')} → ${state.manifest.path}`);
+      console.log('Al GATE 3 ottieni l\'inventario con: flowState.mjs diff-manifest');
+      return;
+    }
+    case 'diff-manifest': {
+      if (!state.manifest) {
+        failCli('Nessun manifest "prima" registrato per questo task. Catturalo con: flowState.mjs record-manifest (va fatto da codice intatto: a lavoro iniziato la finestra è persa).');
+      }
+      const target = manifestPath(projectRoot, state.task.id);
+      if (!existsSync(target)) {
+        failCli(`Manifest registrato nello stato ma file assente: ${target}. L'inventario per confronto non è ricostruibile.`);
+      }
+      const before = parseManifest(readFileSync(target, 'utf8'));
+      const after = collectManifest(projectRoot, manifestSettings(projectRoot));
+      const { added, modified, removed } = compareManifest(before, after);
+      console.log(`Inventario per confronto col manifest "prima" (${state.manifest.at}):`);
+      console.log(`  nuovi (${added.length}):`);
+      added.forEach((path) => console.log(`    + ${path}`));
+      console.log(`  modificati (${modified.length}):`);
+      modified.forEach((path) => console.log(`    ~ ${path}`));
+      console.log(`  rimossi (${removed.length}):`);
+      removed.forEach((path) => console.log(`    - ${path}`));
+      if (added.length + modified.length + removed.length === 0) {
+        console.log('  (nessuna differenza: il progetto è identico al manifest "prima")');
+      }
+      return;
+    }
     case 'record-tests-authored': {
       state.testsAuthored = { at: new Date().toISOString() };
       appendLog(state, 'test scritti e committati dal test-author (prima del codice)');
@@ -374,6 +545,9 @@ function runCli() {
         console.log(`  • annotare il ticket: node "\${CLAUDE_PLUGIN_ROOT}/connectors/${state.task.connector}.mjs" --comment "${state.task.reference ?? state.task.id}" "Task abbandonato: ${reason}"`);
       }
       console.log('  • se era stato catturato uno snapshot "before", può essere rimosso.');
+      if (state.manifest?.path) {
+        console.log(`  • il manifest "prima" (${state.manifest.path}) non serve più: può essere rimosso.`);
+      }
       return;
     }
     case 'set-phase': {

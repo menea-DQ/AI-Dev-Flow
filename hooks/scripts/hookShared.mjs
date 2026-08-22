@@ -1,8 +1,13 @@
 // Utilities condivise dagli hook di AI-Dev Flow (plugin Claude Code).
 // Nessuna dipendenza esterna: leggono lo stdin JSON di Claude Code e la flow.config.json del progetto.
 
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { globToRegExp, matchesAnyPattern, readFlowConfig } from '../../lib/common.mjs';
+
+// Il matcher glob vive in lib/common.mjs (lo usa anche bin/flowState.mjs): qui si ri-esporta,
+// così i call site degli hook restano invariati e il comportamento è uno solo.
+export { globToRegExp, matchesAnyPattern };
 
 export function isFlowProject() {
   return existsSync(join(projectDirectory(), 'flow.config.json'));
@@ -31,15 +36,7 @@ export function projectDirectory() {
 }
 
 export function loadFlowConfig() {
-  const configPath = join(projectDirectory(), 'flow.config.json');
-  if (!existsSync(configPath)) {
-    return {};
-  }
-  try {
-    return JSON.parse(readFileSync(configPath, 'utf8'));
-  } catch {
-    return {};
-  }
+  return readFlowConfig(projectDirectory());
 }
 
 export function toRelativePath(absoluteOrRelativePath) {
@@ -51,46 +48,6 @@ export function toRelativePath(absoluteOrRelativePath) {
     return absoluteOrRelativePath.slice(root.length + 1);
   }
   return absoluteOrRelativePath;
-}
-
-export function globToRegExp(glob) {
-  const regexSpecials = '.+^${}()|[]\\/';
-  let body = '';
-  let index = 0;
-  while (index < glob.length) {
-    const character = glob[index];
-    if (character === '*') {
-      if (glob[index + 1] === '*') {
-        if (glob[index + 2] === '/') {
-          body += '(?:.*/)?';
-          index += 3;
-        } else {
-          body += '.*';
-          index += 2;
-        }
-      } else {
-        body += '[^/]*';
-        index += 1;
-      }
-    } else if (character === '?') {
-      body += '[^/]';
-      index += 1;
-    } else if (regexSpecials.includes(character)) {
-      body += `\\${character}`;
-      index += 1;
-    } else {
-      body += character;
-      index += 1;
-    }
-  }
-  return new RegExp(`^${body}$`);
-}
-
-export function matchesAnyPattern(relativePath, patterns) {
-  if (!relativePath || !Array.isArray(patterns)) {
-    return false;
-  }
-  return patterns.some((pattern) => globToRegExp(pattern).test(relativePath));
 }
 
 export function markerPath(kind, sessionId) {

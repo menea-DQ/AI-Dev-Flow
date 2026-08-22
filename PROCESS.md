@@ -1,6 +1,6 @@
 # AI-Dev Flow — Processo
-process-version: 0.1.0
-compatibile-con: ">=0.0.1 <0.2.0"
+process-version: 0.2.0
+compatibile-con: ">=0.2.0 <0.3.0"
 
 ## Principio fondante
 L'AI esegue, la persona decide nei punti chiave (human-in-the-loop).
@@ -47,6 +47,23 @@ Un task si può abbandonare solo per scelta umana motivata: `flowState.mjs abort
 Lo stato si chiude e resta come audit trail; il comando elenca le COMPENSAZIONI da proporre
 (eliminare il branch di lavoro, annotare il ticket via --comment, ripulire lo snapshot).
 
+## Economia del contesto (il costo non deve crescere col numero di task)
+Il costo di un task non deve dipendere da quanti task sono già stati svolti. Ciò che lo fa crescere
+è la RILETTURA: artefatti che si allungano a ogni incremento e che ogni fase rilegge per intero, in
+contesti isolati che non condividono nulla. Da qui quattro regole strutturali:
+- Ogni artefatto di memoria è diviso in una parte NORMATIVA breve e una NARRATIVA. Le fasi a valle
+  leggono la prima; la seconda si scrive sempre (è la memoria) e si legge solo per tracciare una
+  decisione nominata. Vale per il changelog (testa "Vincolante", max 15 righe) e per la specifica
+  (parte normativa autosufficiente).
+- Le MISURE si citano dalla FONTE PRIMARIA (gli input di Fase 0 in `.ai-dev/tasks/<id>/inputs/`),
+  non di seconda mano: una cifra che passa di documento in documento si corrompe.
+- Il TIER DEL MODELLO è dichiarato nel frontmatter dell'agente e non si sovrascrive alla chiamata
+  (vedi sotto): "per sicurezza" significa pagare una fase intermedia al prezzo di quella top.
+- I RIMBALZI sono il costo peggiore, perché raddoppiano una fase intera. Si prevengono a monte
+  (contratto d'ingresso completo, controllo di osservabilità prima del gate), non si rincorrono.
+Il costo che NON si taglia è la separazione dei ruoli: sub-agent isolati, gate umani, Fase 4 come
+revisione. È il presidio che trova i difetti, e vale ciò che costa.
+
 ## Agenti per fase (modello per fase)
 Il lavoro cognitivo di ogni fase è svolto da un sub-agent dedicato, eseguito col modello adatto
 alla natura della fase (qualità dove serve, economia dove basta). L'isolamento è anche un
@@ -57,11 +74,21 @@ contratto: un sub-agent riceve SOLO i suoi input dichiarati, non la conversazion
 - test-runner (Fase 3) → modello economico: esegue comandi e riporta esiti.
 - doc-author (Fase 4) → modello intermedio: scrittura fedele su input dichiarati.
 I gate umani restano SEMPRE nell'orchestratore (skill flow): gli agenti preparano, l'utente decide.
+Il tier è DICHIARATO nel frontmatter dell'agente e non si sovrascrive alla chiamata: il parametro
+`model` dell'invocazione prende precedenza sul frontmatter, quindi passarlo — anche "per sicurezza" —
+disattiva il tiering. Se un tier è sbagliato, si corregge il frontmatter, non la chiamata. Se
+l'utente rifiuta una delega, il lavoro svolto in linea gira sul modello del thread principale: il
+costo va DICHIARATO prima di procedere, non scoperto dopo.
 
 ## Artefatti di knowledge-store
 Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md), agnostici dal tool:
-- Spec Store — le specifiche approvate.
-- Changelog / Log decisioni — cosa è stato fatto e perché (append-only).
+- Spec Store — le specifiche approvate, in DUE PARTI: parte NORMATIVA (perimetro, modello dati,
+  comportamento atteso con gli osservabili, criteri, decisioni di gate, file previsti) — che deve
+  bastare da sola al test-author — e parte di MOTIVAZIONE (impact analysis, alternative, rischi).
+- Changelog / Log decisioni — append-only, in DUE PARTI per voce: una testa "Vincolante" (max 15
+  righe: invarianti e contratti nuovi, aree congelate, debiti, superfici nuove, misure con il
+  percorso della fonte primaria) e una narrativa sotto la barriera di lettura (cosa, perché,
+  alternative). Le fasi a valle leggono le sole teste.
 - Documenti di architettura PER-CONTESTO — uno per ogni contesto del progetto
   (in un monorepo: un documento per app/pacchetto/servizio; in un single-repo: uno solo).
   Descrivono SOLO il sistema com'è ORA: cosa fa quel contesto, come si incastrano i pezzi,
@@ -91,6 +118,18 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
 - Il sub-agent spec-author valida la richiesta contro codebase, constraint, changelog
   (impact analysis: la richiesta rompe scelte deliberate del passato?), redige la bozza di spec
   e le domande sui buchi.
+- CONTRATTO D'INGRESSO della fase: fra gli input dello spec-author ci sono anche gli INPUT DI
+  FASE 0 (`.ai-dev/tasks/<id>/inputs/`, e quelli dei task precedenti dello stesso ticket): brief
+  degli stakeholder, discovery in sola lettura sul sistema sorgente, fixture grezze. Sono la fonte
+  PRIMARIA delle misure: nessuna cifra si dichiara "non verificabile" senza averli aperti.
+- La spec si redige in DUE PARTI: normativa (il contratto, autosufficiente per il test-author) e
+  motivazione (il perché). Il changelog si legge dalle sole teste "Vincolante".
+- CONTROLLO DI OSSERVABILITÀ, prima del gate: ogni clausola del comportamento atteso dichiara COME
+  SI OSSERVA (quale tipo di test la coprirebbe, su cosa asserisce). Una clausola senza osservabile
+  non è una clausola: è una domanda di gate. Si verifica anche la coerenza interna fra le decisioni
+  di gate e le sezioni redatte prima di esse. Motivo: il test-author di Fase 2 lavora alla cieca
+  sulla sola spec — ciò che non è osservabile in Fase 1 diventa un emendamento post-gate, cioè un
+  secondo passaggio completo della fase più cara.
 - FAST-PATH (proposta vera): a retrieval fatto — e per i BUG dopo la riproduzione — se la
   modifica è circoscritta si propone il fast-path all'utente, spiegando cosa salta e i rischi.
   La scelta è SEMPRE umana e registrata.
@@ -116,7 +155,14 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
 - Se la modifica tocca codice che produce/trasforma dati persistenti, scatta il gate
   pre-work-snapshot: lo stato "before" si cattura da codice ancora pristino. La decisione
   (cattura o skip motivato) è registrata nello stato.
-- ► GATE UMANO 3: revisione rapida del diff (→ approve-gate diff).
+- PROGETTI SENZA GIT (deroga `branch` registrata): il GATE 3 non ha un diff. All'inizio della fase,
+  da codice ancora intatto, si registra il MANIFEST "prima" (`flowState.mjs record-manifest` →
+  `.ai-dev/tasks/<id>/manifest-before.txt`); al gate l'inventario dei file toccati si ottiene per
+  CONFRONTO (`flowState.mjs diff-manifest`), non con una ricerca a timestamp indovinato. È il
+  sequencer a pretendere il manifest prima di considerare il GATE 3 approvabile. Come per lo
+  snapshot sui dati, la finestra per catturarlo è mentre il codice è intatto: persa, non torna.
+- ► GATE UMANO 3: revisione rapida del diff — o dell'inventario per confronto, senza git
+  (→ approve-gate diff).
 
 ### Fase 3 — Qualità (test secondo il PLAYBOOK del progetto)
 - Si classifica il diff (dati? frontend? API? logica?).
@@ -140,8 +186,11 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
   e valuta l'IMPATTO del cambiamento su ogni documento (il mapping non è path→doc: è una
   valutazione cognitiva sull'AMBITO dichiarato).
 - Aggiorna: gli architecture doc dei contesti la cui struttura/invarianti sono cambiate; i
-  documenti di progetto impattati; il CHANGELOG (la scelta fatta e il perché — alimenta le
-  impact analysis future).
+  documenti di progetto impattati; il CHANGELOG in due parti — testa "Vincolante" (tetto duro di
+  15 righe: solo ciò che vincola i task futuri, misure con il percorso della fonte primaria) e
+  narrativa sotto la barriera di lettura (la scelta fatta e il perché, per intero). La testa è
+  l'unica parte che le impact analysis future rileggono: se cresce, cresce il costo di ogni task
+  successivo.
 - "Nessun documento impattato, perché…" è un esito valido; il silenzio no.
 - GARANTITO: il guardiano di fine turno non lascia chiudere senza doc-review e changelog
   registrati (o skip esplicito dell'utente).
