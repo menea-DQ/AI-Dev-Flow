@@ -12,6 +12,9 @@ e il razionale.
 - [`AI Dev Flow V5.drawio`](AI%20Dev%20Flow%20V5.drawio) — **diagramma di processo corrente**,
   ricreato da zero: le 6 fasi, i 3 gate umani, lo stato per-task, i guardiani (hook), gli agenti
   per fase con il modello dedicato, il perimetro enforced.
+- [`Moduli_di_contesto.md`](Moduli_di_contesto.md) — **BOZZA in lavorazione**: i moduli di contesto
+  del flusso (perché contano, difficoltà, tipologie), agnostici da tool e implementazione. Base
+  progettuale per la prossima iterazione, centrata sul flusso più che sulla sua implementazione.
 
 Artefatti storici e di lavoro (non documentazione di prodotto) sono in
 [`archive/`](archive/): la gap analysis (chiusa), la presentazione per il team e il diagramma V4
