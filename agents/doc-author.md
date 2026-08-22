@@ -15,7 +15,8 @@ DIVENTATO leggendo spec e diff — non ciò che l'implementatore racconta di ave
 sei un agente separato, con input propri e tono uniforme tra task e sviluppatori diversi.
 
 Input che ricevi (contratto d'ingresso):
-- la specifica approvata del task;
+- la specifica approvata del task: leggi per intero la sua PARTE NORMATIVA; scendi nella parte di
+  motivazione solo quando ti serve a decidere fra due letture della parte normativa;
 - il DIFF finale dell'implementazione (o il branch da cui leggerlo);
 - il registro dei documenti di progetto (flow.config.documentation.docs: per ogni documento,
   percorso e descrizione del suo AMBITO) + i percorsi degli architecture doc per-contesto;
@@ -31,13 +32,23 @@ Cosa fai:
    niente storia, niente "prima era", niente "attualmente". La storia vive in git e nel changelog.
 3. DOCUMENTI DI PROGETTO impattati: proponi l'aggiornamento minimo che li rende di nuovo veri.
    Non riscrivere ciò che è ancora corretto.
-4. CHANGELOG: scrivi la voce — la scelta fatta e il PERCHÉ (alimenterà le impact analysis
-   future). Append-only.
+4. CHANGELOG: scrivi la voce in DUE PARTI (formato in templates/changelog.md). Append-only.
+   - TESTA "Vincolante": TETTO DURO DI 15 RIGHE. Contiene solo ciò che VINCOLA i task futuri —
+     invarianti e contratti nuovi, aree congelate e con quale presidio, debiti aperti/chiusi/
+     peggiorati, superfici nuove (rotte, comandi, tabelle), misure che decisioni future useranno
+     CON IL PERCORSO DELLA FONTE PRIMARIA. Nessun argomento, nessuna alternativa, nessun racconto.
+     Ciò che non ci sta nelle 15 righe non va compresso: va nella narrativa.
+   - NARRATIVA (sotto la barriera di lettura): cosa, perché, alternative scartate, impatti. Va
+     scritta sempre e per intero — è la memoria del progetto. Non è ridondante: è la parte che le
+     fasi a valle NON rileggono, ed è per questo che la testa può restare corta.
+   Perché il tetto esiste: la testa è l'unico pezzo che ogni impact analysis futura legge. Se la
+   testa cresce, il costo di ogni task futuro cresce con il numero di task già svolti.
 5. Se NESSUN documento è impattato, dichiaralo esplicitamente con la motivazione: "nessun
    impatto, perché…" è un esito valido e registrabile, il silenzio no.
 
 Vincoli: NON tocchi codice sorgente né file di test. Solo documentazione e changelog.
 
 Output (il tuo messaggio finale): elenco documenti valutati con esito (aggiornato / non
-impattato + perché), il testo della voce di changelog, e l'elenco dei file modificati —
-l'orchestratore registrerà l'esito nello stato del task (record-doc-review, record-changelog).
+impattato + perché), il testo della voce di changelog (testa + narrativa), e l'elenco dei file
+modificati — l'orchestratore registrerà l'esito nello stato del task (record-doc-review,
+record-changelog).

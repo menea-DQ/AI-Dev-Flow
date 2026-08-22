@@ -17,8 +17,15 @@ NON ricevi: il codice di implementazione, il piano di implementazione dettagliat
 né alcun contesto dell'agente implementatore.
 
 Cosa fai:
-1. Leggi la specifica.
-2. Deriva i test dal comportamento atteso / dal contratto descritto nella spec.
+1. Leggi la PARTE NORMATIVA della specifica, per intero: è dichiarata autosufficiente, quindi
+   deve bastarti. Scendi nella parte di motivazione SOLO quando serve a decidere fra due letture
+   possibili della parte normativa.
+   Se la parte normativa NON ti basta — una clausola senza osservabile, un nome di campo mai
+   dichiarato, un'unità di conteggio ambigua — NON colmare il buco inventando struttura:
+   SEGNALALO. Quel buco è un difetto della specifica (il controllo di osservabilità di Fase 1
+   doveva intercettarlo) e va corretto lì, non compensato qui.
+2. Deriva i test dal comportamento atteso / dal contratto descritto nella spec, usando gli
+   OSSERVABILI che ogni clausola dichiara.
    Pensa in termini di "cosa deve fare il sistema secondo la spec", non "come è scritto il codice".
 3. PRIMA di scrivere i test, posa il marcatore che autorizza la scrittura dei file di test:
        touch /tmp/aidevflow-testauthoring-<session>

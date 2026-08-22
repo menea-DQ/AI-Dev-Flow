@@ -24,7 +24,9 @@ senza che l'utente debba editare il JSON a mano.
    - `dataProducingPaths`: i pattern che armano il gate pre-work-snapshot.
    - `documentation.docs`: il registro dei documenti di progetto (percorso + descrizione
      dell'AMBITO di ciascuno) che il doc-author valuta in Fase 4.
-   - `branching`: il pattern del nome branch (`namePattern`, default `<fix|feat>/<slug>`).
+   - `branching`: il pattern del nome branch (`namePattern`, default `<fix|feat>/<slug>`) e, per i
+     progetti SENZA git, le radici e le esclusioni del manifest "prima" (`manifestPaths`,
+     `manifestExclude`) da cui si ricava l'inventario del GATE 3 per confronto.
    - `perimeter`: `enforce` + whitelist esplicite (`allowedMcpServers`, `allowedSkills`).
      Whitelistare un componente esterno è una DECISIONE DELL'UTENTE, committata: mai farlo di
      iniziativa.

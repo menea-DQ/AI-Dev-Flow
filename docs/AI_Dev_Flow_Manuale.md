@@ -1,6 +1,6 @@
 # AI-Dev Flow - Manuale di progetto
 
-> Documento di riferimento dello standard aziendale AI-Dev Flow, versione kit **0.1.0**.
+> Documento di riferimento dello standard aziendale AI-Dev Flow, versione kit **0.2.0**.
 > Lettore: lo sviluppatore che deve installare il kit su un progetto e lavorarci dentro.
 > Questo manuale è discorsivo per scelta: spiega il perché delle cose, non solo il cosa.
 > La fonte di verità normativa resta il repo (`PROCESS.md`, `INSTALL.md`, skill, hook, codice);
@@ -91,8 +91,8 @@ i file che contengono lavoro tuo, salvo `--purge`.
 La novità che regge tutto il resto. Ogni task ha un file di stato -
 `.ai-dev/tasks/<task-id>/state.json`, con un puntatore `ACTIVE` al task in corso - che registra i
 **fatti**: fase corrente, gate approvati (con timestamp), branch di lavoro e base, decisione sullo
-snapshot, verifiche eseguite (con l'hash del diff verificato), esito della doc-review, changelog,
-aggiornamenti del ticket, PR, e **ogni deroga con la sua motivazione**. L'unico punto di accesso è
+snapshot, manifest "prima" dove serve, verifiche eseguite (con l'hash del diff verificato), esito
+della doc-review, changelog, aggiornamenti del ticket, PR, e **ogni deroga con la sua motivazione**. L'unico punto di accesso è
 `bin/flowState.mjs` (libreria + CLI): nessuno parsa o scrive quel JSON per conto suo.
 
 Va capito per ciò che è e per ciò che non è: è un **registro di fatti, non un workflow engine**.
@@ -151,6 +151,17 @@ Un vincolo strutturale da conoscere: **i gate umani restano sempre nell'orchestr
 sub-agent lavora in autonomia e riconsegna; non dialoga con te. Gli agenti *preparano* (bozza di
 spec, esiti dei test, aggiornamenti di doc), l'orchestratore *presenta* al gate e registra l'esito.
 
+Un secondo vincolo, aggiunto nella **0.2.0** dopo averne pagato il prezzo su un task reale: **il
+tier si dichiara nel frontmatter dell'agente e non si sovrascrive alla chiamata**. Il parametro
+`model` dell'invocazione prende precedenza sul frontmatter, quindi passarlo - anche "per sicurezza" -
+*disattiva* il tiering che questa tabella descrive. Nel task misurato, un `model: opus` passato per
+prudenza ha fatto girare il doc-author (progettato per sonnet) su opus per oltre mezzo milione di
+token, in una fase di scrittura fedele che non ne aveva bisogno. Se un tier è sbagliato, si corregge
+il frontmatter dell'agente; la chiamata non è il posto giusto. Corollario: se **rifiuti una delega**,
+quel lavoro lo fa l'orchestratore in linea, cioè sul modello del thread principale - una fase tarata
+su un modello economico la paghi al tier più alto. L'orchestratore deve dichiararti quel costo prima
+di procedere.
+
 ### 3.3 Skill, hook e connettori
 
 Le **skill**: `flow` è l'**entrypoint** - «lavora su questo ticket» - e orchestra le sei fasi con
@@ -204,7 +215,32 @@ tocca la modifica (la proposta vera arriva in Fase 1).
 
 ### 4.2 Fase 1 - Definizione della specifica
 
-**Cosa succede.** Il sub-agent **spec-author** (modello top) riceve un contratto d'ingresso esplicito - contesto richiesta, percorsi degli architecture doc, constraint, changelog - e lavora con la disciplina di `spec-context`: **prima il documento di architettura, poi il codice**, mirato (pochi file giusti). Se il documento è in drift rispetto al codice, lo segnala subito - un doc stantio è peggio di nessun doc. Produce: la bozza di specifica, l'**impact analysis** sul changelog (la richiesta rompe scelte deliberate del passato?), le **domande sui buchi** (solo dove la spec è davvero incompleta) e - ora che ha visto il codice - l'eventuale **proposta di fast-path** motivata.
+**Cosa succede.** Il sub-agent **spec-author** (modello top) riceve un contratto d'ingresso esplicito - contesto richiesta, percorsi degli architecture doc, constraint, changelog e, dalla **0.2.0**, gli **input di Fase 0** (`.ai-dev/tasks/<id>/inputs/`, più quelli dei task precedenti dello stesso ticket: brief degli stakeholder, discovery in sola lettura sul sistema sorgente, fixture grezze) - e lavora con la disciplina di `spec-context`: **prima il documento di architettura, poi il codice**, mirato (pochi file giusti). Se il documento è in drift rispetto al codice, lo segnala subito - un doc stantio è peggio di nessun doc. Produce: la bozza di specifica, l'**impact analysis** sul changelog (la richiesta rompe scelte deliberate del passato?), le **domande sui buchi** (solo dove la spec è davvero incompleta) e - ora che ha visto il codice - l'eventuale **proposta di fast-path** motivata.
+
+Tre disciplineamenti introdotti dalla **0.2.0**, tutti nati da un consuntivo reale (vedi
+`docs/proposta-riduzione-costi.md`), che spostano lavoro *a monte* del gate perché a valle costa un
+ordine di grandezza in più:
+
+> ★ **Le misure si prendono alla fonte.** Gli `inputs/` di Fase 0 sono la fonte *primaria*: una
+> cifra che circola di seconda mano nei changelog e nelle spec si corrompe. Nel task misurato una
+> copertura dati reale del 6% viaggiava come 21% in quattro documenti, e lo spec-author aveva
+> dichiarato la misura "non verificabile" mentre era documentata negli input - costando un giro
+> completo della fase. Nessuna misura si dichiara non verificabile senza aver aperto gli input.
+>
+> ★ **La spec si scrive in due parti.** Una **parte normativa** (perimetro, modello dati,
+> comportamento atteso con i suoi osservabili, criteri di accettazione, decisioni di gate, file
+> previsti) che deve bastare *da sola* al test-author, e una **parte di motivazione** (impact
+> analysis, alternative scartate, rischi). Le fasi a valle leggono la prima; la seconda si scrive
+> sempre - è la memoria del ragionamento - ma non si rilegge per intero.
+>
+> ★ **Controllo di osservabilità prima del gate.** Ogni clausola del comportamento atteso dichiara
+> *come si osserva*: quale tipo di test la coprirebbe, e su cosa asserisce. Una clausola senza
+> osservabile non è una clausola: è una domanda di gate, e va spostata fra le domande. Nello stesso
+> passaggio si verifica la coerenza interna fra le decisioni prese al gate e le sezioni redatte
+> prima di esse (una decisione al gate può aver reso incompleta una tabella scritta mezz'ora prima).
+> Il motivo è strutturale: il test-author di Fase 2 lavora **alla cieca** sulla sola spec. Ciò che
+> non è osservabile per lo spec-author non lo è nemmeno per lui, e diventa un emendamento
+> post-gate - cioè un secondo passaggio completo della fase più cara del flusso.
 
 L'orchestratore fa a te le domande sui buchi (registro Q&A), itera con lo spec-author se serve, e arriva al **► GATE UMANO 1: approvi la SPECIFICA?** Il loop di raffinamento ha soglie dichiarate (`maxRefine`: avviso a 3 giri, blocco a 6). Per i BUG, prima della spec c'è la **riproduzione** (caso minimo, changelog per individuare l'origine).
 
@@ -212,10 +248,10 @@ Ad approvazione - e qui la 0.0.7 cambia le cose - la chiusura della fase è **ga
 
 | Contratto F1 | |
 |---|---|
-| **Richiede** | Contesto richiesta (F0); architecture doc dei contesti coinvolti; changelog; constraint. |
+| **Richiede** | Contesto richiesta (F0); architecture doc dei contesti coinvolti; changelog (le sole teste «Vincolante»); constraint; gli `inputs/` di Fase 0 come fonte primaria delle misure. |
 | **Produce** | SPEC approvata al Gate 1 e salvata; Q&A; impact analysis; ticket commentato col riferimento; tutto registrato nello stato. |
 | **Vincola** | La F2 non parte senza Gate 1 registrato (hook). La spec è l'**unico** input del test-author: la sua qualità determina la qualità dei test. |
-| **Convenzioni** | Architecture doc prima del codice; drift segnalato subito; domande solo sui buchi; fast-path proposto qui, mai in F0. |
+| **Convenzioni** | Architecture doc prima del codice; drift segnalato subito; domande solo sui buchi; fast-path proposto qui, mai in F0; spec in due parti; ogni clausola col suo osservabile. |
 
 ### 4.3 Fase 2 - Implementazione
 
@@ -230,7 +266,19 @@ Il lavoro si biforca sui due binari strutturalmente separati:
 
 *Binario codice.* L'implementatore lavora con contesto minimo (spec + piano + architecture doc), applica le **convenzioni dichiarate** (mai inferite), non può toccare i test (se ne ritiene uno sbagliato, lo segnala a te). Sulle modifiche a codice produttore di dati (`dataProducingPaths`) scatta il gate dello **snapshot "before"**: il confronto pre/post è possibile solo se lo stato "before" è catturato a codice pristino - la scelta (cattura o skip motivato) è tua e resta registrata nello stato, valida per tutto il task anche su più sessioni.
 
-Chiude la fase il **► GATE UMANO 3: occhiata al diff** (`approve-gate diff`).
+*Progetti senza git.* Dove non c'è un repository (deroga `branch` registrata) il Gate 3 non ha un
+diff da guardare, e ricostruire *a posteriori* l'elenco dei file toccati con una ricerca per
+timestamp è un invito a sbagliare il taglio: nel task misurato ci sono voluti tre tentativi, e due
+hanno pescato file del task precedente. Dalla **0.2.0** l'inventario si costruisce per **confronto**:
+all'inizio della fase, da codice ancora intatto, `flowState.mjs record-manifest` scrive
+`.ai-dev/tasks/<id>/manifest-before.txt` (impronta di ogni file sotto le radici dichiarate in
+`branching.manifestPaths`) e registra il fatto; al gate, `flowState.mjs diff-manifest` produce
+nuovi / modificati / rimossi. È il **sequencer** a pretenderlo: senza manifest, il Gate 3 non arriva.
+Come per lo snapshot sui dati, la finestra per catturarlo è mentre il codice è intatto - persa, non
+torna.
+
+Chiude la fase il **► GATE UMANO 3: occhiata al diff** (o all'inventario per confronto, senza git)
+(`approve-gate diff`).
 
 | Contratto F2 | |
 |---|---|
@@ -256,14 +304,27 @@ La garanzia è del guardiano di fine turno: la verifica registrata vale per **l'
 
 ### 4.5 Fase 4 - Documentazione
 
-**Cosa succede.** La fase che prima era la più debole del flusso ora ha un agente e un guardiano. Il sub-agent **doc-author** (modello intermedio) riceve spec, diff finale, il **registro dei documenti** (`flow.config.documentation.docs`: per ogni documento, percorso e descrizione del suo *ambito*) e gli architecture doc dei contesti toccati. La sua valutazione d'impatto è deliberatamente **cognitiva, non meccanica**: la documentazione non rispecchia la struttura dei file, quindi niente mapping rigido path→documento - si confronta ciò che è cambiato con l'ambito dichiarato di ogni documento. Aggiorna gli impattati (architecture doc inclusi: sempre al presente, mai storia), scrive la **voce di changelog** (la scelta e il perché - è ciò che alimenta le impact analysis future), e se nessun documento è impattato lo dichiara con la motivazione: *"nessun impatto, perché…"* è un esito valido e registrabile; il silenzio no.
+**Cosa succede.** La fase che prima era la più debole del flusso ora ha un agente e un guardiano. Il sub-agent **doc-author** (modello intermedio) riceve spec, diff finale, il **registro dei documenti** (`flow.config.documentation.docs`: per ogni documento, percorso e descrizione del suo *ambito*) e gli architecture doc dei contesti toccati. La sua valutazione d'impatto è deliberatamente **cognitiva, non meccanica**: la documentazione non rispecchia la struttura dei file, quindi niente mapping rigido path→documento - si confronta ciò che è cambiato con l'ambito dichiarato di ogni documento. Aggiorna gli impattati (architecture doc inclusi: sempre al presente, mai storia), scrive la **voce di changelog** e, se nessun documento è impattato, lo dichiara con la motivazione: *"nessun impatto, perché…"* è un esito valido e registrabile; il silenzio no.
 
 C'è anche qui un vantaggio sottile che vale la pena notare: il doc-author documenta ciò che il codice **è diventato** (legge il diff), non ciò che l'implementatore *racconta* di aver fatto - meno bias, tono uniforme tra task e sviluppatori diversi.
+
+**La voce di changelog, dalla 0.2.0, ha due parti** - ed è la modifica che taglia il costo che
+altrimenti *cresce da solo* a ogni incremento. In testa una sezione **«Vincolante»** con un tetto
+duro di **15 righe**: solo ciò che i task futuri non possono ignorare (invarianti e contratti nuovi,
+aree congelate e con quale presidio, debiti aperti/chiusi/peggiorati, superfici nuove, misure con il
+**percorso della fonte primaria**). Nessun argomento, nessuna alternativa, nessun racconto. Sotto una
+barriera di lettura, la **narrativa**: cosa, perché, alternative scartate, impatti - scritta sempre e
+per intero, perché è la memoria del progetto. La divisione serve a un fatto misurato: con
+l'istruzione "registra cosa e perché", le voci erano diventate saggi di 80-100 righe e il changelog
+un file di 117 KB che **ogni** impact analysis futura rileggeva per intero. Ora la Fase 1 legge le
+sole teste, e scende nella narrativa solo per tracciare una decisione nominata. Il tetto non è
+burocrazia: la testa è l'unica parte che ogni task futuro rilegge, quindi se cresce, cresce il costo
+di tutti i task successivi.
 
 | Contratto F4 | |
 |---|---|
 | **Richiede** | Verifica F3 registrata; spec + diff; registro documentazione popolato (dall'intervista). |
-| **Produce** | Doc aggiornate (o "nessun impatto, perché…"); voce di changelog; `record-doc-review` + `record-changelog`. |
+| **Produce** | Doc aggiornate (o "nessun impatto, perché…"); voce di changelog (testa «Vincolante» ≤15 righe + narrativa); `record-doc-review` + `record-changelog`. |
 | **Vincola** | Il guardiano di fine turno non lascia chiudere senza questi due fatti registrati (o skip esplicito). Le F1 future leggono ciò che scrivi qui. |
 
 ### 4.6 Fase 5 - Consegna
@@ -437,9 +498,12 @@ ciò che ti dice l'effetto pratico di cambiarlo.
 
 | Chiave | Default | Effetto |
 |---|---|---|
-| `path` | `".ai-dev/changelog.md"` | Posizione del changelog append-only (cosa è stato fatto e perché). |
+| `path` | `".ai-dev/changelog.md"` | Posizione del changelog append-only. Ogni voce ha una testa «Vincolante» (≤15 righe: ciò che vincola i task futuri) e una narrativa sotto la barriera di lettura. |
 
-*Letta da*: spec-author (impact analysis, F1) e doc-author (scrittura voce, F4).
+*Letta da*: spec-author (impact analysis, F1 - legge le **sole teste**, scende nella narrativa solo
+per tracciare una decisione nominata) e doc-author (scrittura voce, F4). Formato in
+`templates/changelog.md`; la migrazione 0.1.0→0.2.0 allinea l'intestazione dei changelog esistenti
+senza riscrivere le voci già presenti.
 
 ### `architectureDocs` - il registro dei documenti di architettura
 
@@ -462,9 +526,13 @@ ciò che ti dice l'effetto pratico di cambiarlo.
 | Chiave | Default | Effetto |
 |---|---|---|
 | `namePattern` | `"<fix|feat>/<nome-breve-esplicativo>"` | La convenzione del nome branch proposto dopo il Gate 2 (fix=BUG, feat=CR). Il nome custom resta sempre possibile. |
+| `manifestPaths` | `["."]` *(0.2.0)* | Le radici da inventariare nel manifest "prima" dei progetti **senza git**: è la base del confronto che sostituisce il diff al Gate 3. |
+| `manifestExclude` | `[".git/**", "node_modules/**", ".ai-dev/tasks/**", "dist/**", "build/**", "coverage/**", "**/.DS_Store", "**/*.log"]` *(0.2.0)* | Cosa non è "lavoro del task" e va escluso dall'inventario. |
 
-*Letta da*: skill flow / impl-runbook (F2). Il branch effettivo di ogni task vive nello **stato**
-(`set-branch`), incluso il branch base per la PR di Fase 5.
+*Letta da*: skill flow / impl-runbook (F2) e `flowState.mjs record-manifest` / `diff-manifest`. Il
+branch effettivo di ogni task vive nello **stato** (`set-branch`), incluso il branch base per la PR
+di Fase 5. Nei progetti senza git la deroga si registra
+(`record-override --gate branch --reason "…"`) e il sequencer chiede il manifest al suo posto.
 
 ### `perimeter` - l'enforcement "solo componenti del kit" *(nuovo in 0.0.7)*
 
@@ -576,4 +644,5 @@ Attenzione al doppio livello: **ciò che attiva davvero la telemetria non è que
 
 ### Lo stato per-task (non è in `flow.config`)
 
-Lo stato non si configura: vive in `.ai-dev/tasks/<id>/state.json` ed è gestito esclusivamente da `bin/flowState.mjs`. Comandi: `start` (avvia/riprende), **`next`** (il sequencer: il prossimo passo calcolato dai fatti), `show`, `approve-gate <spec|plan|diff>`, `set-branch`, `record-spec`, `record-tests-authored`, `record-snapshot`, `record-verification`, `record-doc-review`, `record-changelog`, `record-ticket-update`, `record-pr`, `record-override` (deroghe, sempre con motivo), `close` e **`abort --reason`** (abbandono governato, con compensazioni). È committabile (riprendibilità e handoff), versionato (`stateVersion`) e coperto dalle migrazioni.
+Lo stato non si configura: vive in `.ai-dev/tasks/<id>/state.json` ed è gestito esclusivamente da `bin/flowState.mjs`. Comandi: `start` (avvia/riprende), **`next`** (il sequencer: il prossimo passo calcolato dai fatti), `show`, `approve-gate <spec|plan|diff>`, `set-branch`, `record-spec`, `record-tests-authored`, `record-snapshot`, **`record-manifest`** / **`diff-manifest`**
+(manifest "prima" e inventario per confronto, nei progetti senza git), `record-verification`, `record-doc-review`, `record-changelog`, `record-ticket-update`, `record-pr`, `record-override` (deroghe, sempre con motivo), `close` e **`abort --reason`** (abbandono governato, con compensazioni). È committabile (riprendibilità e handoff), versionato (`stateVersion`) e coperto dalle migrazioni.

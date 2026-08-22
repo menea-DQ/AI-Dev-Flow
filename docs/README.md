@@ -12,6 +12,11 @@ e il razionale.
 - [`AI Dev Flow V5.drawio`](AI%20Dev%20Flow%20V5.drawio) — **diagramma di processo corrente**,
   ricreato da zero: le 6 fasi, i 3 gate umani, lo stato per-task, i guardiani (hook), gli agenti
   per fase con il modello dedicato, il perimetro enforced.
+- [`proposta-riduzione-costi.md`](proposta-riduzione-costi.md) — **consuntivo e diagnosi da cui
+  nasce la 0.2.0**: le misure token/tempo di un task reale portato a termine col flusso completo,
+  le tre cause di spreco (rimbalzi, rilettura di artefatti senza tetto, tiering disattivato alla
+  chiamata) e i sei interventi C1-C6 con i criteri di accettazione. Include l'elenco esplicito di
+  ciò che NON va toccato: i presidi che hanno trovato difetti reali.
 
 Artefatti storici e di lavoro (non documentazione di prodotto) sono in
 [`archive/`](archive/): la gap analysis (chiusa), la presentazione per il team e il diagramma V4

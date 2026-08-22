@@ -34,7 +34,8 @@ Fonte di verità del processo: `PROCESS.md`. Manuale discorsivo: `docs/AI_Dev_Fl
 - `templates/` — modelli degli artefatti prodotti dal processo.
 - `project-files/` — template di config per-progetto (`flow.config.template.json`).
 - `migrations/` — migrazioni di formato per-progetto `<from>-to-<to>.mjs`.
-- `lib/common.mjs` — **utilità pure condivise** tra `bin/` e `hooks/` (semver, regex-escape, OTEL env).
+- `lib/common.mjs` — **utilità pure condivise** tra `bin/` e `hooks/` (semver, regex-escape, OTEL env,
+  matcher glob dei pattern di config, lettura di `flow.config.json`).
 - `telemetry/` — stack OTLP + Grafana (opzionale, abilitabile via `flow.config.telemetry`).
 - `docs/` — manuale + diagramma corrente (V5); `docs/archive/` = artefatti storici/di lavoro.
 
