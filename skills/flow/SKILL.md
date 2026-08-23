@@ -47,9 +47,15 @@ Il sequencer dice COSA; il COME delle fasi è questo:
   all'utente con AskUserQuestion spiegando cosa salta; se accetta:
   `record-override --gate fast-path --reason "<scelta utente>"`.
   RAMO BUG: prima della spec, riproduci il bug (caso minimo, changelog per l'origine).
-- **F2 Piano/branch/test/codice** — piano al GATE 2 (struttura in `templates/plan.md`); branch `<fix|feat>/<nome>` (chiedi base e
-  nome); sub-agent **test-author** con SOLO la spec (committa i test — ramo BUG: il red-test);
-  implementazione secondo impl-runbook; diff al GATE 3.
+- **F2 Piano/branch/test/codice** — sub-agent **plan-author** (passagli: spec approvata, registro
+  Q&A, architecture doc dei contesti toccati, convenzioni da flow.config, test-playbook, path del
+  changelog; struttura del piano in `templates/plan.md`). Fai TU le domande sui buchi e presenta TU
+  il GATE 2 — insieme al piano riporta le sue **note di complessità implementativa** e chiedi
+  all'utente **con quale tier implementare** (vedi "Tier del thread e escalation" più sotto).
+  Poi: branch `<fix|feat>/<nome>` (chiedi base e nome); sub-agent **test-author** con SOLO la spec
+  (committa i test — ramo BUG: il red-test); implementazione secondo impl-runbook; diff al GATE 3.
+  Il piano NON si passa MAI al test-author: lui lavora sulla sola spec, ed è ciò che rende
+  strutturale l'anti teaching-to-the-test.
   PROGETTI SENZA GIT (deroga `branch` registrata): non c'è diff, quindi l'inventario del GATE 3
   si costruisce per CONFRONTO, non a memoria e non con una `find -newermt` a timestamp indovinato.
   All'inizio della fase, da codice ancora intatto: `flowState.mjs record-manifest` (scrive
@@ -58,21 +64,51 @@ Il sequencer dice COSA; il COME delle fasi è questo:
   pretendere il manifest prima di dare il GATE 3 per approvabile.
 - **F3 Qualità** — skill test-selector (dal playbook, mai inventare) + sub-agent **test-runner**
   (comandi esatti + snapshot ref). Rossi → si torna all'implementazione; i test non si toccano.
+  I ROSSI SI REGISTRANO: `record-verification --status failed --tests "<nomi>"`. Non è burocrazia —
+  è ciò che fa sapere al sequencer che si rientra in implementazione e gli fa contare i giri, da
+  cui nasce la proposta di escalation. Registrare `done` su test rossi è una dichiarazione falsa.
 - **F4 Documentazione** — sub-agent **doc-author** (spec, diff, registro
   flow.config.documentation.docs, architecture doc, changelog).
 - **F5 Consegna** — PR (`gh pr create` se disponibile) e update del ticket via connettore
   (`--update-status`, stato scelto dall'utente).
+
+## Tier del thread e escalation
+
+Il lavoro cognitivo delle fasi sta nei sub-agent, e il loro tier è garantito dal frontmatter. Nel
+THREAD PRINCIPALE restano l'orchestrazione (bookkeeping: la sequenza la calcola il sequencer) e
+l'IMPLEMENTAZIONE di un piano già approvato: lavoro da tier intermedio. Per questo il default di
+progetto è `flow.config.models.mainThread` (scritto dall'install in `.claude/settings.json`,
+tipicamente `sonnet`), mentre le due fasi che richiedono il modello top — spec e piano — sono
+blindate nel frontmatter di `spec-author` e `plan-author` e NON dipendono dal modello di sessione.
+
+L'escalation riguarda SOLO il thread, ed è sempre una decisione umana:
+- **Al GATE 2, informata**: presenta le note di complessità del plan-author e chiedi con quale tier
+  implementare. È il momento in cui la scala del lavoro è più chiara (il piano elenca i file veri).
+- **Dopo i rossi, reattiva**: al ripetersi dei giri rossi il sequencer stesso propone l'escalation
+  (soglia in `flow.config.models.escalateAfterRedRounds`). È il segnale oggettivo che il lavoro è
+  più difficile di quanto sembrava: non una stima ex-ante.
+
+In entrambi i casi: se l'utente accetta, il tier si cambia in sessione con
+`/model <flow.config.models.escalation>` e la scelta si REGISTRA —
+`record-override --gate model-tier --reason "<scelta utente>"`. Mai un cambio di tier silenzioso, in
+nessuna delle due direzioni. L'escalation vale per il task corrente: il default di progetto non si
+tocca (quello si cambia con flow-settings, che è una decisione diversa).
+
+Un tier che ti sembra insufficiente in una fase DELEGATA non si corregge né escalando il thread né
+passando `model` alla chiamata: se il test-author non riesce a derivare i test, il difetto è nella
+spec (mancano osservabili) e si corregge lì; se il tier è davvero mistarato, si cambia il
+frontmatter dell'agente — che è una modifica al kit, non una decisione di task.
 
 ## Regole trasversali
 
 - Regola del 98% sempre; i 3 gate non si saltano MAI senza scelta esplicita dell'utente.
 - I sub-agent preparano, TU presenti ai gate, l'utente decide, TU registri. Nessun gate delegato.
 - **Non passare MAI il parametro `model` quando invochi un sub-agent.** Il tier è dichiarato nel
-  frontmatter di ciascun agente (`haiku` per `intake` e `test-runner`, `sonnet` per `doc-author`,
-  `opus` per `spec-author` e `test-author`) ed è tarato sul lavoro che quella fase fa. Il parametro
-  della chiamata SOVRASCRIVE il frontmatter: passarlo, anche "per sicurezza", disattiva il tiering.
-  Se ritieni che un tier sia sbagliato, la correzione è nel frontmatter dell'agente, non nella
-  chiamata.
+  frontmatter di ciascun agente (`haiku` per `intake` e `test-runner`, `sonnet` per `test-author` e
+  `doc-author`, `opus` per `spec-author` e `plan-author`) ed è tarato sul lavoro che quella fase fa.
+  Il parametro della chiamata SOVRASCRIVE il frontmatter: passarlo, anche "per sicurezza",
+  disattiva il tiering. Se ritieni che un tier sia sbagliato, la correzione è nel frontmatter
+  dell'agente, non nella chiamata.
 - Se l'utente RIFIUTA una delega a un sub-agent, non forzarla: DICHIARA il costo di svolgere quel
   lavoro in linea (gira sul modello del thread principale, quindi una fase tarata su un modello
   economico la paghi al tier più alto) e procedi solo dopo che l'utente ha scelto in chiaro.

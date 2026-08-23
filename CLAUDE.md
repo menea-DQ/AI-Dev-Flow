@@ -28,7 +28,10 @@ Fonte di verità del processo: `PROCESS.md`. Manuale discorsivo: `docs/AI_Dev_Fl
 - `hooks/` — `hooks.json` (aggancio a SessionStart/PreToolUse/Stop) + `scripts/*.mjs`. Utilità
   condivise degli hook in `hooks/scripts/hookShared.mjs`.
 - `skills/<nome>/SKILL.md` — skill di processo (frontmatter YAML `name`/`description`).
-- `agents/*.md` — sub-agent per fase, ciascuno col suo `model:`.
+- `agents/*.md` — sub-agent per fase, ciascuno col suo `model:` (il frontmatter è ciò che *garantisce*
+  il tier: batte il modello di sessione, e l'orchestratore ha il divieto di passare `model` alla
+  chiamata). Il tier del **thread principale** non sta qui: è un default per-progetto
+  (`flow.config.models.mainThread` → `"model"` in `.claude/settings.json`, scritto dall'install).
 - `connectors/` — connettori (Productive/Zammad) + contratto (`contract.schema.json`) + `check.mjs`.
   Env condiviso in `connectors/connectorEnv.mjs`.
 - `templates/` — modelli degli artefatti prodotti dal processo.
@@ -48,6 +51,10 @@ Fonte di verità del processo: `PROCESS.md`. Manuale discorsivo: `docs/AI_Dev_Fl
   che nessuno legge è debito, non documentazione.
 - **`flow.config.json` è l'unica fonte di verità operativa** per config per-progetto (es.
   `testPlaybook`): letta da hook e skill, editata da `flow-settings`. Non creare mirror `.md`.
+  Due eccezioni note, dove la config è solo l'INTENTO e ciò che *applica* è `.claude/settings.json`:
+  `telemetry.*` (riallineato da `bin/telemetry.mjs --apply`) e `models.mainThread` (chiave `"model"`,
+  scritta da install e migrazione, riallineata a mano da `flow-settings`). Chi tocca quelle sezioni
+  deve riallineare il settings nello stesso giro, o config e realtà divergono.
 - **Bump di versione**: aggiorna insieme `VERSION`, `.claude-plugin/plugin.json`, l'header di
   `PROCESS.md` (`process-version` + `compatibile-con`) e l'header del Manuale.
 - **Aggiorna SEMPRE le docs nello stesso giro** della modifica al kit (README, docs/, README di

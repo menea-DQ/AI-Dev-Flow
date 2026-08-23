@@ -1,6 +1,6 @@
 # AI-Dev Flow - Manuale di progetto
 
-> Documento di riferimento dello standard aziendale AI-Dev Flow, versione kit **0.2.0**.
+> Documento di riferimento dello standard aziendale AI-Dev Flow, versione kit **0.3.0**.
 > Lettore: lo sviluppatore che deve installare il kit su un progetto e lavorarci dentro.
 > Questo manuale è discorsivo per scelta: spiega il perché delle cose, non solo il cosa.
 > La fonte di verità normativa resta il repo (`PROCESS.md`, `INSTALL.md`, skill, hook, codice);
@@ -141,8 +141,9 @@ dello standard, per tre ragioni che vale la pena capire bene:
 |---|---|---|---|
 | F0 Intake | `intake` | economico (haiku) | parsing e classificazione: meccanico |
 | F1 Specifica | `spec-author` | top (opus) | la fase a più leverage dell'intero flusso |
-| F2 Piano+codice | orchestratore | top | decide, implementa, dialoga ai gate |
-| F2 Test | `test-author` | top (opus) | derivare i test dal contratto è cognitivo |
+| F2 Piano | `plan-author` | top (opus) | traduce il COSA in COME: l'unica lettura profonda della codebase |
+| F2 Test | `test-author` | intermedio (sonnet) | la derivazione è resa meccanica a monte (osservabili per clausola) |
+| F2 Codice | orchestratore | intermedio (default di progetto) | esegue un piano già approvato, in loop coi test |
 | F3 Qualità | `test-runner` | economico (haiku) | lancia comandi e riporta esiti |
 | F4 Documentazione | `doc-author` | intermedio (sonnet) | scrittura fedele su input dichiarati |
 | F5 Consegna | nessuno | - | meccanica pura: script e hook |
@@ -161,6 +162,50 @@ il frontmatter dell'agente; la chiamata non è il posto giusto. Corollario: se *
 quel lavoro lo fa l'orchestratore in linea, cioè sul modello del thread principale - una fase tarata
 su un modello economico la paghi al tier più alto. L'orchestratore deve dichiararti quel costo prima
 di procedere.
+
+#### Il tier del thread principale (0.3.0)
+
+Fino alla 0.2.0 questa tabella aveva un buco: il **thread principale** - che orchestra e *implementa* -
+girava sul modello della tua sessione. Non era una scelta del processo, era un fatto incidentale: se
+la sessione era su opus, l'implementazione era su opus. La 0.3.0 lo dichiara, partendo dal principio
+che lo governa: **il modello top si paga dove si DECIDE, non dove si esegue.**
+
+Le conseguenze sono tre. Primo: il **piano** di Fase 2 diventa un sub-agent dedicato (`plan-author`,
+opus). Non è burocrazia da tassonomia - è l'unico modo di *garantire* che la pianificazione resti sul
+modello top mentre la sessione gira su un tier intermedio, perché il frontmatter di un sub-agent
+vince sempre sul modello di sessione. In più il lavoro caro gira in un contesto isolato e minimale,
+invece di trascinarsi tutta la conversazione. Secondo: `test-author` scende a sonnet, perché dalla
+0.2.0 il suo input non è più prosa da interpretare (parte normativa autosufficiente, un osservabile
+dichiarato per clausola: il controllo di osservabilità esiste per rendere quella derivazione
+meccanica). Terzo: il thread ha un **default di progetto** - `flow.config.models.mainThread`, scritto
+dall'install in `.claude/settings.json`, tipicamente `sonnet`.
+
+**Perché l'implementazione resta nel thread** e non diventa anche lei un sub-agent (la domanda giusta
+da farsi, visto che un `impl-author` con `model: sonnet` renderebbe il tier *garantito* invece che
+raccomandato): perché è un **loop** con la Fase 3, e isolarla trasformerebbe ogni test rosso in un
+ripartire da freddo - ricaricare spec, piano, convenzioni e codice a ogni giro, cioè esattamente il
+rimbalzo che la 0.2.0 ha eliminato altrove; perché le sue domande da Regola del 98% nascono *a metà*
+del lavoro e bloccano le decisioni a valle, mentre quelle di una fase redazionale si enumerano prima
+di produrre (il batching funziona solo sulle seconde); e perché è la fase più lunga, quella in cui
+poterla osservare e correggere in corsa vale di più. Il paradosso che chiude il ragionamento: i task
+dove l'isolamento funzionerebbe meglio (circoscritti, un file, loop corto) sono quelli dove si
+risparmierebbe meno.
+
+**L'escalation.** Se il lavoro si rivela più difficile del previsto, il tier alto si può recuperare -
+ma è sempre una decisione tua, in due punti dichiarati. Al **GATE 2**, informata dalle *note di
+complessità implementativa* del plan-author (che segnala cosa rende il lavoro difficile - file
+accoppiati, invarianti non ovvi, schema dati, legacy senza test - ma **non decide**): è il momento in
+cui la scala è più chiara, perché il piano elenca i file veri. Oppure **dopo i rossi**: al ripetersi
+dei giri di test falliti è il *sequencer* a proporla (soglia `models.escalateAfterRedRounds`). La
+seconda via è deliberatamente **reattiva invece che predittiva**: un test rosso è un fatto oggettivo,
+mentre stimare la complessità *prima* è il tipo di giudizio su cui un LLM è meno affidabile. In
+entrambi i casi la scelta si registra (`record-override --gate model-tier`): nessun cambio di tier
+silenzioso, in nessuna delle due direzioni.
+
+Un'ultima nota di onestà: il tier del thread è un **default**, non un vincolo. Puoi cambiarlo con
+`/model` in qualunque momento e il kit non ha modo di accorgersene. Va bene così - il tier è
+*economia*, non un presidio di correttezza. I presidi restano gli hook, i tre gate e i test scritti
+prima del codice.
 
 ### 3.3 Skill, hook e connettori
 
@@ -255,8 +300,23 @@ Ad approvazione - e qui la 0.0.7 cambia le cose - la chiusura della fase è **ga
 
 ### 4.3 Fase 2 - Implementazione
 
-**Cosa succede.** L'orchestratore propone il **piano** (approccio, file toccati, rischi).
-**► GATE UMANO 2: approvi il PIANO?** (`approve-gate plan`).
+**Cosa succede.** Dalla **0.3.0** il **piano** lo redige un sub-agent dedicato, **`plan-author`**
+(modello top), che riceve la spec approvata, il registro Q&A, gli architecture doc dei contesti
+toccati, le convenzioni di progetto e il test-playbook. Legge la codebase più a fondo di quanto
+faccia la Fase 1 - qui servono i punti di innesto *reali*, non plausibili - e produce approccio, file
+toccati con percorsi veri, **ordine degli interventi**, rischi, test previsti *scelti dal playbook*
+(non inventati: il contenuto dei test lo deriverà il test-author dalla sola spec), più due cose che
+prima non esistevano: un **controllo di copertura** (ogni clausola della spec ha un intervento che la
+realizza; ogni intervento ha una clausola che lo richiede - il resto è fuori perimetro) e le **note
+di complessità implementativa**, che ti servono al gate per decidere con quale tier implementare.
+
+Il piano **non raggiunge mai il test-author**: la spec dichiara il COSA e resta il suo unico input.
+È questa separazione a rendere strutturale l'anti teaching-to-the-test - se il COME colasse nella
+spec, i test validerebbero l'approccio scelto invece del comportamento atteso. Ed è la ragione per
+cui piano e specifica sono due agenti e non uno.
+
+**► GATE UMANO 2: approvi il PIANO?** (`approve-gate plan`) - e, con le note di complessità sotto gli
+occhi, **con quale tier implementiamo?**
 
 Poi, **prima che qualsiasi commit esista**, il **branch di lavoro**: ti viene chiesto da quale branch staccare (default: quello di default del repo) e proposto un nome **`<fix|feat>/<nome-breve-esplicativo>`** - `fix/` per i BUG, `feat/` per le CR, es. `feat/export-csv-ordini` - con possibilità di nome custom. Il branch è registrato nello stato (`set-branch`), e da lì in poi l'hook blocca lo sviluppo sul branch base. L'ordine non è casuale: il branch nasce prima del test-author *perché il test-author committa*, e quei commit devono già stare sul branch giusto.
 
@@ -282,8 +342,8 @@ Chiude la fase il **► GATE UMANO 3: occhiata al diff** (o all'inventario per c
 
 | Contratto F2 | |
 |---|---|
-| **Richiede** | Gate 1 registrato. Per il codice: Gate 2 + branch registrati (hook). Per i test: **solo la spec**. |
-| **Produce** | Test committati prima del codice; implementazione con diff rivisto al Gate 3; branch di lavoro; decisione snapshot registrata. |
+| **Richiede** | Gate 1 registrato. Per il piano: spec approvata + architecture doc + convenzioni + test-playbook. Per il codice: Gate 2 + branch registrati (hook). Per i test: **solo la spec**. |
+| **Produce** | Piano con copertura verificata e note di complessità; test committati prima del codice; implementazione con diff rivisto al Gate 3; branch di lavoro; decisione snapshot registrata; eventuale escalation di tier registrata. |
 | **Vincola** | Senza Gate 1+2+branch l'hook **blocca fisicamente** la scrittura di sorgenti. I test sono immutabili per l'implementatore. Senza snapshot "before", niente non-regression sui dati in F3. |
 | **Convenzioni** | Branch `<fix|feat>/<slug>`; convenzioni applicate, mai inferite; contesto minimo; deroghe solo via `record-override` con motivo. |
 
@@ -291,9 +351,9 @@ Chiude la fase il **► GATE UMANO 3: occhiata al diff** (o all'inventario per c
 
 **Cosa succede.** Si lancia ciò che il cambiamento richiede, e a dirlo è il **test-playbook dichiarato** - mai l'intuito. La skill `test-selector` classifica il diff (dati/ETL? frontend? API/logica? trasversale?) e seleziona dal playbook (per ogni tipo: `pathPatterns`, `command`, `needsBeforeSnapshot`). Se il diff ricade in un'area senza regola, non si tira a indovinare: si avvisa e si propone di aggiungere la regola con `flow-settings`. Sui monorepo si interroga il tool nativo (Turborepo/Nx `--affected`); senza, fallback conservativo dichiarato.
 
-L'**esecuzione** è del sub-agent **test-runner** (modello economico): lancia i comandi *esatti*, senza modificarli, e riporta fatti - pass/fail e l'estratto d'errore utile. Verdi → si registra `record-verification --status done` e si prosegue. Rossi → si torna in Fase 2; i test non si aggiustano.
+L'**esecuzione** è del sub-agent **test-runner** (modello economico): lancia i comandi *esatti*, senza modificarli, e riporta fatti - pass/fail e l'estratto d'errore utile. Verdi → si registra `record-verification --status done` e si prosegue. Rossi → si registrano (`--status failed`) e si torna in Fase 2; i test non si aggiustano. Dalla **0.3.0** registrare il rosso non è una formalità: è ciò che rende il rientro in implementazione visibile al sequencer invece di essere un vuoto nello stato, e ciò che gli fa **contare i giri** - superata la soglia `models.escalateAfterRedRounds`, è lui a proporti l'escalation di tier.
 
-La garanzia è del guardiano di fine turno: la verifica registrata vale per **l'hash esatto del diff verificato**. Se dopo i test tocchi ancora il codice, il gate si ri-arma da solo - non esiste più il "ho già verificato" generico.
+La garanzia è del guardiano di fine turno: la verifica registrata vale per **l'hash esatto del diff verificato**. Se dopo i test tocchi ancora il codice, il gate si ri-arma da solo - non esiste più il "ho già verificato" generico. E dalla **0.3.0** una verifica **rossa** non lo soddisfa: registrare il rosso è obbligatorio, ma non è un permesso di chiudere - il gate resta armato finché i test non passano (o non salti, motivando).
 
 | Contratto F3 | |
 |---|---|
@@ -331,9 +391,13 @@ di tutti i task successivi.
 
 **Cosa succede.** La chiusura verso l'esterno, tutta meccanica: la **PR** dal branch di lavoro verso il branch base registrato nello stato (titolo dalla spec, corpo con link a spec e changelog, riferimento al ticket; `record-pr`), e l'**aggiornamento del ticket** via connettore - `--update-status "<ref>" "<stato>"` - con lo stato di arrivo (Review/Done) scelto da te e registrato. Poi `flowState close`: il task esce dallo stato attivo, il suo file di stato resta come audit trail.
 
+Nei **progetti senza git** (deroga `branch` registrata) non c'è una PR da proporre: dalla **0.3.0** il
+sequencer salta quel passo invece di inciampare, e la consegna resta il solo aggiornamento del ticket
+- che continua a pretendere, usando il changelog come riferimento temporale al posto della PR.
+
 | Contratto F5 | |
 |---|---|
-| **Richiede** | F4 registrata; branch e base nello stato; connettore funzionante. |
+| **Richiede** | F4 registrata; branch e base nello stato (o la deroga `branch` per i progetti senza git); connettore funzionante. |
 | **Produce** | PR aperta; ticket aggiornato; stato chiuso. |
 | **Vincola** | Il guardiano pretende l'update del ticket (o skip esplicito) prima della chiusura. |
 
@@ -416,7 +480,7 @@ per l'attribuzione), mai contenuti. Per spegnerla davvero: `flow-settings` (che 
 
 > **Tu:** «Lavora su questo task: https://app.productive.io/12345-acme/tasks/task/67890»
 
-L'agente invoca la skill **`flow`** e da lì è il processo a guidare - letteralmente: a ogni giro l'orchestratore chiede al sequencer «qual è il prossimo passo?» (`flowState next`) ed esegue ciò che risponde. In sequenza: contract-check, stato avviato, intake (sub-agent economico), spec-author che ti porta bozza + domande, **Gate 1**, salvataggio spec + commento sul ticket (garantiti), piano, **Gate 2**, richiesta del branch («da `main`? Propongo `feat/export-csv-ordini`»), test-author che committa i test, implementazione (con l'eventuale gate snapshot se tocchi dati), **Gate 3** sul diff, selezione test dal playbook + test-runner, doc-author che aggiorna documenti e changelog, PR proposta verso il branch base, ticket in Review. A ogni passo lo stato registra; a ogni mancanza il guardiano blocca.
+L'agente invoca la skill **`flow`** e da lì è il processo a guidare - letteralmente: a ogni giro l'orchestratore chiede al sequencer «qual è il prossimo passo?» (`flowState next`) ed esegue ciò che risponde. In sequenza: contract-check, stato avviato, intake (sub-agent economico), spec-author che ti porta bozza + domande, **Gate 1**, salvataggio spec + commento sul ticket (garantiti), plan-author che ti porta il piano con le note di complessità, **Gate 2** (dove decidi anche il tier), richiesta del branch («da `main`? Propongo `feat/export-csv-ordini`»), test-author che committa i test, implementazione (con l'eventuale gate snapshot se tocchi dati), **Gate 3** sul diff, selezione test dal playbook + test-runner, doc-author che aggiorna documenti e changelog, PR proposta verso il branch base, ticket in Review. A ogni passo lo stato registra; a ogni mancanza il guardiano blocca.
 
 Se ti interrompi a metà - riunione, fine giornata - alla sessione dopo l'hook ti accoglie con «Task in corso: productive-67890, fase quality» e si riparte da lì: il sequencer risponde la stessa cosa a qualunque sessione. Se il task lo prende un collega, per lui vale lo stesso. E se il task muore (cliente che ritira la richiesta): «abbandona il task» → `abort --reason`, che chiude lo stato e ti propone le compensazioni (branch da eliminare, ticket da annotare).
 
@@ -473,7 +537,7 @@ la strada è la whitelist committata o la proposta di adozione nel kit - mai l'u
 
 ## 9. Limiti noti (dichiarati)
 
-Onestà sui confini. Il **pre-bash-guard è un'euristica**: copre i vettori comuni di scrittura via shell, non ogni percorso possibile - la garanzia forte resta la coppia hook + git history. Il **perimetro** blocca skill e MCP a livello di tool; non può impedire ciò che accade fuori da Claude Code. L'**override per-progetto del modello degli agenti** non è ancora configurabile da `flow.config` (i tier vivono nel frontmatter degli agenti del kit). Le **scritture dei connettori** sono implementate secondo le API documentate di Productive/Zammad ma vanno validate sul campo con credenziali reali (il contract-check probe copre la lettura). Il **sequencer** dipende dai fatti registrati: un fatto vero ma non registrato produce un `next` "indietro" - la regola è registrare il fatto mancante, mai forzare. E l'**istruttoria MCP** per i connettori (GAP-11) resta una decisione aperta, con i criteri definiti nella gap analysis. Tutto il resto di ciò che era "prescritto ma affidato all'agente" nella 0.0.6 - salvataggio spec, aggiornamento ticket, esecuzione test, doc e changelog, vincolo di perimetro, e dalla 0.0.8 anche la **sequenza stessa del flusso** - è oggi **garantito da hook, stato e sequencer**.
+Onestà sui confini. Il **pre-bash-guard è un'euristica**: copre i vettori comuni di scrittura via shell, non ogni percorso possibile - la garanzia forte resta la coppia hook + git history. Il **perimetro** blocca skill e MCP a livello di tool; non può impedire ciò che accade fuori da Claude Code. Il **tier dei modelli** è configurabile per-progetto solo per il *thread* (`flow.config.models`, dalla 0.3.0): quello dei **sub-agent** resta nel frontmatter degli agenti del kit - ed è deliberato, perché è ciò che lo rende garantito invece che raccomandato. Il rovescio della medaglia: il tier del thread è un **default**, non un vincolo - l'utente può cambiarlo con `/model` e il kit non ha modo di accorgersene (il tier è economia, non un presidio di correttezza). Le **scritture dei connettori** sono implementate secondo le API documentate di Productive/Zammad ma vanno validate sul campo con credenziali reali (il contract-check probe copre la lettura). Il **sequencer** dipende dai fatti registrati: un fatto vero ma non registrato produce un `next` "indietro" - la regola è registrare il fatto mancante, mai forzare. E l'**istruttoria MCP** per i connettori (GAP-11) resta una decisione aperta, con i criteri definiti nella gap analysis. Tutto il resto di ciò che era "prescritto ma affidato all'agente" nella 0.0.6 - salvataggio spec, aggiornamento ticket, esecuzione test, doc e changelog, vincolo di perimetro, e dalla 0.0.8 anche la **sequenza stessa del flusso** - è oggi **garantito da hook, stato e sequencer**.
 
 ---
 
@@ -564,6 +628,19 @@ vuoto = Fase 3 cieca (il doctor avvisa).
 | `sourceDoc` | `null` | In alternativa: il documento del progetto che le descrive. |
 
 *Letta da*: impl-runbook (F2).
+
+### `models` - il tier del thread principale e l'escalation
+
+| Chiave | Default | Effetto |
+|---|---|---|
+| `mainThread` | `"sonnet"` | Il tier di default del **thread** (orchestrazione + implementazione) in questo progetto: l'install lo scrive come `"model"` in `.claude/settings.json`. `"inherit"` non scrive nulla (decidi tu sessione per sessione). |
+| `escalation` | `"opus"` | Il tier proposto quando il lavoro si rivela più difficile del previsto. |
+| `escalateAfterRedRounds` | `2` | Dopo quanti giri di test rossi il sequencer propone l'escalation. `0` = mai. |
+
+*Letta da*: install (`.claude/settings.json`), sequencer (proposta di escalation), skill flow (Gate 2).
+**Non** governa i sub-agent: il loro tier sta nel frontmatter dell'agente e si cambia aggiornando il
+kit, non da qui. Cambiandola con `flow-settings`, va riallineata anche la chiave `"model"` di
+`.claude/settings.json` (come per la telemetria, la config è l'intento, il settings è ciò che applica).
 
 ### `maxRefine` - le soglie del loop di raffinamento
 

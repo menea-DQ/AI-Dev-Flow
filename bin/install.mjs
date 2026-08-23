@@ -331,6 +331,20 @@ async function enablePluginsForProject(installer, projectRoot, kitRoot, mergedCo
     marketplaceNames.push(PONYTAIL_MARKETPLACE_NAME);
   }
 
+  // Tier del THREAD PRINCIPALE (orchestrazione + implementazione). I sub-agent hanno il loro tier
+  // nel frontmatter, che vince sempre; il thread no, quindi il default lo fissa qui il progetto.
+  // È una decisione dell'intervista (INSTALL.md, Passo 3), non un'inferenza: resta sovrascrivibile
+  // dall'utente con /model, ed è ciò che l'escalation ai gate fa in modo dichiarato.
+  const requestedModel = mergedConfig?.models?.mainThread ?? null;
+  let modelSet = null;
+  if (requestedModel && requestedModel !== 'inherit') {
+    if (settings.model && settings.model !== requestedModel) {
+      console.warn(`ATTENZIONE: .claude/settings.json aveva già "model": "${settings.model}". Lo sostituisco con "${requestedModel}" (decisione dell'intervista). Se non è voluto: rimettilo a mano, o cambia models.mainThread con la skill flow-settings.`);
+    }
+    settings.model = requestedModel;
+    modelSet = requestedModel;
+  }
+
   let envKeys = [];
   if (mergedConfig?.telemetry?.enabled) {
     const projectName = mergedConfig.telemetry.projectName || basename(projectRoot);
@@ -349,7 +363,10 @@ async function enablePluginsForProject(installer, projectRoot, kitRoot, mergedCo
     await installer.createFile(settingsPath, serialized);
   }
   console.log(`Abilitati SOLO in questo progetto: ${enabledPluginKeys.join(', ')} (modalità Ponytail: ${ponytailMode}).`);
-  return { relPath: '.claude/settings.json', fileCreatedByUs: !settingsExisted, enabledPluginKeys, marketplaceNames, envKeys };
+  if (modelSet) {
+    console.log(`Modello di default del thread principale in questo progetto: ${modelSet}. Le fasi che richiedono un tier superiore sono blindate nel frontmatter dei sub-agent (spec-author, plan-author).`);
+  }
+  return { relPath: '.claude/settings.json', fileCreatedByUs: !settingsExisted, enabledPluginKeys, marketplaceNames, envKeys, modelSet };
 }
 
 function buildTelemetryEnvrcBlock(telemetry, projectName) {
