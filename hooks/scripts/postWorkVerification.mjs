@@ -71,13 +71,13 @@ if (state && state.phase !== 'done' && state.phase !== 'aborted') {
           `sia sbagliato rispetto alla spec, NON adattarlo: segnalalo all'utente.\n` +
           `Quando i test passano: ${FLOW_STATE_CLI} record-verification --status done --tests "<nomi>"\n` +
           `Se l'utente sceglie di chiudere comunque: ${FLOW_STATE_CLI} record-verification --status skipped --reason "<motivo>"\n` +
-          `  (chiediglielo con AskUserQuestion, in italiano — è una sua scelta e resta registrata).\n\n`
+          `  (chiediglielo con AskUserQuestion, in italiano chiaro e con il contesto dentro la domanda — è una sua scelta e resta registrata).\n\n`
         : `SE hai completato TUTTO il lavoro richiesto:\n` +
           `  • esegui i comandi qui sopra (per la non-regressione, diff strutturale contro lo snapshot "before");\n` +
           `  • poi registra: ${FLOW_STATE_CLI} record-verification --status done --tests "<nomi>"\n` +
           `  • se i test sono rossi: ${FLOW_STATE_CLI} record-verification --status failed --tests "<nomi>" e torna a correggere il CODICE;\n` +
           `  • se invece l'utente sceglie di saltare: ${FLOW_STATE_CLI} record-verification --status skipped --reason "<motivo>"\n` +
-          `    (chiediglielo con AskUserQuestion, in italiano — lo skip è una scelta umana e resta registrato).\n\n`) +
+          `    (chiediglielo con AskUserQuestion, in italiano chiaro e con il contesto dentro la domanda — lo skip è una scelta umana e resta registrato).\n\n`) +
       `SE NON hai ancora finito il task: continua a lavorare, questo controllo tornerà a fine turno.\n`,
     );
   }
@@ -122,7 +122,7 @@ blockWithInstruction(
   `coperte dal test-playbook.\n\n` +
   `Test pertinenti da eseguire:\n${applicableTests.join('\n')}\n\n` +
   `SE hai completato TUTTO il lavoro richiesto:\n` +
-  `  • DEVI chiedere all'utente con AskUserQuestion (in italiano) se eseguire ORA la verifica o saltarla.\n` +
+  `  • DEVI chiedere all'utente con AskUserQuestion (in italiano chiaro, contesto DENTRO la domanda: quali test e cosa comporta saltarli) se eseguire ORA la verifica o saltarla.\n` +
   `  • Se esegue: lancia i comandi del test-playbook qui sopra; per la non-regressione, fai il diff ` +
   `strutturale contro lo snapshot "before".\n` +
   `  • Quando hai eseguito la verifica O l'utente ha scelto di saltarla, esegui:\n      printf '%s' "${diffHash}" > ${verifyMarker}\n` +

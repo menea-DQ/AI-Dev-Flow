@@ -32,6 +32,9 @@ Fonte di verità del processo: `PROCESS.md`. Manuale discorsivo: `docs/AI_Dev_Fl
   il tier: batte il modello di sessione, e l'orchestratore ha il divieto di passare `model` alla
   chiamata). Il tier del **thread principale** non sta qui: è un default per-progetto
   (`flow.config.models.mainThread` → `"model"` in `.claude/settings.json`, scritto dall'install).
+- `output-styles/*.md` — output style consegnati dal plugin (economia dell'attenzione: output
+  essenziale nel flusso, domande e gate completi). NON copiati nei progetti: l'install scrive solo
+  la selezione (`outputStyle` in `.claude/settings.json`).
 - `connectors/` — connettori (Productive/Zammad) + contratto (`contract.schema.json`) + `check.mjs`.
   Env condiviso in `connectors/connectorEnv.mjs`.
 - `templates/` — modelli degli artefatti prodotti dal processo.
@@ -51,10 +54,11 @@ Fonte di verità del processo: `PROCESS.md`. Manuale discorsivo: `docs/AI_Dev_Fl
   che nessuno legge è debito, non documentazione.
 - **`flow.config.json` è l'unica fonte di verità operativa** per config per-progetto (es.
   `testPlaybook`): letta da hook e skill, editata da `flow-settings`. Non creare mirror `.md`.
-  Due eccezioni note, dove la config è solo l'INTENTO e ciò che *applica* è `.claude/settings.json`:
-  `telemetry.*` (riallineato da `bin/telemetry.mjs --apply`) e `models.mainThread` (chiave `"model"`,
-  scritta da install e migrazione, riallineata a mano da `flow-settings`). Chi tocca quelle sezioni
-  deve riallineare il settings nello stesso giro, o config e realtà divergono.
+  Tre eccezioni note, dove la config è solo l'INTENTO e ciò che *applica* è `.claude/settings.json`:
+  `telemetry.*` (riallineato da `bin/telemetry.mjs --apply`), `models.mainThread` (chiave `"model"`)
+  e `output.style` (chiave `"outputStyle"`) — le ultime due scritte da install e migrazione e
+  riallineate a mano da `flow-settings`. Chi tocca quelle sezioni deve riallineare il settings nello
+  stesso giro, o config e realtà divergono.
 - **Bump di versione**: aggiorna insieme `VERSION`, `.claude-plugin/plugin.json`, l'header di
   `PROCESS.md` (`process-version` + `compatibile-con`) e l'header del Manuale.
 - **Aggiorna SEMPRE le docs nello stesso giro** della modifica al kit (README, docs/, README di
@@ -64,6 +68,17 @@ Fonte di verità del processo: `PROCESS.md`. Manuale discorsivo: `docs/AI_Dev_Fl
   formato di un artefatto per-progetto. È idempotente e transazionale (rollback a errore).
 - **Insidie del manifest** (`.claude-plugin/`): NON dichiarare `hooks/hooks.json` nel campo `hooks`
   del `plugin.json` (doppio caricamento); nel `marketplace.json` la source deve iniziare con `./`.
+- **Insidie degli output style** (verificate sul campo con CLI 2.1.153, non dedotte dai doc):
+  un output style consegnato dal plugin si seleziona SOLO col nome **namespaced**
+  `<prefisso>:<name del frontmatter>` — il nome nudo non viene trovato, e il `name` del frontmatter
+  conta più del nome del file. Il prefisso è il nome del **plugin**, non del marketplace: provato
+  installando il kit da un marketplace rinominato (`aidf-verify`) e verificando che
+  `ai-dev-flow:AI-Dev Flow` carica lo stile. `claude plugin details` NON elenca gli output style nell'inventario dei componenti: è un
+  buco della vista, non un mancato caricamento (verificalo interrogando la sessione, non l'inventario).
+  L'alternativa `force-for-plugin: true` funziona senza scrivere nei settings ma SCAVALCA anche una
+  scelta esplicita dell'utente: scartata di proposito. Per provarlo in locale serve una COPIA del kit
+  con marketplace e plugin rinominati (`claude plugin marketplace add <path>` + `install --scope
+  local`): con lo stesso nome collide col marketplace GitHub dell'utente e glielo sostituisce.
 
 ## Come testare una modifica (senza credenziali reali)
 
@@ -76,6 +91,10 @@ node bin/telemetry.mjs --project <scratch> --status
 node bin/uninstall.mjs --project <scratch> --purge
 ```
 
-Più `node --check <file>` sugli script toccati. Gli hook si esercitano con
-`CLAUDE_PLUGIN_ROOT=<kit> CLAUDE_PROJECT_DIR=<scratch> node hooks/scripts/<hook>.mjs`.
+Più `node --check <file>` sugli script toccati e `claude plugin validate .` sul manifest. Gli hook
+si esercitano con `CLAUDE_PLUGIN_ROOT=<kit> CLAUDE_PROJECT_DIR=<scratch> node hooks/scripts/<hook>.mjs`.
+Un OUTPUT STYLE non si verifica leggendo i file: si interroga la sessione, perché è l'unico modo di
+sapere se è finito nel system prompt —
+`claude -p "Nelle tue istruzioni compare <una frase letterale dello stile>? Rispondi SI o NO." < /dev/null`
+dentro un progetto scratch con lo stile selezionato (`outputStyle` in `.claude/settings.json`).
 Le scritture dei connettori (`--update-status`/`--comment`) NON sono validate sul campo: dichiaralo.

@@ -1,6 +1,6 @@
 # AI-Dev Flow — Processo
-process-version: 0.3.0
-compatibile-con: ">=0.3.0 <0.4.0"
+process-version: 0.4.0
+compatibile-con: ">=0.4.0 <0.5.0"
 
 ## Principio fondante
 L'AI esegue, la persona decide nei punti chiave (human-in-the-loop).
@@ -86,6 +86,38 @@ disattiva il tiering. Se un tier è sbagliato, si corregge il frontmatter, non l
 l'utente rifiuta una delega, il lavoro svolto in linea gira sul modello del thread principale: il
 costo va DICHIARATO prima di procedere, non scoperto dopo.
 
+## Economia dell'attenzione (l'utente non legge la narrazione: la salta)
+Il processo gira in gran parte in automatico, quindi ciò che l'AI scrive mentre lavora non viene
+letto — e in più sommerge le due sole cose che vanno lette: i gate e le domande. È un costo doppio:
+token di output (i più cari) spesi per rendere ILLEGGIBILE il momento della decisione. La regola è
+**poco mentre lavori, molto quando chiedi**:
+- Mentre il flusso gira: una riga per passo del sequencer (fase, esito, fatto registrato). Non si
+  riassume il lavoro di un sub-agent, non si parafrasa l'istruzione di un hook, non si commenta ciò
+  che il diff mostra già.
+- Gli ARTEFATTI NON SI INCOLLANO nella chat: spec, piani, changelog e diff vivono in file, e ciò
+  che si scrive è il PERCORSO. La bozza di spec e quella di piano nascono su file nella cartella
+  del task (`spec-draft.md`, `plan-draft.md`) proprio per questo: prima della 0.4.0 esistevano solo
+  nella conversazione, quindi il gate era costretto a riversarle.
+- Ai GATE si scrive ciò che serve a DECIDERE: 5-15 righe (cosa è stato prodotto, quali scelte
+  comporta, quali rischi), il percorso del file, e cosa serve dall'utente.
+- Un errore che blocca il flusso è l'eccezione: si dice subito, per intero, col rimedio.
+
+## Il contratto della domanda
+Una domanda è il punto in cui il processo chiede di decidere: se non è comprensibile, la decisione è
+peggiore, e una decisione peggiore diventa un emendamento — cioè un rimbalzo, il costo peggiore del
+processo. Quindi ogni domanda porta: **cosa si sta decidendo**, **perché la si chiede ora** (cosa
+manca, con la fonte precisa: quale clausola, quale file, quale voce di changelog), **cosa cambia** in
+base alla risposta, e **2-4 opzioni con la conseguenza di ciascuna**.
+Due vincoli strutturali, non stilistici:
+- Chi ha il contesto DEVE consegnarlo insieme alla domanda. Un sub-agent formula le sue domande
+  avendo letto spec, codice e changelog; l'orchestratore no, e non può aggiungere un contesto che
+  non ha mai avuto. Per questo i contratti dei sub-agent impongono le quattro voci sopra per ogni
+  domanda.
+- Le domande dei sub-agent si RISCRIVONO, non si inoltrano. Inoltrarle verbatim è la causa più
+  comune di domande incomprensibili: sono state scritte per un lettore che aveva tutto in testa.
+Lingua: chiara e breve, senza gergo interno non ancora noto a chi risponde. Se una domanda esce
+lunga o contorta, non è un problema di forma: chi la pone non ha ancora capito cosa sta chiedendo.
+
 ## Tier del thread principale e escalation
 Il tier dei sub-agent è garantito dal frontmatter. Nel THREAD PRINCIPALE restano l'orchestrazione
 (bookkeeping: la direzione la calcola il sequencer) e l'IMPLEMENTAZIONE di un piano già approvato al
@@ -145,7 +177,8 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
   nessun doc).
 - Il sub-agent spec-author valida la richiesta contro codebase, constraint, changelog
   (impact analysis: la richiesta rompe scelte deliberate del passato?), redige la bozza di spec
-  e le domande sui buchi.
+  SU FILE (`.ai-dev/tasks/<id>/spec-draft.md`) e le domande sui buchi, ognuna col proprio contesto.
+  Al gate l'orchestratore presenta il sommario e il percorso, non la spec incollata.
 - CONTRATTO D'INGRESSO della fase: fra gli input dello spec-author ci sono anche gli INPUT DI
   FASE 0 (`.ai-dev/tasks/<id>/inputs/`, e quelli dei task precedenti dello stesso ticket): brief
   degli stakeholder, discovery in sola lettura sul sistema sorgente, fixture grezze. Sono la fonte
@@ -169,7 +202,8 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
   (record-spec) + commento sul task nel ticketing via connettore (--comment) con il riferimento.
 
 ### Fase 2 — Implementazione
-- Il sub-agent plan-author redige il piano dalla SPEC APPROVATA (approccio, file toccati con
+- Il sub-agent plan-author redige il piano SU FILE (`.ai-dev/tasks/<id>/plan-draft.md`) dalla
+  SPEC APPROVATA (approccio, file toccati con
   percorsi reali, ordine degli interventi, rischi, test previsti SCELTI dal playbook) più il
   CONTROLLO DI COPERTURA (ogni clausola della spec ha un intervento che la realizza; ogni
   intervento ha una clausola che lo richiede) e le NOTE DI COMPLESSITÀ implementativa.

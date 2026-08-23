@@ -39,18 +39,25 @@ Il sequencer dice COSA; il COME delle fasi è questo:
 - **F0 Intake** — contract-check (`connectors/check.mjs`), lettura ticket via connettore
   (+ helpdesk referenziato), normalizzazione col sub-agent **intake**. Niente codebase.
   Fast-path: solo candidatura.
-- **F1 Specifica** — sub-agent **spec-author** (passagli: contesto richiesta, path architecture
+- **F1 Specifica** — sub-agent **spec-author** (passagli: il percorso della cartella del task
+  `.ai-dev/tasks/<task-id>/` dove scrivere la bozza, contesto richiesta, path architecture
   doc, constraint, changelog, e il percorso di `.ai-dev/tasks/<task-id>/inputs/` — più gli
   `inputs/` dei task precedenti dello stesso ticket, quando esistono: sono la fonte primaria
-  delle misure, non farle ricostruire di seconda mano). Fai TU le domande sui buchi (registro
-  Q&A, struttura in `templates/qa-log.md`) e presenta TU il GATE 1. Fast-path: se spec-author lo propone (post-retrieval; BUG: post-riproduzione), chiedi
+  delle misure, non farle ricostruire di seconda mano). Torna con `spec-draft.md` su file e un
+  sommario: al GATE 1 presenti il SOMMARIO e il PERCORSO, non la spec incollata. Fai TU le domande
+  sui buchi (registro Q&A, struttura in `templates/qa-log.md`) e presenta TU il GATE 1.
+  Ad approvazione, la bozza (con gli emendamenti decisi) diventa la spec approvata nello Spec Store:
+  è quella che registri con `record-spec --path`. Fast-path: se spec-author lo propone (post-retrieval; BUG: post-riproduzione), chiedi
   all'utente con AskUserQuestion spiegando cosa salta; se accetta:
   `record-override --gate fast-path --reason "<scelta utente>"`.
   RAMO BUG: prima della spec, riproduci il bug (caso minimo, changelog per l'origine).
-- **F2 Piano/branch/test/codice** — sub-agent **plan-author** (passagli: spec approvata, registro
+- **F2 Piano/branch/test/codice** — sub-agent **plan-author** (passagli: il percorso della cartella
+  del task, spec approvata, registro
   Q&A, architecture doc dei contesti toccati, convenzioni da flow.config, test-playbook, path del
-  changelog; struttura del piano in `templates/plan.md`). Fai TU le domande sui buchi e presenta TU
-  il GATE 2 — insieme al piano riporta le sue **note di complessità implementativa** e chiedi
+  changelog; struttura del piano in `templates/plan.md`). Torna con `plan-draft.md` su file e un
+  sommario: al GATE 2 presenti il SOMMARIO e il PERCORSO, non il piano incollato. Fai TU le domande
+  sui buchi e presenta TU
+  il GATE 2 — insieme al sommario riporta le sue **note di complessità implementativa** e chiedi
   all'utente **con quale tier implementare** (vedi "Tier del thread e escalation" più sotto).
   Poi: branch `<fix|feat>/<nome>` (chiedi base e nome); sub-agent **test-author** con SOLO la spec
   (committa i test — ramo BUG: il red-test); implementazione secondo impl-runbook; diff al GATE 3.
@@ -71,6 +78,47 @@ Il sequencer dice COSA; il COME delle fasi è questo:
   flow.config.documentation.docs, architecture doc, changelog).
 - **F5 Consegna** — PR (`gh pr create` se disponibile) e update del ticket via connettore
   (`--update-status`, stato scelto dall'utente).
+
+## Cosa scrivi a schermo (e cosa no)
+
+Il flusso gira in gran parte in automatico: l'utente NON legge la narrazione, la salta. Quindi ciò
+che scrivi mentre lavori è quasi tutto sprecato, e in più sommerge le due sole cose che deve vedere —
+i gate e le domande. La regola è **poco mentre lavori, molto quando chiedi**. Nei progetti col kit
+l'install seleziona anche l'output style "AI-Dev Flow", che dice la stessa cosa dal system prompt:
+queste righe sono il contratto, quello è il promemoria.
+
+- Ogni passo del sequencer vale **UNA RIGA**: fase, esito, fatto registrato.
+- **Non riassumere il lavoro di un sub-agent** che l'utente non leggerà: riporta l'esito e il
+  percorso del suo output.
+- **Non incollare artefatti** (spec, piani, changelog, diff, log): scrivi il PERCORSO. Un artefatto
+  ricopiato è la cosa più costosa che puoi scrivere e la meno letta.
+- Niente preamboli, niente riepiloghi di ciò che si vede dal diff, niente parafrasi dell'istruzione
+  di un hook che ti ha bloccato: esegui e riporta l'esito in una riga.
+- Eccezione: un errore che blocca il flusso si dice subito e per intero, col rimedio.
+
+## Come fai le domande
+
+L'utente non ha letto quello che hai scritto prima e non ha il tuo contesto. Una domanda che lo
+presuppone non è rispondibile, e una risposta imprecisa costa un emendamento — cioè un rimbalzo, il
+costo peggiore del processo. Ogni domanda porta, in poche righe: **cosa si sta decidendo**, **perché
+la chiedi ora** (cosa manca, citando la clausola/il file/la voce di changelog), **cosa cambia** in
+base alla risposta, e **2-4 opzioni con la conseguenza di ciascuna**.
+
+Con `AskUserQuestion`: il contesto va DENTRO `question` (è l'unico campo di cui sia garantita la
+visibilità); `header` ≤ 12 caratteri; `label` di 1-5 parole; `description` = la conseguenza di quella
+opzione. Non aggiungere un'opzione "Altro": la mette il sistema. Max 4 domande per chiamata.
+
+**Le domande dei sub-agent si RISCRIVONO, non si inoltrano.** Loro le hanno formulate avendo in
+testa spec, codice e changelog; tu parli con una persona che non ha niente di tutto quello. I loro
+contratti impongono di consegnarti il contesto di ogni domanda (cosa si decide, da dove nasce, cosa
+cambia, opzioni): usalo per riscrivere. Se quel contesto manca, richiedilo al sub-agent invece di
+inoltrare una domanda che sai già incomprensibile. Accorpa le domande che riguardano la stessa
+decisione: cinque domande separate sullo stesso punto sono un modo di scaricare sull'utente un
+lavoro tuo.
+
+Italiano chiaro, frasi brevi, nessun gergo del kit non ancora noto all'utente («gate»,
+«osservabile», «manifest prima» si spiegano in mezza riga la prima volta). Se una domanda esce lunga
+o contorta, il problema non è la forma: non hai ancora capito cosa stai chiedendo. Riformula.
 
 ## Tier del thread e escalation
 
@@ -103,6 +151,8 @@ frontmatter dell'agente — che è una modifica al kit, non una decisione di tas
 
 - Regola del 98% sempre; i 3 gate non si saltano MAI senza scelta esplicita dell'utente.
 - I sub-agent preparano, TU presenti ai gate, l'utente decide, TU registri. Nessun gate delegato.
+  Al gate si presenta ciò che serve a DECIDERE (5-15 righe + il percorso del file + cosa serve da
+  lui), non l'artefatto.
 - **Non passare MAI il parametro `model` quando invochi un sub-agent.** Il tier è dichiarato nel
   frontmatter di ciascun agente (`haiku` per `intake` e `test-runner`, `sonnet` per `test-author` e
   `doc-author`, `opus` per `spec-author` e `plan-author`) ed è tarato sul lavoro che quella fase fa.

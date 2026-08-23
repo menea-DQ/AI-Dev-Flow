@@ -3,7 +3,7 @@
 Plugin Claude Code per uno sviluppo software AI-assistito (human-in-the-loop), **abilitabile e
 configurabile per singolo progetto**.
 
-> Versione **0.3.0** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
+> Versione **0.4.0** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
 > possono introdurre cambiamenti non retro-compatibili (convenzione semver per le 0.x).
 
 ## Cos'è
@@ -107,6 +107,18 @@ verifica che i connettori configurati rispondano ancora come previsto (auth + ra
 contratto), segnalando le rotture (token scaduto, API cambiata) **prima** che blocchino il lavoro.
 Lo eseguono anche il doctor e l'intake-parser come pre-controllo.
 
+Dalla **0.4.0** il kit tratta l'**attenzione** dell'utente come una risorsa, esattamente come i
+token: il flusso gira in automatico, quindi la narrazione non viene letta e in più sommerge le due
+sole cose che vanno lette — i gate e le domande. La regola è **poco mentre lavori, molto quando
+chiedi**: una riga per passo del sequencer, gli artefatti su FILE con il percorso a schermo (le bozze
+di spec e piano nascono in `.ai-dev/tasks/<id>/`, non più solo nella conversazione), e ai gate ciò
+che serve a decidere invece dell'artefatto ricopiato. Le **domande** hanno un contratto: cosa si
+decide, perché la si chiede ora (con la fonte precisa), cosa cambia in base alla risposta, 2-4 opzioni
+con la loro conseguenza — e quelle dei sub-agent si **riscrivono**, non si inoltrano, perché chi le ha
+scritte aveva in testa spec e codice e chi risponde non ha letto niente. Il veicolo è un **output
+style** consegnato dal plugin (`output-styles/`), selezionato per-progetto dall'install: non viene
+copiato nei progetti e resta cambiabile dall'utente.
+
 ## Tier dei modelli
 
 | Dove | Tier | Come è garantito |
@@ -181,6 +193,7 @@ AI-Dev-Flow/                     radice = marketplace + plugin
 ├── INSTALL.md                   procedura di installazione per-progetto
 ├── skills/<nome>/SKILL.md       flow (ENTRYPOINT), doctor, install, uninstall, migrate,
 │                                flow-settings, connectors-check + skill di processo
+├── output-styles/               stile di output del kit (essenziale nel flusso, completo ai gate)
 ├── agents/                      sub-agent per-fase, ciascuno col suo modello:
 │   ├── intake.md                Fase 0 — normalizzazione richiesta (haiku)
 │   ├── spec-author.md           Fase 1 — bozza spec + impact analysis (opus)
