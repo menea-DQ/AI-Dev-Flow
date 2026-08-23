@@ -1,6 +1,6 @@
 # AI-Dev Flow - Manuale di progetto
 
-> Documento di riferimento dello standard aziendale AI-Dev Flow, versione kit **0.3.0**.
+> Documento di riferimento dello standard aziendale AI-Dev Flow, versione kit **0.4.0**.
 > Lettore: lo sviluppatore che deve installare il kit su un progetto e lavorarci dentro.
 > Questo manuale è discorsivo per scelta: spiega il perché delle cose, non solo il cosa.
 > La fonte di verità normativa resta il repo (`PROCESS.md`, `INSTALL.md`, skill, hook, codice);
@@ -207,6 +207,48 @@ Un'ultima nota di onestà: il tier del thread è un **default**, non un vincolo.
 *economia*, non un presidio di correttezza. I presidi restano gli hook, i tre gate e i test scritti
 prima del codice.
 
+### 3.2-bis L'economia dell'attenzione (0.4.0)
+
+Il kit misurava i token e ignorava una risorsa altrettanto scarsa: **la tua attenzione**. Il flusso
+gira in gran parte in automatico, quindi la narrazione non la leggi - la salti - e nel frattempo
+sommerge le due sole cose che devi leggere davvero: i **gate** e le **domande**. È un costo doppio:
+si spendono i token piu' cari (quelli di output) per rendere illeggibile il momento della decisione.
+
+La regola della 0.4.0 e' **poco mentre lavori, molto quando chiedi**, e si articola in tre cose.
+
+**Mentre il flusso gira**: una riga per passo del sequencer - fase, esito, fatto registrato. Non si
+riassume il lavoro di un sub-agent (l'ha già fatto), non si parafrasa l'istruzione di un hook, non si
+commenta ciò che il diff mostra da sé. Un errore che blocca il flusso è l'unica eccezione: si dice
+subito e per intero.
+
+**Gli artefatti non si incollano in chat.** Questa parte non era stile, era struttura: fino alla
+0.3.0 la bozza di spec esisteva *solo nella conversazione* (`record-spec` avviene dopo
+l'approvazione), quindi il gate era obbligato a riversarla - e con specifiche da ~90 KB significa
+decine di migliaia di token di output in un singolo messaggio, per un testo che nessuno legge a
+schermo. Dalla 0.4.0 spec e piano nascono su file (`.ai-dev/tasks/<id>/spec-draft.md`,
+`plan-draft.md`) e a schermo va il **percorso**, con un sommario di 5-15 righe.
+
+**Le domande hanno un contratto.** Ogni domanda dice cosa si sta decidendo, perché la si chiede ora
+(con la fonte: quale clausola, quale file, quale voce di changelog), cosa cambia in base alla
+risposta, e 2-4 opzioni con la conseguenza di ciascuna. Con `AskUserQuestion` il contesto va **dentro
+il campo `question`**, che è l'unico di cui sia garantita la visibilità; `header` ha un tetto di 12
+caratteri e le `label` sono di 1-5 parole, quindi non è lì che si spiega.
+
+> ★ **Il vincolo che risolve le "domande senza senso"**: le domande di un sub-agent si **riscrivono,
+> non si inoltrano**. Un sub-agent le formula avendo in testa spec, codice e changelog; l'orchestratore
+> non ha nulla di quello, e tu meno ancora. Inoltrare verbatim è la causa più comune di domande
+> incomprensibili. Per questo i contratti di `spec-author` e `plan-author` ora impongono di
+> consegnare, con ogni domanda, il suo contesto: chi ce l'ha deve passarlo, perché chi riscrive non
+> può inventarlo.
+
+Il veicolo tecnico è un **output style** (`output-styles/ai-dev-flow.md`) consegnato dal plugin come
+skill e hook - non copiato nei progetti. L'install ne scrive solo la selezione in
+`.claude/settings.json` (`flow.config.output.style`), quindi vale solo nei progetti col kit e resta
+una tua scelta: `"inherit"` non tocca nulla. Nota verificata sul campo: uno stile di plugin si
+seleziona col nome **namespaced** (`ai-dev-flow:AI-Dev Flow`); esiste anche un `force-for-plugin` che
+lo imporrebbe senza settings, ma scavalca la scelta esplicita dell'utente ed è stato scartato di
+proposito - in un kit dove ogni deroga è registrata, un'imposizione silenziosa sarebbe fuori posto.
+
 ### 3.3 Skill, hook e connettori
 
 Le **skill**: `flow` è l'**entrypoint** - «lavora su questo ticket» - e orchestra le sei fasi con
@@ -260,7 +302,7 @@ tocca la modifica (la proposta vera arriva in Fase 1).
 
 ### 4.2 Fase 1 - Definizione della specifica
 
-**Cosa succede.** Il sub-agent **spec-author** (modello top) riceve un contratto d'ingresso esplicito - contesto richiesta, percorsi degli architecture doc, constraint, changelog e, dalla **0.2.0**, gli **input di Fase 0** (`.ai-dev/tasks/<id>/inputs/`, più quelli dei task precedenti dello stesso ticket: brief degli stakeholder, discovery in sola lettura sul sistema sorgente, fixture grezze) - e lavora con la disciplina di `spec-context`: **prima il documento di architettura, poi il codice**, mirato (pochi file giusti). Se il documento è in drift rispetto al codice, lo segnala subito - un doc stantio è peggio di nessun doc. Produce: la bozza di specifica, l'**impact analysis** sul changelog (la richiesta rompe scelte deliberate del passato?), le **domande sui buchi** (solo dove la spec è davvero incompleta) e - ora che ha visto il codice - l'eventuale **proposta di fast-path** motivata.
+**Cosa succede.** Il sub-agent **spec-author** (modello top) - che dalla **0.4.0** scrive la bozza su file (`.ai-dev/tasks/<id>/spec-draft.md`) invece di consegnarla in chat - riceve un contratto d'ingresso esplicito - contesto richiesta, percorsi degli architecture doc, constraint, changelog e, dalla **0.2.0**, gli **input di Fase 0** (`.ai-dev/tasks/<id>/inputs/`, più quelli dei task precedenti dello stesso ticket: brief degli stakeholder, discovery in sola lettura sul sistema sorgente, fixture grezze) - e lavora con la disciplina di `spec-context`: **prima il documento di architettura, poi il codice**, mirato (pochi file giusti). Se il documento è in drift rispetto al codice, lo segnala subito - un doc stantio è peggio di nessun doc. Produce: la bozza di specifica, l'**impact analysis** sul changelog (la richiesta rompe scelte deliberate del passato?), le **domande sui buchi** (solo dove la spec è davvero incompleta) e - ora che ha visto il codice - l'eventuale **proposta di fast-path** motivata.
 
 Tre disciplineamenti introdotti dalla **0.2.0**, tutti nati da un consuntivo reale (vedi
 `docs/proposta-riduzione-costi.md`), che spostano lavoro *a monte* del gate perché a valle costa un
@@ -287,7 +329,7 @@ ordine di grandezza in più:
 > non è osservabile per lo spec-author non lo è nemmeno per lui, e diventa un emendamento
 > post-gate - cioè un secondo passaggio completo della fase più cara del flusso.
 
-L'orchestratore fa a te le domande sui buchi (registro Q&A), itera con lo spec-author se serve, e arriva al **► GATE UMANO 1: approvi la SPECIFICA?** Il loop di raffinamento ha soglie dichiarate (`maxRefine`: avviso a 3 giri, blocco a 6). Per i BUG, prima della spec c'è la **riproduzione** (caso minimo, changelog per individuare l'origine).
+L'orchestratore fa a te le domande sui buchi (registro Q&A) - riscritte col loro contesto, non inoltrate come le ha formulate il sub-agent - itera con lo spec-author se serve, e arriva al **► GATE UMANO 1: approvi la SPECIFICA?** Al gate vedi un sommario di 5-15 righe e il **percorso** della bozza, non la spec incollata. Il loop di raffinamento ha soglie dichiarate (`maxRefine`: avviso a 3 giri, blocco a 6). Per i BUG, prima della spec c'è la **riproduzione** (caso minimo, changelog per individuare l'origine).
 
 Ad approvazione - e qui la 0.0.7 cambia le cose - la chiusura della fase è **garantita**: la spec va nello Spec Store (`record-spec`), il gate è registrato (`approve-gate spec`) e il task nel ticketing riceve il riferimento via `--comment` (registrato con `record-ticket-update`). Se manca qualcosa, il guardiano di fine turno lo pretende.
 
@@ -301,7 +343,7 @@ Ad approvazione - e qui la 0.0.7 cambia le cose - la chiusura della fase è **ga
 ### 4.3 Fase 2 - Implementazione
 
 **Cosa succede.** Dalla **0.3.0** il **piano** lo redige un sub-agent dedicato, **`plan-author`**
-(modello top), che riceve la spec approvata, il registro Q&A, gli architecture doc dei contesti
+(modello top) - e dalla **0.4.0** lo scrive su file (`.ai-dev/tasks/<id>/plan-draft.md`), presentandoti al gate il sommario e il percorso - che riceve la spec approvata, il registro Q&A, gli architecture doc dei contesti
 toccati, le convenzioni di progetto e il test-playbook. Legge la codebase più a fondo di quanto
 faccia la Fase 1 - qui servono i punti di innesto *reali*, non plausibili - e produce approccio, file
 toccati con percorsi veri, **ordine degli interventi**, rischi, test previsti *scelti dal playbook*
@@ -628,6 +670,15 @@ vuoto = Fase 3 cieca (il doctor avvisa).
 | `sourceDoc` | `null` | In alternativa: il documento del progetto che le descrive. |
 
 *Letta da*: impl-runbook (F2).
+
+### `output` - lo stile di output del progetto
+
+| Chiave | Default | Effetto |
+|---|---|---|
+| `style` | `"kit"` | Lo stile "AI-Dev Flow" (output essenziale nel flusso, domande e gate completi). L'install lo seleziona scrivendo `outputStyle` in `.claude/settings.json` col nome namespaced `ai-dev-flow:AI-Dev Flow`. `"inherit"` non tocca lo stile del progetto; un altro valore seleziona uno stile tuo. |
+
+*Letta da*: install (`.claude/settings.json`). Lo stile vive nel plugin (`output-styles/`) e non
+viene copiato nel progetto; l'uninstall rimuove la selezione solo se non l'hai cambiata.
 
 ### `models` - il tier del thread principale e l'escalation
 

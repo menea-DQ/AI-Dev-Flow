@@ -169,6 +169,12 @@ async function disablePluginInSettings(projectRoot, settingsDescriptor, removed)
   } else if (settingsDescriptor.modelSet && settings.model) {
     console.log(`Lascio "model": "${settings.model}" in ${settingsDescriptor.relPath}: è stato cambiato dopo l'install (l'install aveva scritto "${settingsDescriptor.modelSet}").`);
   }
+  // Stesso criterio del tier: lo stile di output si rimuove solo se è ancora quello nostro.
+  if (settingsDescriptor.outputStyleSet && settings.outputStyle === settingsDescriptor.outputStyleSet) {
+    delete settings.outputStyle;
+  } else if (settingsDescriptor.outputStyleSet && settings.outputStyle) {
+    console.log(`Lascio "outputStyle": "${settings.outputStyle}" in ${settingsDescriptor.relPath}: è stato cambiato dopo l'install (l'install aveva scritto "${settingsDescriptor.outputStyleSet}").`);
+  }
   if (Object.keys(settings).length === 0 && settingsDescriptor.fileCreatedByUs) {
     await rm(settingsPath, { force: true });
     removed.push(settingsDescriptor.relPath);

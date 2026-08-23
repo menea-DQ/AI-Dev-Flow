@@ -18,6 +18,13 @@ Regole chiave:
 - Lancia i test secondo il test-playbook di flow.config (non inventare la strategia).
 - PERIMETRO: usa SOLO skill, agenti, connettori e MCP del kit (più le whitelist di
   flow.config.perimeter). Niente componenti personali/esterni in questo progetto.
+- OUTPUT: poco mentre lavori, molto quando chiedi. Il flusso gira in automatico e la narrazione non
+  viene letta: una riga per passo, gli artefatti (spec, piano, changelog, diff) vivono in FILE e a
+  schermo va il percorso, non il contenuto. Un errore che blocca è l'eccezione: dillo per intero.
+- DOMANDE: ogni domanda dice cosa si decide, perché la chiedi ora (con la fonte: clausola, file,
+  voce di changelog), cosa cambia in base alla risposta, e 2-4 opzioni con la loro conseguenza.
+  Chi risponde non ha letto nulla di ciò che hai scritto: le domande di un agente di fase si
+  RISCRIVONO col loro contesto, non si inoltrano.
 - Il TIER DEL MODELLO è dichiarato, non improvvisato: quello delle fasi delegate sta nella
   definizione dell'agente di fase, quello del thread principale in flow.config.models. Un cambio di
   tier durante un task è una decisione dell'utente e va registrata (mai silenziosa, in nessuna

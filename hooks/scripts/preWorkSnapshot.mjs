@@ -45,7 +45,7 @@ if (state) {
     `[AI-Dev Flow · pre-work-snapshot] Stai per modificare codice produttore di dati: "${relativePath}".\n` +
     `La prova di non-regressione richiede un confronto pre/post: lo stato "before" va catturato ORA, ` +
     `mentre il codice è ancora pristino.\n\n` +
-    `DEVI chiedere all'utente con AskUserQuestion (in italiano) se:\n` +
+    `DEVI chiedere all'utente con AskUserQuestion (in italiano chiaro, contesto DENTRO la domanda: quali dati e cosa si perde senza snapshot) se:\n` +
     `  • catturare ORA lo snapshot "before" (consigliato), oppure\n` +
     `  • saltarlo (scelta sua, con motivazione).\n\n` +
     (snapshotTests ? `Test che richiedono lo snapshot "before" (dal test-playbook):\n${snapshotTests}\n\n` : '') +
@@ -65,7 +65,7 @@ blockWithInstruction(
   `[AI-Dev Flow · pre-work-snapshot] Stai per modificare codice produttore di dati: "${relativePath}".\n` +
   `La prova di non-regressione richiede un confronto pre/post: lo stato "before" va catturato ORA, ` +
   `mentre il codice è ancora pristino.\n\n` +
-  `DEVI chiedere all'utente con AskUserQuestion (in italiano) se catturare ORA lo snapshot "before" o saltarlo.\n` +
+  `DEVI chiedere all'utente con AskUserQuestion (in italiano chiaro, contesto DENTRO la domanda: quale file tocca dati e cosa si perde senza snapshot) se catturare ORA lo snapshot "before" o saltarlo.\n` +
   (snapshotTests ? `Test che richiedono lo snapshot "before" (dal test-playbook):\n${snapshotTests}\n\n` : '') +
   `Qualunque sia la scelta, DOPO esegui:\n      touch ${snapshotMarker}\n` +
   `e poi procedi con la modifica. (Suggerimento: se stai lavorando un ticket, avvia lo stato del task con\n` +

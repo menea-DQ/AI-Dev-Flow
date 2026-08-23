@@ -60,6 +60,12 @@ Decisioni dell'intervista:
   servono, non inventarle. Per cambiare connettore si usa la skill flow-settings, non l'install.
 - Fast-path: chiedere ogni volta [DEFAULT] o auto sotto soglia? con quale soglia?
 - Livello di essenzialità (Ponytail): default "lite".
+- STILE DI OUTPUT (`output.style`): attivo lo stile "AI-Dev Flow" in questo progetto [DEFAULT `kit`]?
+  Spiega l'effetto: output essenziale mentre il flusso gira (una riga per passo, artefatti su file
+  con il percorso a schermo) e invece domande e gate completi, col contesto per decidere. Lo stile
+  vive nel plugin e NON viene copiato nel progetto: l'install scrive solo la selezione
+  (`outputStyle` in `.claude/settings.json`), quindi vale solo qui e l'utente può cambiarla quando
+  vuole. Chi preferisce non toccare il proprio stile: `output.style = "inherit"`.
 - MODELLI (`models`): imposto `sonnet` come default del thread principale di questo progetto
   [DEFAULT]? SPIEGA cosa significa prima di chiedere: nel thread restano orchestrazione e
   IMPLEMENTAZIONE di un piano già approvato; le due fasi che richiedono il modello top — specifica
@@ -80,8 +86,10 @@ Operazioni:
 - Crea flow.lock.json con la versione del kit e l'hash dei file-chiave (per la cache assessment).
 - Abilita il plugin SOLO in questo progetto: scrive enabledPlugins + extraKnownMarketplaces nel
   .claude/settings.json del progetto (mai globalmente). Se `models.mainThread` non è `"inherit"`,
-  scrive nello stesso file anche `"model"` (il tier di default del thread deciso al Passo 3); se il
-  file ne aveva già uno diverso, lo segnala invece di sostituirlo in silenzio. Skill e hook li fornisce il plugin: NON
+  scrive nello stesso file anche `"model"` (il tier di default del thread deciso al Passo 3) e
+  `"outputStyle"` (lo stile del kit, col nome namespaced `ai-dev-flow:AI-Dev Flow`); se il
+  file ne aveva già uno diverso, lo segnala invece di sostituirlo in silenzio. Lo stile, come skill
+  e hook, lo FORNISCE il plugin: non viene copiato nel progetto. Skill e hook li fornisce il plugin: NON
   vengono copiati nel progetto. Se tokenEconomy.ponytail ≠ "off", abilita per-progetto ANCHE il
   plugin Ponytail (marketplace github DietrichGebert/ponytail) per l'essenzialità del codice.
   Se telemetry.enabled, scrive le variabili OTEL (incluso OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=cumulative,

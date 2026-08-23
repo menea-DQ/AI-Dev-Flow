@@ -35,6 +35,9 @@ const MARKETPLACE_NAME = 'ai-dev-flow';
 const PONYTAIL_PLUGIN_NAME = 'ponytail';
 const PONYTAIL_MARKETPLACE_NAME = 'ponytail';
 const PONYTAIL_REPO = 'DietrichGebert/ponytail';
+// Nome NAMESPACED dello style consegnato dal plugin: `<plugin>:<name del frontmatter>`.
+// Se rinomini `output-styles/ai-dev-flow.md` o il suo `name:`, aggiorna qui e nella migrazione.
+const KIT_OUTPUT_STYLE = `${PLUGIN_NAME}:AI-Dev Flow`;
 const ENVRC_BLOCK_START = '# >>> ai-dev-flow telemetry >>>';
 const ENVRC_BLOCK_END = '# <<< ai-dev-flow telemetry <<<';
 
@@ -345,6 +348,20 @@ async function enablePluginsForProject(installer, projectRoot, kitRoot, mergedCo
     modelSet = requestedModel;
   }
 
+  // Stile di output del kit: essenziale mentre il flusso gira, completo quando chiede. Lo style
+  // vive nel PLUGIN (non si copia nei progetti); qui si scrive solo la selezione. Verificato sul
+  // campo: uno style di plugin si seleziona col nome NAMESPACED — il nome nudo non lo trova.
+  const requestedStyle = mergedConfig?.output?.style ?? 'kit';
+  let outputStyleSet = null;
+  if (requestedStyle && requestedStyle !== 'inherit') {
+    const styleName = requestedStyle === 'kit' ? KIT_OUTPUT_STYLE : requestedStyle;
+    if (settings.outputStyle && settings.outputStyle !== styleName) {
+      console.warn(`ATTENZIONE: .claude/settings.json aveva già "outputStyle": "${settings.outputStyle}". Lo sostituisco con "${styleName}" (decisione dell'intervista). Se non è voluto: rimettilo a mano, o metti output.style="inherit" con la skill flow-settings.`);
+    }
+    settings.outputStyle = styleName;
+    outputStyleSet = styleName;
+  }
+
   let envKeys = [];
   if (mergedConfig?.telemetry?.enabled) {
     const projectName = mergedConfig.telemetry.projectName || basename(projectRoot);
@@ -366,7 +383,10 @@ async function enablePluginsForProject(installer, projectRoot, kitRoot, mergedCo
   if (modelSet) {
     console.log(`Modello di default del thread principale in questo progetto: ${modelSet}. Le fasi che richiedono un tier superiore sono blindate nel frontmatter dei sub-agent (spec-author, plan-author).`);
   }
-  return { relPath: '.claude/settings.json', fileCreatedByUs: !settingsExisted, enabledPluginKeys, marketplaceNames, envKeys, modelSet };
+  if (outputStyleSet) {
+    console.log(`Stile di output in questo progetto: "${outputStyleSet}" (essenziale durante il flusso, domande complete ai gate). Vale dalla prossima sessione.`);
+  }
+  return { relPath: '.claude/settings.json', fileCreatedByUs: !settingsExisted, enabledPluginKeys, marketplaceNames, envKeys, modelSet, outputStyleSet };
 }
 
 function buildTelemetryEnvrcBlock(telemetry, projectName) {
