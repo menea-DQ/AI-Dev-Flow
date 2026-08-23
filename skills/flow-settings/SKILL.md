@@ -30,6 +30,10 @@ senza che l'utente debba editare il JSON a mano.
    - `perimeter`: `enforce` + whitelist esplicite (`allowedMcpServers`, `allowedSkills`).
      Whitelistare un componente esterno è una DECISIONE DELL'UTENTE, committata: mai farlo di
      iniziativa.
+   - `models`: il tier del THREAD PRINCIPALE (`mainThread`: orchestrazione + implementazione), il
+     tier di `escalation` e dopo quanti giri rossi il sequencer la propone
+     (`escalateAfterRedRounds`; 0 = mai). NON governa i sub-agent: il loro tier sta nel frontmatter
+     dell'agente e si cambia aggiornando il kit, non da qui.
    - `maxRefine`, `fastPath`, `connectors`, `tokenEconomy`: soglie e opzioni.
 3. Valida la modifica contro lo schema di `flow.config`. Se una scelta è ambigua, applica la
    Regola del 98% e CHIEDI; non indovinare.
@@ -40,6 +44,11 @@ senza che l'utente debba editare il JSON a mano.
    `telemetry.*`, DOPO aver salvato la config riallinea i blocchi:
        node "${CLAUDE_PLUGIN_ROOT}/bin/telemetry.mjs" --project "$(pwd)" --apply
    (con `enabled=false` usa `--remove`). Altrimenti config e realtà divergono.
+4-ter. ECCEZIONE TIER DEL THREAD: come per la telemetria, `flow.config.models.mainThread` è solo
+   l'intento — ciò che lo applica è `"model"` in `.claude/settings.json`. Quando lo cambi, dopo aver
+   salvato la config allinea a mano quella chiave nello stesso giro (o rimuovila, se il valore è
+   `"inherit"`), e dillo all'utente: il nuovo default vale dalla prossima sessione, quella in corso
+   la cambia lui con `/model`. Il tier dei sub-agent NON si tocca da qui.
 5. Mostra un diff prima di salvare e chiedi conferma. Riepiloga l'effetto pratico della modifica
    (es. "d'ora in poi le modifiche ai file *.sql faranno scattare il data-diff").
 

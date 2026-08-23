@@ -23,7 +23,13 @@ Cosa fare:
    (naming, struttura, stile, regole UI, vincoli). Sono DICHIARATE, non da inferire.
    Se una convenzione manca per un caso che stai per decidere, applica la Regola del 98% e CHIEDI.
 2. Contesto = spec approvata + piano approvato + documento di architettura del contesto.
-   NON ricaricare tutta la repo.
+   NON ricaricare tutta la repo. Il piano è già stato redatto sul modello top (plan-author) e
+   approvato al GATE 2: qui si ESEGUE un COME già deciso, non si ri-progetta. Se l'esecuzione
+   rivela che il piano è sbagliato, non improvvisare una variante: fermati e dillo all'utente.
+   Questa fase gira nel thread principale (tier `flow.config.models.mainThread`) perché è l'unico
+   punto del flusso dove servono il loop caldo coi test e la possibilità di chiedere a metà strada.
+   Se il lavoro si rivela più difficile del previsto, l'escalation di tier è una decisione
+   dell'utente ai gate (skill flow), mai una tua iniziativa silenziosa.
 3. NON modificare i file di test (sono read-only per te: li ha scritti il sub-agent test-author).
    Se ritieni che un test sia sbagliato rispetto alla spec, NON modificarlo: segnalalo all'utente.
 4. Essenzialità via Ponytail: il plugin Ponytail (abilitato per-progetto dall'install quando

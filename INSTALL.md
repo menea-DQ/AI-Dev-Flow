@@ -60,6 +60,15 @@ Decisioni dell'intervista:
   servono, non inventarle. Per cambiare connettore si usa la skill flow-settings, non l'install.
 - Fast-path: chiedere ogni volta [DEFAULT] o auto sotto soglia? con quale soglia?
 - Livello di essenzialità (Ponytail): default "lite".
+- MODELLI (`models`): imposto `sonnet` come default del thread principale di questo progetto
+  [DEFAULT]? SPIEGA cosa significa prima di chiedere: nel thread restano orchestrazione e
+  IMPLEMENTAZIONE di un piano già approvato; le due fasi che richiedono il modello top — specifica
+  e piano — girano su sub-agent con `opus` dichiarato nel frontmatter, quindi NON dipendono da
+  questa scelta. Effetto pratico: l'install scrive `"model"` in `.claude/settings.json` (solo qui,
+  mai globalmente) e l'utente può sempre cambiarlo in sessione con `/model`. Chiedi anche il tier
+  di `escalation` (default `opus`) e dopo quanti giri di test rossi il sequencer lo propone
+  (`escalateAfterRedRounds`, default 2; 0 = mai). Se l'utente preferisce decidere sessione per
+  sessione, `mainThread: "inherit"` non scrive nulla.
 
 ## Passo 4 — Installazione
 Se è disponibile Node ed esiste bin/install.mjs, eseguilo: fa le operazioni meccaniche
@@ -70,7 +79,9 @@ Operazioni:
   (incluso testPlaybook e projectConventions).
 - Crea flow.lock.json con la versione del kit e l'hash dei file-chiave (per la cache assessment).
 - Abilita il plugin SOLO in questo progetto: scrive enabledPlugins + extraKnownMarketplaces nel
-  .claude/settings.json del progetto (mai globalmente). Skill e hook li fornisce il plugin: NON
+  .claude/settings.json del progetto (mai globalmente). Se `models.mainThread` non è `"inherit"`,
+  scrive nello stesso file anche `"model"` (il tier di default del thread deciso al Passo 3); se il
+  file ne aveva già uno diverso, lo segnala invece di sostituirlo in silenzio. Skill e hook li fornisce il plugin: NON
   vengono copiati nel progetto. Se tokenEconomy.ponytail ≠ "off", abilita per-progetto ANCHE il
   plugin Ponytail (marketplace github DietrichGebert/ponytail) per l'essenzialità del codice.
   Se telemetry.enabled, scrive le variabili OTEL (incluso OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=cumulative,

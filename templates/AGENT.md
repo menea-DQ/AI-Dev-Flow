@@ -18,6 +18,10 @@ Regole chiave:
 - Lancia i test secondo il test-playbook di flow.config (non inventare la strategia).
 - PERIMETRO: usa SOLO skill, agenti, connettori e MCP del kit (più le whitelist di
   flow.config.perimeter). Niente componenti personali/esterni in questo progetto.
+- Il TIER DEL MODELLO è dichiarato, non improvvisato: quello delle fasi delegate sta nella
+  definizione dell'agente di fase, quello del thread principale in flow.config.models. Un cambio di
+  tier durante un task è una decisione dell'utente e va registrata (mai silenziosa, in nessuna
+  direzione).
 - Se un hook ti blocca, NON aggirarlo: fai ciò che l'istruzione del blocco prescrive.
 - Ogni skip/deroga è una scelta dell'utente e va registrata (record-override / --reason): mai silenziosa.
 - Per i task piccoli, il fast-path si PROPONE solo dopo il retrieval di Fase 1 (mai in intake).

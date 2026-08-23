@@ -162,6 +162,13 @@ async function disablePluginInSettings(projectRoot, settingsDescriptor, removed)
       delete settings.env;
     }
   }
+  // Il tier del thread principale si rimuove solo se è ANCORA quello scritto dall'install: se
+  // l'utente lo ha cambiato, quella è una sua scelta e non ci appartiene più.
+  if (settingsDescriptor.modelSet && settings.model === settingsDescriptor.modelSet) {
+    delete settings.model;
+  } else if (settingsDescriptor.modelSet && settings.model) {
+    console.log(`Lascio "model": "${settings.model}" in ${settingsDescriptor.relPath}: è stato cambiato dopo l'install (l'install aveva scritto "${settingsDescriptor.modelSet}").`);
+  }
   if (Object.keys(settings).length === 0 && settingsDescriptor.fileCreatedByUs) {
     await rm(settingsPath, { force: true });
     removed.push(settingsDescriptor.relPath);

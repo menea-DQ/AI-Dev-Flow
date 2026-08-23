@@ -3,7 +3,7 @@
 Plugin Claude Code per uno sviluppo software AI-assistito (human-in-the-loop), **abilitabile e
 configurabile per singolo progetto**.
 
-> Versione **0.2.0** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
+> Versione **0.3.0** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
 > possono introdurre cambiamenti non retro-compatibili (convenzione semver per le 0.x).
 
 ## Cos'è
@@ -18,8 +18,8 @@ sono i **guardiani dei contratti di fase** (niente codice senza spec+piano appro
 lavoro; niente chiusura senza test, doc-review, changelog e ticket aggiornato — o skip espliciti e
 registrati). Le fasi sono **sei** (intake → specifica → implementazione → qualità → documentazione
 → consegna con PR), il lavoro cognitivo è svolto da **agenti dedicati per fase con il modello
-adatto** (spec-author/test-author sul modello top, intake/test-runner su quello economico,
-doc-author su quello intermedio) e vale il **perimetro dello standard**: nei progetti col kit si
+adatto** (spec-author/plan-author sul modello top, test-author/doc-author su quello intermedio,
+intake/test-runner su quello economico) e vale il **perimetro dello standard**: nei progetti col kit si
 usano SOLO componenti del kit (hook di enforcement). Entrypoint: la skill **`flow`**
 («lavora su questo ticket»).
 
@@ -41,6 +41,22 @@ alla chiamata. Nei progetti **senza git**, l'inventario del GATE 3 si ottiene pe
 manifest catturato a codice intatto (`flowState.mjs record-manifest` / `diff-manifest`), non con una
 ricerca a timestamp. Nessun presidio è stato rimosso: i sub-agent isolati, i tre gate umani e la
 Fase 4 come revisione restano invariati.
+
+Dalla **0.3.0** il tier del modello è dichiarato **anche per il thread principale**, dove fino a ieri
+era quello della sessione — cioè un fatto incidentale. Il principio: il modello top si paga dove si
+DECIDE, non dove si esegue. Il piano di Fase 2 diventa quindi un sub-agent dedicato
+(**`plan-author`**, modello top, contesto isolato: è l'unica lettura profonda della codebase del
+flusso, e la spec resta pulita dal COME perché è l'unico input del test-author); `test-author` scende
+al tier intermedio, perché la parte normativa autosufficiente e gli osservabili per clausola rendono
+la derivazione meccanica; il **thread principale** (orchestrazione + implementazione di un piano già
+approvato) ha un default di progetto in `flow.config.models.mainThread`, scritto dall'install in
+`.claude/settings.json`. L'**escalation** al tier alto è una decisione umana in due punti dichiarati:
+al GATE 2, informata dalle *note di complessità* del plan-author, oppure proposta dal **sequencer**
+al ripetersi dei giri di test rossi (`record-verification --status failed`) — un segnale oggettivo,
+non una stima ex-ante. Registrata come deroga, mai silenziosa. Nella stessa release, due correzioni
+trovate testando: il guardiano di fine turno non considera più soddisfatta una verifica **rossa** (un
+rosso registrato non fa chiudere il turno), e nei progetti **senza git** il sequencer salta il passo
+della PR invece di inciamparci, mantenendo però l'obbligo di aggiornare il ticket.
 
 È confezionato come **plugin Claude Code**: il processo, gli artefatti e i template restano agnostici
 nel contenuto; il **plugin** (skill, hook, agenti, connettori) è lo strato adattatore per Claude Code.
@@ -90,6 +106,24 @@ nell'output col percorso locale, così l'agente può aprirli (es. screenshot).
 verifica che i connettori configurati rispondano ancora come previsto (auth + raggiungibilità +
 contratto), segnalando le rotture (token scaduto, API cambiata) **prima** che blocchino il lavoro.
 Lo eseguono anche il doctor e l'intake-parser come pre-controllo.
+
+## Tier dei modelli
+
+| Dove | Tier | Come è garantito |
+| --- | --- | --- |
+| `intake` (F0), `test-runner` (F3) | economico (haiku) | frontmatter dell'agente |
+| `spec-author` (F1), `plan-author` (F2) | top (opus) | frontmatter dell'agente |
+| `test-author` (F2), `doc-author` (F4) | intermedio (sonnet) | frontmatter dell'agente |
+| Thread principale: orchestrazione + implementazione | intermedio (sonnet) | default di progetto in `flow.config.models.mainThread` → `"model"` in `.claude/settings.json` |
+
+Il frontmatter di un sub-agent **vince sempre** sul modello di sessione: le fasi che richiedono il
+modello top non dipendono da come è configurato il thread. Il contrario non vale — il tier del thread
+è un **default**, non un vincolo imponibile: l'utente può cambiarlo con `/model` e il kit non ha modo
+di accorgersene (limite dichiarato). L'**escalation** al tier alto durante un task è una decisione
+umana registrata come deroga (`record-override --gate model-tier`), proposta al GATE 2 dalle note di
+complessità del plan-author o dal sequencer dopo `escalateAfterRedRounds` giri di test rossi.
+Si cambia con `flow-settings` (che riallinea anche `.claude/settings.json`); il tier dei sub-agent
+no: quello vive nel kit e si cambia aggiornando il plugin.
 
 ## Essenzialità del codice (Ponytail)
 
@@ -150,7 +184,8 @@ AI-Dev-Flow/                     radice = marketplace + plugin
 ├── agents/                      sub-agent per-fase, ciascuno col suo modello:
 │   ├── intake.md                Fase 0 — normalizzazione richiesta (haiku)
 │   ├── spec-author.md           Fase 1 — bozza spec + impact analysis (opus)
-│   ├── test-author.md           Fase 2 — test dalla sola spec, isolato (opus)
+│   ├── plan-author.md           Fase 2 — piano dalla spec approvata (opus)
+│   ├── test-author.md           Fase 2 — test dalla sola spec, isolato (sonnet)
 │   ├── test-runner.md           Fase 3 — esecuzione test (haiku)
 │   └── doc-author.md            Fase 4 — doc-review + changelog (sonnet)
 ├── hooks/

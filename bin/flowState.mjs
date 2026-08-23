@@ -23,7 +23,7 @@
 //   node flowState.mjs record-manifest      ← manifest "prima" dei progetti SENZA git (inventario del GATE 3)
 //   node flowState.mjs diff-manifest        ← confronto manifest vs stato corrente: nuovi/modificati/rimossi
 //   node flowState.mjs record-snapshot --status <captured|skipped> [--reason <r>]
-//   node flowState.mjs record-verification --status <done|skipped> [--tests <csv>] [--reason <r>]
+//   node flowState.mjs record-verification --status <done|failed|skipped> [--tests <csv>] [--reason <r>]
 //   node flowState.mjs record-doc-review --status <done|none-impacted|skipped> [--docs <csv>] [--reason <r>]
 //   node flowState.mjs record-changelog
 //   node flowState.mjs record-ticket-update --status <stato>
@@ -276,7 +276,7 @@ export function nextStep(state, projectRoot) {
   if (!state.gates?.plan) {
     return {
       phase: 'F2 · Piano',
-      action: 'Proponi il PIANO (approccio, file toccati, rischi) e presentalo al GATE UMANO 2.',
+      action: 'Lancia il sub-agent plan-author (spec approvata + architecture doc + convenzioni + test-playbook): produce approccio, file toccati, ordine, rischi, test previsti dal playbook e le NOTE DI COMPLESSITÀ. Presenta TU il PIANO al GATE UMANO 2 — e con le note di complessità chiedi all\'utente con quale tier implementare (vedi skill flow).',
       record: `ad approvazione dell'utente: ${cli} approve-gate plan`,
     };
   }
@@ -313,11 +313,31 @@ export function nextStep(state, projectRoot) {
     };
   }
   const diffHash = currentDiffHash(projectRoot);
-  if (!state.verification || state.verification.diffHash !== diffHash) {
+  const verificationIsCurrent = Boolean(state.verification) && state.verification.diffHash === diffHash;
+  // Rossi registrati sul codice ATTUALE: il passo successivo è tornare a implementare, non andare
+  // avanti. Al ripetersi dei giri rossi il sequencer propone l'escalation di tier: è il segnale
+  // OGGETTIVO che il lavoro è più difficile di quanto sembrava al gate (nessuna stima ex-ante).
+  if (verificationIsCurrent && state.verification.status === 'failed') {
+    const models = readFlowConfig(projectRoot).models ?? {};
+    const redRounds = (state.redRounds ?? []).length;
+    const threshold = Number(models.escalateAfterRedRounds ?? 2);
+    const escalationDue = threshold > 0 && redRounds >= threshold && !hasOverride(state, 'model-tier');
+    return {
+      phase: 'F2 · Implementazione (rientro dai rossi)',
+      action: `I test sono ROSSI sul codice attuale (giri rossi: ${redRounds}). Correggi il CODICE: i test NON si toccano — se un test è sbagliato rispetto alla spec, segnalalo all'utente invece di adattarlo.`
+        + (escalationDue
+          ? ` — SOGLIA DI ESCALATION RAGGIUNTA (${threshold}): proponi all'utente di riprendere questo passo col tier "${models.escalation ?? 'opus'}" (in Claude Code: /model ${models.escalation ?? 'opus'}). La scelta è SUA e va registrata; se rifiuta, si continua col tier corrente.`
+          : ''),
+      record: escalationDue
+        ? `se l'utente accetta l'escalation: ${cli} record-override --gate model-tier --reason "<scelta utente>" · a rossi risolti: ${cli} record-verification --status done --tests "<nomi>"`
+        : `a rossi risolti: ${cli} record-verification --status done --tests "<nomi>"`,
+    };
+  }
+  if (!verificationIsCurrent) {
     return {
       phase: 'F3 · Qualità',
-      action: `Seleziona i test dal test-playbook (test-selector) e falli eseguire al sub-agent test-runner${state.verification ? ' — il codice è CAMBIATO dopo l\'ultima verifica: va rifatta' : ''}. Rossi → si torna all'implementazione.`,
-      record: `${cli} record-verification --status done --tests "<nomi>"`,
+      action: `Seleziona i test dal test-playbook (test-selector) e falli eseguire al sub-agent test-runner${state.verification ? ' — il codice è CAMBIATO dopo l\'ultima verifica: va rifatta' : ''}. Rossi → si torna all'implementazione: registrali con --status failed (un rosso è un fatto, non un non-evento).`,
+      record: `${cli} record-verification --status done|failed --tests "<nomi>"`,
     };
   }
   if (!state.docReview) {
@@ -334,15 +354,17 @@ export function nextStep(state, projectRoot) {
       record: `${cli} record-changelog`,
     };
   }
-  if (!state.pr) {
+  // Senza branch di lavoro (progetto senza git, deroga registrata) non esiste una PR da proporre:
+  // la consegna è il solo aggiornamento del ticket, e il riferimento temporale diventa il changelog.
+  if (!state.pr && state.branch?.name) {
     return {
       phase: 'F5 · Consegna (PR)',
       action: `Proponi la PR da ${state.branch.name} verso ${state.branch.base} (titolo dalla spec, corpo con link a spec/changelog/ticket).`,
       record: `${cli} record-pr --url <url>`,
     };
   }
-  const prTime = state.pr?.at ?? '';
-  const finalTicketUpdate = (state.ticketUpdates ?? []).some((u) => u.at > prTime);
+  const deliveryReference = state.pr?.at ?? state.changelog?.updatedAt ?? '';
+  const finalTicketUpdate = (state.ticketUpdates ?? []).some((u) => u.at > deliveryReference);
   if (!finalTicketUpdate) {
     return {
       phase: 'F5 · Consegna (ticket)',
@@ -592,20 +614,27 @@ function runCli() {
     }
     case 'record-verification': {
       const status = requireOption(options, 'status');
-      if (!['done', 'skipped'].includes(status)) {
-        failCli('record-verification: --status deve essere done|skipped');
+      if (!['done', 'failed', 'skipped'].includes(status)) {
+        failCli('record-verification: --status deve essere done|failed|skipped');
       }
       if (status === 'skipped' && !options.reason) {
         failCli('record-verification: lo skip richiede --reason (le deroghe sono auditabili).');
       }
+      const tests = options.tests ? String(options.tests).split(',').map((name) => name.trim()).filter(Boolean) : [];
       state.verification = {
         status,
-        tests: options.tests ? String(options.tests).split(',').map((name) => name.trim()).filter(Boolean) : [],
+        tests,
         reason: options.reason ?? null,
         diffHash: currentDiffHash(projectRoot),
         at: new Date().toISOString(),
       };
-      appendLog(state, `verifica test: ${status}${options.reason ? ` (${options.reason})` : ''}`);
+      // Un ROSSO è un fatto, non un non-evento: registrarlo rende il rientro in implementazione
+      // visibile al sequencer e conta i giri, che è ciò su cui si decide un'escalation di tier.
+      if (status === 'failed') {
+        state.redRounds ??= [];
+        state.redRounds.push({ tests, reason: options.reason ?? null, at: new Date().toISOString() });
+      }
+      appendLog(state, `verifica test: ${status}${status === 'failed' ? ` (giro rosso n. ${state.redRounds.length})` : ''}${options.reason ? ` (${options.reason})` : ''}`);
       break;
     }
     case 'record-doc-review': {

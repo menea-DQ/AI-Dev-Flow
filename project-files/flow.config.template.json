@@ -42,6 +42,7 @@
   "testPaths": ["**/*.test.*", "**/*.spec.*", "tests/**", "e2e/**"],
   "dataProducingPaths": [],
   "monorepo": { "tool": "auto", "affectedBase": "pre-task" },
+  "models": { "mainThread": "sonnet", "escalation": "opus", "escalateAfterRedRounds": 2 },
   "tokenEconomy": { "ponytail": "lite", "headroom": false },
   "telemetry": { "enabled": true, "otlpEndpoint": "http://localhost:4318", "otlpProtocol": "http/protobuf", "serviceName": "ai-dev-flow", "projectName": null },
   "connectors": { "ticketing": "productive", "helpdesk": "zammad", "envFile": ".ai-dev/connectors.env", "instances": {} }

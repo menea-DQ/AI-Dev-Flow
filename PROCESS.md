@@ -1,6 +1,6 @@
 # AI-Dev Flow — Processo
-process-version: 0.2.0
-compatibile-con: ">=0.2.0 <0.3.0"
+process-version: 0.3.0
+compatibile-con: ">=0.3.0 <0.4.0"
 
 ## Principio fondante
 L'AI esegue, la persona decide nei punti chiave (human-in-the-loop).
@@ -58,7 +58,9 @@ contesti isolati che non condividono nulla. Da qui quattro regole strutturali:
 - Le MISURE si citano dalla FONTE PRIMARIA (gli input di Fase 0 in `.ai-dev/tasks/<id>/inputs/`),
   non di seconda mano: una cifra che passa di documento in documento si corrompe.
 - Il TIER DEL MODELLO è dichiarato nel frontmatter dell'agente e non si sovrascrive alla chiamata
-  (vedi sotto): "per sicurezza" significa pagare una fase intermedia al prezzo di quella top.
+  (vedi sotto): "per sicurezza" significa pagare una fase intermedia al prezzo di quella top. Vale
+  anche per il thread principale, dove l'implementazione esegue un piano già approvato: il tier top
+  si paga dove si DECIDE (spec, piano), non dove si esegue.
 - I RIMBALZI sono il costo peggiore, perché raddoppiano una fase intera. Si prevengono a monte
   (contratto d'ingresso completo, controllo di osservabilità prima del gate), non si rincorrono.
 Il costo che NON si taglia è la separazione dei ruoli: sub-agent isolati, gate umani, Fase 4 come
@@ -70,7 +72,11 @@ alla natura della fase (qualità dove serve, economia dove basta). L'isolamento 
 contratto: un sub-agent riceve SOLO i suoi input dichiarati, non la conversazione.
 - intake (Fase 0) → modello economico: normalizzazione meccanica.
 - spec-author (Fase 1) → modello top: la fase a più leverage.
-- test-author (Fase 2) → modello top: deriva i test dal contratto, isolato (riceve SOLO la spec).
+- plan-author (Fase 2) → modello top: traduce il COSA in COME, l'unica lettura profonda della
+  codebase del flusso. Un COME sbagliato si paga con un rifacimento.
+- test-author (Fase 2) → modello intermedio: la derivazione è resa MECCANICA a monte (parte
+  normativa autosufficiente, un osservabile dichiarato per clausola). Dove non è meccanica il
+  difetto è nella spec, e si corregge lì.
 - test-runner (Fase 3) → modello economico: esegue comandi e riporta esiti.
 - doc-author (Fase 4) → modello intermedio: scrittura fedele su input dichiarati.
 I gate umani restano SEMPRE nell'orchestratore (skill flow): gli agenti preparano, l'utente decide.
@@ -79,6 +85,28 @@ Il tier è DICHIARATO nel frontmatter dell'agente e non si sovrascrive alla chia
 disattiva il tiering. Se un tier è sbagliato, si corregge il frontmatter, non la chiamata. Se
 l'utente rifiuta una delega, il lavoro svolto in linea gira sul modello del thread principale: il
 costo va DICHIARATO prima di procedere, non scoperto dopo.
+
+## Tier del thread principale e escalation
+Il tier dei sub-agent è garantito dal frontmatter. Nel THREAD PRINCIPALE restano l'orchestrazione
+(bookkeeping: la direzione la calcola il sequencer) e l'IMPLEMENTAZIONE di un piano già approvato al
+Gate 2 — lavoro da tier intermedio, non da modello top. Il default è quindi dichiarato dal progetto
+(`flow.config.models.mainThread`, applicato in `.claude/settings.json` dall'install), tipicamente
+intermedio; le due fasi che richiedono il modello top, specifica e piano, non dipendono da questa
+scelta perché vivono in sub-agent col tier nel frontmatter.
+L'implementazione resta nel thread — e non diventa un sub-agent — per tre ragioni: è un LOOP con la
+Fase 3 (isolarla trasformerebbe ogni test rosso in un ripartire da freddo, cioè il rimbalzo che il
+processo vuole evitare); le sue domande da Regola del 98% nascono a metà del lavoro e bloccano le
+decisioni a valle, mentre quelle di una fase redazionale si enumerano prima di produrre; ed è la
+fase più lunga, quella in cui l'osservazione umana in corsa vale di più.
+L'ESCALATION di tier è una decisione umana, in due punti dichiarati:
+- al GATE 2, informata dalle NOTE DI COMPLESSITÀ del plan-author (che segnala, non decide);
+- dopo i ROSSI, proposta dal sequencer al ripetersi dei giri di test falliti (soglia
+  `flow.config.models.escalateAfterRedRounds`) — un segnale oggettivo, non una stima ex-ante.
+In entrambi i casi la scelta si registra (`record-override --gate model-tier --reason`): nessun
+cambio di tier silenzioso, in nessuna direzione. Il tier è economia, non un presidio di correttezza:
+i presidi restano gli hook, i gate e i test scritti prima del codice. Limite dichiarato: il modello
+del thread è un DEFAULT di progetto, non un vincolo imponibile — l'utente può sempre cambiarlo in
+sessione, e il kit non ha modo di accorgersene.
 
 ## Artefatti di knowledge-store
 Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md), agnostici dal tool:
@@ -141,8 +169,15 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
   (record-spec) + commento sul task nel ticketing via connettore (--comment) con il riferimento.
 
 ### Fase 2 — Implementazione
-- Il piano viene proposto (approccio, file toccati, rischi).
-- ► GATE UMANO 2: la persona approva il PIANO (→ approve-gate plan).
+- Il sub-agent plan-author redige il piano dalla SPEC APPROVATA (approccio, file toccati con
+  percorsi reali, ordine degli interventi, rischi, test previsti SCELTI dal playbook) più il
+  CONTROLLO DI COPERTURA (ogni clausola della spec ha un intervento che la realizza; ogni
+  intervento ha una clausola che lo richiede) e le NOTE DI COMPLESSITÀ implementativa.
+- Il piano NON raggiunge MAI il test-author: la spec dichiara il COSA e resta il suo unico input.
+  È questa separazione a rendere strutturale l'anti teaching-to-the-test — se il COME colasse nella
+  spec, i test validerebbero l'approccio scelto invece del comportamento atteso.
+- ► GATE UMANO 2: la persona approva il PIANO (→ approve-gate plan). Con le note di complessità si
+  decide anche CON QUALE TIER implementare (vedi "Tier del thread principale e escalation").
 - BRANCH DI LAVORO (prima del test-author, che committa): si chiede da quale branch staccare e
   si propone `<fix|feat>/<nome-breve-esplicativo>` (fix=BUG, feat=CR); nome custom ammesso.
   Registrato nello stato (set-branch). L'hook pre-edit-guard BLOCCA lo sviluppo senza
@@ -178,8 +213,13 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
   se assente, fallback conservativo (lancia tutto l'ambito coinvolto) + avviso.
 - GARANTITO: il guardiano di fine turno (hook Stop) blocca la chiusura del turno finché la
   verifica non è registrata per ESATTAMENTE il diff corrente (hash); se il codice cambia dopo
-  la verifica, il gate si ri-arma da solo. Skip solo esplicito e motivato (registrato).
+  la verifica, il gate si ri-arma da solo. Una verifica ROSSA non lo soddisfa: il gate resta armato
+  finché i test non passano. Skip solo esplicito e motivato (registrato).
 - Se i test passano → Fase 4. Se falliscono → torna all'implementazione (fix); i test non si toccano.
+- Un ROSSO è un FATTO e si registra (`record-verification --status failed`): è ciò che rende il
+  rientro in implementazione visibile al sequencer invece di essere un vuoto nello stato, e ciò che
+  gli fa contare i giri — da cui la proposta di escalation di tier. Registrare "done" su test rossi
+  è una dichiarazione falsa nello stato, non una scorciatoia.
 
 ### Fase 4 — Documentazione
 - Il sub-agent doc-author riceve spec + diff + registro documenti (flow.config.documentation.docs)
@@ -198,6 +238,9 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
 ### Fase 5 — Consegna
 - PR dal branch di lavoro verso il branch base registrato nello stato (titolo dalla spec, corpo
   con link a spec e changelog, riferimento al ticket).
+- PROGETTI SENZA GIT (deroga `branch` registrata): non c'è PR da proporre, quindi il passo si salta
+  e la consegna è il solo aggiornamento del ticket — che resta pretesa dal sequencer, prendendo il
+  changelog come riferimento temporale al posto della PR.
 - Aggiornamento stato del task nel ticketing via connettore (--update-status: Review/Done —
   lo stato di arrivo lo sceglie la persona) — GARANTITO dal guardiano di fine turno.
 - Chiusura dello stato del task (flowState close).

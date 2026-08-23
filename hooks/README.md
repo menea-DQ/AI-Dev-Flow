@@ -31,7 +31,8 @@ contratti. Ogni skip/deroga è registrato nello stato (auditabile), mai silenzio
 - **postWorkVerification.mjs** — `Stop`. Il guardiano di fine turno: (1) se ci sono modifiche nei
   `pathPatterns` del test-playbook non coperte da una verifica registrata per ESATTAMENTE questo
   diff (hash), blocca finché i test non girano (o skip motivato) — se il codice cambia dopo la
-  verifica, il gate si **ri-arma da solo**; (2) a implementazione conclusa, blocca la chiusura
+  verifica, il gate si **ri-arma da solo**, e una verifica registrata come `failed` NON lo soddisfa
+  (il rosso si risolve nel codice: i test restano read-only); (2) a implementazione conclusa, blocca la chiusura
   finché doc-review, changelog e aggiornamento ticket non risultano fatti o esplicitamente saltati.
   Guardia `stop_hook_active`.
 

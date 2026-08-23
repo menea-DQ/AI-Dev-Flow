@@ -53,20 +53,31 @@ const state = loadActiveState(projectRoot);
 
 if (state && state.phase !== 'done' && state.phase !== 'aborted') {
   const diffHash = currentDiffHash(projectRoot);
-  const verifiedForThisDiff = state.verification && state.verification.diffHash === diffHash;
+  // Una verifica ROSSA non è una verifica soddisfatta: il gate resta armato finché i test non
+  // passano (o l'utente non salta, motivando). Guardare solo l'hash del diff lascerebbe chiudere
+  // il turno con i test rossi purché il rosso sia stato registrato.
+  const redForThisDiff = state.verification?.status === 'failed' && state.verification.diffHash === diffHash;
+  const verifiedForThisDiff = Boolean(state.verification) && state.verification.diffHash === diffHash && !redForThisDiff;
 
   // ————— 1) Verifica dal test-playbook —————
   if (applicableTests.length > 0 && !verifiedForThisDiff) {
     const reArmed = state.verification && state.verification.diffHash !== diffHash;
     blockWithInstruction(
-      `[AI-Dev Flow · post-work verification] Task "${state.task.id}": modifiche in aree coperte dal test-playbook` +
+      `[AI-Dev Flow · post-work verification] Task "${state.task.id}": ${redForThisDiff ? 'i test sono ROSSI sul codice attuale' : 'modifiche in aree coperte dal test-playbook'}` +
       `${reArmed ? ' e il codice è CAMBIATO dopo l\'ultima verifica (il gate si è ri-armato)' : ''}.\n\n` +
-      `Test pertinenti da eseguire:\n${applicableTests.join('\n')}\n\n` +
-      `SE hai completato TUTTO il lavoro richiesto:\n` +
-      `  • esegui i comandi qui sopra (per la non-regressione, diff strutturale contro lo snapshot "before");\n` +
-      `  • poi registra: ${FLOW_STATE_CLI} record-verification --status done --tests "<nomi>"\n` +
-      `  • se invece l'utente sceglie di saltare: ${FLOW_STATE_CLI} record-verification --status skipped --reason "<motivo>"\n` +
-      `    (chiediglielo con AskUserQuestion, in italiano — lo skip è una scelta umana e resta registrato).\n\n` +
+      `Test pertinenti:\n${applicableTests.join('\n')}\n\n` +
+      (redForThisDiff
+        ? `I ROSSI SI RISOLVONO NEL CODICE: i file di test sono read-only per te. Se ritieni che un test\n` +
+          `sia sbagliato rispetto alla spec, NON adattarlo: segnalalo all'utente.\n` +
+          `Quando i test passano: ${FLOW_STATE_CLI} record-verification --status done --tests "<nomi>"\n` +
+          `Se l'utente sceglie di chiudere comunque: ${FLOW_STATE_CLI} record-verification --status skipped --reason "<motivo>"\n` +
+          `  (chiediglielo con AskUserQuestion, in italiano — è una sua scelta e resta registrata).\n\n`
+        : `SE hai completato TUTTO il lavoro richiesto:\n` +
+          `  • esegui i comandi qui sopra (per la non-regressione, diff strutturale contro lo snapshot "before");\n` +
+          `  • poi registra: ${FLOW_STATE_CLI} record-verification --status done --tests "<nomi>"\n` +
+          `  • se i test sono rossi: ${FLOW_STATE_CLI} record-verification --status failed --tests "<nomi>" e torna a correggere il CODICE;\n` +
+          `  • se invece l'utente sceglie di saltare: ${FLOW_STATE_CLI} record-verification --status skipped --reason "<motivo>"\n` +
+          `    (chiediglielo con AskUserQuestion, in italiano — lo skip è una scelta umana e resta registrato).\n\n`) +
       `SE NON hai ancora finito il task: continua a lavorare, questo controllo tornerà a fine turno.\n`,
     );
   }
