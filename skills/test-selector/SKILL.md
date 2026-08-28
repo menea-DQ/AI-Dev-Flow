@@ -35,7 +35,8 @@ Cosa fare:
    ESATTI selezionati e il riferimento allo snapshot "before" dove serve. Al suo ritorno:
    - tutti verdi → registra `node "${CLAUDE_PLUGIN_ROOT}/bin/flowState.mjs" record-verification --status done --tests "<nomi>"`
    - rossi → si torna all'implementazione (fix); i test NON si toccano.
-   (Il guardiano di fine turno verifica che la registrazione esista per l'esatto diff corrente:
-   se il codice cambia dopo la verifica, il gate si ri-arma da solo.)
+   (Il guardiano di fine turno verifica che la registrazione esista per lo stato ATTUALE del
+   codice coperto dal playbook — hash sul contenuto dei file nei pathPatterns: se quel codice
+   cambia dopo la verifica il gate si ri-arma da solo; doc, changelog e commit NON lo ri-armano.)
 
 Output: l'elenco mirato dei test da eseguire (con i comandi dal playbook) + motivazione + esiti.

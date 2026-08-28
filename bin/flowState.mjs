@@ -13,7 +13,11 @@
 //
 // Uso come CLI (è così che l'agente registra i fatti; ogni comando aggiorna anche il log):
 //   node flowState.mjs start --task <id> [--type cr|bug] [--title <t>] [--connector <n>] [--reference <url-o-id>]
-//   node flowState.mjs next            ← IL SEQUENCER: legge i fatti e dice il prossimo passo (deterministico)
+//   node flowState.mjs next            ← IL SEQUENCER: legge i fatti e dice il prossimo passo (deterministico).
+//                                        Registra anche nel log l'INIZIO-AZIONE (`sequencer → <passo>`, dedup
+//                                        sui richiami dello stesso passo): i fatti timestampano i completamenti,
+//                                        e senza l'altro estremo gli intervalli fra i gate non distinguono
+//                                        il tempo macchina dall'attesa umana.
 //   node flowState.mjs abort --reason <r>   ← abbandono con compensazioni (chiude lo stato, elenca cosa ripulire)
 //   node flowState.mjs active | show | close | clear-active
 //   node flowState.mjs set-phase <intake|spec|plan|implementation|quality|documentation|delivery|done>
@@ -99,18 +103,6 @@ export function appendLog(state, event) {
   state.log.push({ at: new Date().toISOString(), event });
 }
 
-// Hash del lavoro non committato: identifica ESATTAMENTE il diff verificato. Se dopo una verifica
-// il codice cambia ancora, l'hash cambia e il gate di verifica si ri-arma (GAP-05).
-export function currentDiffHash(projectRoot) {
-  try {
-    const status = execSync('git status --porcelain --untracked-files=all', { cwd: projectRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-    const diff = execSync('git diff HEAD', { cwd: projectRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] });
-    return createHash('sha256').update(status).update(diff).digest('hex');
-  } catch {
-    return null;
-  }
-}
-
 export function currentGitBranch(projectRoot) {
   try {
     return execSync('git rev-parse --abbrev-ref HEAD', { cwd: projectRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
@@ -165,8 +157,10 @@ function toRelativeProjectPath(projectRoot, absolutePath) {
 }
 
 // Raccoglie {percorso relativo → hash del contenuto} sotto le directory dichiarate.
+// `include` (opzionale): se presente, si hashano SOLO i file che combaciano con quei pattern —
+// le directory si attraversano comunque (un pattern di file non combacia mai con una directory).
 export function collectManifest(projectRoot, settings) {
-  const { paths, exclude } = settings;
+  const { paths, exclude, include } = settings;
   const entries = new Map();
 
   const visit = (absolutePath) => {
@@ -187,6 +181,9 @@ export function collectManifest(projectRoot, settings) {
       return;
     }
     if (!stats.isFile()) {
+      return;
+    }
+    if (include && !matchesAnyPattern(relativePath, include)) {
       return;
     }
     try {
@@ -231,6 +228,31 @@ export function compareManifest(before, after) {
   return { added, modified, removed };
 }
 
+// ————— Hash di verifica (perimetro del test-playbook) —————
+// La verifica di Fase 3 vale per lo STATO DEL CODICE che i test coprono: l'hash si calcola sul
+// CONTENUTO dei file che ricadono nei pathPatterns del test-playbook, non sull'intero diff git.
+// Perché: l'hash globale (status+diff) si ri-armava a ogni scrittura del flusso stesso — doc,
+// changelog, commit della spec nello Spec Store — forzando ri-esecuzioni della suite senza che il
+// codice sotto test fosse cambiato (misurato sul campo: 7 task su 13 con ri-verifiche spurie).
+// Content-based ha due corollari voluti: un COMMIT non ri-arma nulla (il contenuto non cambia),
+// e il gate funziona identico nei progetti SENZA git. Se il codice coperto cambia davvero dopo
+// una verifica, l'hash cambia e il gate si ri-arma da solo (GAP-05, semantica invariata).
+export const VERIFICATION_EXCLUDE = [...MANIFEST_DEFAULT_EXCLUDE, '.ai-dev/**'];
+
+export function playbookPatterns(projectRoot) {
+  const playbook = readFlowConfig(projectRoot).testPlaybook ?? {};
+  return Object.values(playbook).flatMap((entry) => (Array.isArray(entry?.pathPatterns) ? entry.pathPatterns : []));
+}
+
+export function currentVerificationHash(projectRoot) {
+  const patterns = playbookPatterns(projectRoot);
+  if (patterns.length === 0) {
+    return 'no-playbook'; // niente perimetro dichiarato: l'hash non può ri-armare il gate
+  }
+  const entries = collectManifest(projectRoot, { paths: ['.'], exclude: VERIFICATION_EXCLUDE, include: patterns });
+  return createHash('sha256').update(serializeManifest(entries)).digest('hex');
+}
+
 // ————— Il sequencer deterministico (comando `next`) —————
 // Il "qual è il prossimo passo" NON è una decisione dell'LLM: è una funzione dei FATTI registrati.
 // Prima condizione non soddisfatta = prossimo passo. L'orchestratore esegue, registra, richiama.
@@ -238,6 +260,11 @@ export function nextStep(state, projectRoot) {
   const cli = 'node "${CLAUDE_PLUGIN_ROOT}/bin/flowState.mjs"';
   const conn = state.task?.connector ?? '<ticketing>';
   const ref = state.task?.reference ?? state.task?.id;
+  // Passi di consegna configurabili PER-PROGETTO (flow.config.delivery): una scelta stabile del
+  // progetto (es. "qui non si commenta il ticket a spec approvata") si dichiara UNA volta nella
+  // config committata, non si paga come domanda + deroga a ogni task.
+  const delivery = readFlowConfig(projectRoot).delivery ?? {};
+  const fastPath = hasOverride(state, 'fast-path');
 
   if (state.phase === 'done') {
     return { phase: 'done', action: 'Task già chiuso. Nulla da fare.', record: null };
@@ -266,7 +293,7 @@ export function nextStep(state, projectRoot) {
       record: `${cli} record-spec --path <file>`,
     };
   }
-  if ((state.ticketUpdates ?? []).length === 0) {
+  if ((state.ticketUpdates ?? []).length === 0 && delivery.specTicketComment !== false) {
     return {
       phase: 'F1 · Specifica (chiusura)',
       action: `Commenta il task nel ticketing col riferimento alla spec: node "\${CLAUDE_PLUGIN_ROOT}/connectors/${conn}.mjs" --comment "${ref}" "Spec approvata: <path>"`,
@@ -274,6 +301,16 @@ export function nextStep(state, projectRoot) {
     };
   }
   if (!state.gates?.plan) {
+    // Fast-path: la fase di piano si COMPRIME, il gate umano resta. La spec ha già i file previsti
+    // e l'approccio di una modifica circoscritta: un plan-author (tier top, lettura profonda) su
+    // 20 righe di diff è il costo fisso che il fast-path esiste per tagliare.
+    if (fastPath) {
+      return {
+        phase: 'F2 · Piano (fast-path)',
+        action: 'FAST-PATH attivo: NON lanciare plan-author. Il piano compresso è nella spec approvata (file previsti, approccio): presentalo TU al GATE UMANO 2 in 5-10 righe, coi rischi. Se preparandolo scopri che la modifica NON è più circoscritta (più file/aree, schema dati, API pubbliche), dillo all\'utente: si rientra nel percorso completo lanciando plan-author.',
+        record: `ad approvazione dell'utente: ${cli} approve-gate plan`,
+      };
+    }
     return {
       phase: 'F2 · Piano',
       action: 'Lancia il sub-agent plan-author (spec approvata + architecture doc + convenzioni + test-playbook): produce approccio, file toccati, ordine, rischi, test previsti dal playbook e le NOTE DI COMPLESSITÀ. Presenta TU il PIANO al GATE UMANO 2 — e con le note di complessità chiedi all\'utente con quale tier implementare (vedi skill flow).',
@@ -298,7 +335,7 @@ export function nextStep(state, projectRoot) {
       record: `${cli} record-manifest`,
     };
   }
-  if (!state.testsAuthored && !hasOverride(state, 'fast-path')) {
+  if (!state.testsAuthored && !fastPath) {
     return {
       phase: 'F2 · Test (test-author)',
       action: 'Lancia il sub-agent test-author passandogli SOLO la spec: deriva i test dal contratto e li COMMITTA prima del codice (ramo BUG: il red-test).',
@@ -312,8 +349,8 @@ export function nextStep(state, projectRoot) {
       record: `ad approvazione dell'utente: ${cli} approve-gate diff`,
     };
   }
-  const diffHash = currentDiffHash(projectRoot);
-  const verificationIsCurrent = Boolean(state.verification) && state.verification.diffHash === diffHash;
+  const codeHash = currentVerificationHash(projectRoot);
+  const verificationIsCurrent = Boolean(state.verification) && state.verification.diffHash === codeHash;
   // Rossi registrati sul codice ATTUALE: il passo successivo è tornare a implementare, non andare
   // avanti. Al ripetersi dei giri rossi il sequencer propone l'escalation di tier: è il segnale
   // OGGETTIVO che il lavoro è più difficile di quanto sembrava al gate (nessuna stima ex-ante).
@@ -336,14 +373,16 @@ export function nextStep(state, projectRoot) {
   if (!verificationIsCurrent) {
     return {
       phase: 'F3 · Qualità',
-      action: `Seleziona i test dal test-playbook (test-selector) e falli eseguire al sub-agent test-runner${state.verification ? ' — il codice è CAMBIATO dopo l\'ultima verifica: va rifatta' : ''}. Rossi → si torna all'implementazione: registrali con --status failed (un rosso è un fatto, non un non-evento).`,
+      action: `Seleziona i test dal test-playbook (test-selector) e falli eseguire al sub-agent test-runner${state.verification ? ' — il codice COPERTO DAL PLAYBOOK è cambiato dopo l\'ultima verifica: va rifatta' : ''}. Rossi → si torna all'implementazione: registrali con --status failed (un rosso è un fatto, non un non-evento).`,
       record: `${cli} record-verification --status done|failed --tests "<nomi>"`,
     };
   }
   if (!state.docReview) {
     return {
-      phase: 'F4 · Documentazione',
-      action: 'Lancia il sub-agent doc-author (spec + diff + registro flow.config.documentation.docs + architecture doc): aggiorna i documenti impattati o dichiara "nessun impatto, perché…".',
+      phase: fastPath ? 'F4 · Documentazione (fast-path)' : 'F4 · Documentazione',
+      action: fastPath
+        ? 'FAST-PATH attivo: valuta TU l\'impatto sui documenti del registro (flow.config.documentation.docs) leggendo il diff — su una modifica circoscritta l\'esito tipico è "nessun impatto, perché…", che è valido e registrabile. Lancia doc-author solo se un documento va davvero aggiornato.'
+        : 'Lancia il sub-agent doc-author (spec + diff + registro flow.config.documentation.docs + architecture doc): aggiorna i documenti impattati o dichiara "nessun impatto, perché…".',
       record: `${cli} record-doc-review --status done|none-impacted [--docs "<csv>"] [--reason "<r>"]`,
     };
   }
@@ -356,7 +395,7 @@ export function nextStep(state, projectRoot) {
   }
   // Senza branch di lavoro (progetto senza git, deroga registrata) non esiste una PR da proporre:
   // la consegna è il solo aggiornamento del ticket, e il riferimento temporale diventa il changelog.
-  if (!state.pr && state.branch?.name) {
+  if (!state.pr && state.branch?.name && delivery.pr !== false) {
     return {
       phase: 'F5 · Consegna (PR)',
       action: `Proponi la PR da ${state.branch.name} verso ${state.branch.base} (titolo dalla spec, corpo con link a spec/changelog/ticket).`,
@@ -365,7 +404,7 @@ export function nextStep(state, projectRoot) {
   }
   const deliveryReference = state.pr?.at ?? state.changelog?.updatedAt ?? '';
   const finalTicketUpdate = (state.ticketUpdates ?? []).some((u) => u.at > deliveryReference);
-  if (!finalTicketUpdate) {
+  if (!finalTicketUpdate && delivery.ticketUpdate !== false) {
     return {
       phase: 'F5 · Consegna (ticket)',
       action: `Aggiorna lo stato del ticket (chiedi all'utente: Review o Done): node "\${CLAUDE_PLUGIN_ROOT}/connectors/${conn}.mjs" --update-status "${ref}" "<stato>"`,
@@ -487,6 +526,18 @@ function runCli() {
     }
     case 'next': {
       const step = nextStep(state, projectRoot);
+      // Strumentazione degli inizi-azione: la prima volta che il sequencer indica un passo, il
+      // fatto va nel log. Dedup sul marcatore più recente: i richiami dello stesso passo non
+      // spammano, ma un RITORNO a un passo già visto (es. verifica ri-armata) si registra di
+      // nuovo — è esattamente ciò che si vuole misurare.
+      if (step.record !== null) {
+        const startMarker = `sequencer → ${step.phase}`;
+        const lastStartMarker = [...(state.log ?? [])].reverse().find((entry) => entry.event.startsWith('sequencer → '));
+        if (lastStartMarker?.event !== startMarker) {
+          appendLog(state, startMarker);
+          saveTaskState(projectRoot, state);
+        }
+      }
       console.log(`Task "${state.task.id}" · prossimo passo → ${step.phase}`);
       console.log(`AZIONE: ${step.action}`);
       if (step.record) {
@@ -625,7 +676,9 @@ function runCli() {
         status,
         tests,
         reason: options.reason ?? null,
-        diffHash: currentDiffHash(projectRoot),
+        // Il campo si chiama ancora diffHash (stabilità dello schema), ma dalla 0.5.0 è l'hash del
+        // CONTENUTO dei file coperti dal test-playbook: doc/changelog/commit non lo cambiano.
+        diffHash: currentVerificationHash(projectRoot),
         at: new Date().toISOString(),
       };
       // Un ROSSO è un fatto, non un non-evento: registrarlo rende il rientro in implementazione

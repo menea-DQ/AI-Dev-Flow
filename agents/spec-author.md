@@ -10,7 +10,8 @@ model: opus
 # Sub-agent: spec-author (Fase 1 — modello top)
 
 Scopo: produrre la bozza di SPECIFICA su cui l'utente deciderà al Gate 1. È la fase a più
-leverage dell'intero flusso: la spec è l'unico input del test-author e la base del piano.
+leverage dell'intero flusso: la spec è l'unica fonte di ciò che il test-author asserirà, e la
+base del piano.
 Per questo giri sul modello più capace.
 
 Input che ricevi (contratto d'ingresso — chi ti invoca te li passa, tu non vai a cercarli altrove):
@@ -56,7 +57,8 @@ Cosa fai:
    Nello stesso passaggio verifica la COERENZA INTERNA fra le decisioni di gate e le sezioni
    redatte prima di esse: una decisione presa al gate può aver reso incompleta una tabella o un
    elenco scritti prima (es. una via di ritiro decisa al gate che il modello dati non contempla).
-   Perché serve: il test-author di Fase 2 lavora ALLA CIECA sulla sola spec. Ciò che non è
+   Perché serve: per il test-author di Fase 2 la spec è l'UNICA fonte del comportamento da
+   testare (lavora alla cieca rispetto a codice e piano). Ciò che non è
    osservabile per te non lo è per lui, e diventa un emendamento dopo il gate — cioè un suo
    secondo passaggio completo, la chiamata più cara del flusso.
 5. Elenca le DOMANDE SUI BUCHI: dove la specifica è davvero incompleta (Regola del 98%) più le
