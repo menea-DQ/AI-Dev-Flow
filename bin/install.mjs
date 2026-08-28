@@ -482,16 +482,31 @@ async function scaffoldConnectorsEnv(installer, kitRoot, projectRoot, mergedConf
     console.log(`Creato ${envFileRelativePath}: compila qui le credenziali dei connettori (è gitignorato).`);
   }
 
-  const ignoreEntry = basename(envFileRelativePath);
-  const gitignorePath = join(dirname(envFilePath), '.gitignore');
-  const gitignoreRelative = join(dirname(envFileRelativePath), '.gitignore');
-  if (!(await pathExists(gitignorePath))) {
-    await installer.createFile(gitignorePath, `${ignoreEntry}\n`);
-    created.push({ relPath: gitignoreRelative, userContent: false });
-  } else {
-    const existing = await readFile(gitignorePath, 'utf8');
-    if (!existing.includes(ignoreEntry)) {
-      await installer.modifyFile(gitignorePath, `${existing.replace(/\n*$/, '')}\n${ignoreEntry}\n`);
+  // Cosa ignorare e dove: le credenziali accanto a dove vivono; lo STATO PER-TASK in .ai-dev/
+  // (`tasks/`). Lo stato è locale di DEFAULT — state.json cambia a ogni passo del sequencer e
+  // sporcherebbe ogni PR; committarlo per il subentro di un collega è una scelta di progetto:
+  // si toglie la riga dal .gitignore.
+  const ignoreEntriesByDirectory = new Map();
+  const addIgnoreEntry = (directoryPath, directoryRelative, entry) => {
+    const key = directoryPath;
+    if (!ignoreEntriesByDirectory.has(key)) {
+      ignoreEntriesByDirectory.set(key, { directoryRelative, entries: [] });
+    }
+    ignoreEntriesByDirectory.get(key).entries.push(entry);
+  };
+  addIgnoreEntry(dirname(envFilePath), dirname(envFileRelativePath), basename(envFileRelativePath));
+  addIgnoreEntry(join(projectRoot, '.ai-dev'), '.ai-dev', 'tasks/');
+  for (const [directoryPath, { directoryRelative, entries }] of ignoreEntriesByDirectory) {
+    const gitignorePath = join(directoryPath, '.gitignore');
+    if (!(await pathExists(gitignorePath))) {
+      await installer.createFile(gitignorePath, `${entries.join('\n')}\n`);
+      created.push({ relPath: join(directoryRelative, '.gitignore'), userContent: false });
+      continue;
+    }
+    let contents = await readFile(gitignorePath, 'utf8');
+    const missing = entries.filter((entry) => !contents.split('\n').some((line) => line.trim() === entry));
+    if (missing.length > 0) {
+      await installer.modifyFile(gitignorePath, `${contents.replace(/\n*$/, '')}\n${missing.join('\n')}\n`);
     }
   }
   return created;

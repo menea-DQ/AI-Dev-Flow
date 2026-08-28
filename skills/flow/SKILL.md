@@ -37,15 +37,21 @@ Così il "qual è il prossimo passo" non dipende dalla tua memoria: è meccanico
 Il sequencer dice COSA; il COME delle fasi è questo:
 
 - **F0 Intake** — contract-check (`connectors/check.mjs`), lettura ticket via connettore
-  (+ helpdesk referenziato), normalizzazione col sub-agent **intake**. Niente codebase.
+  (+ helpdesk referenziato), normalizzazione IN LINEA: estrai TU dal JSON del connettore tipo
+  (CR/BUG), priorità, riferimenti, cliente, allegati, riproduzione sì/no per i BUG — il JSON è
+  già nel tuo contesto, uno spawn costerebbe più del lavoro. Niente codebase.
   Fast-path: solo candidatura.
 - **F1 Specifica** — sub-agent **spec-author** (passagli: il percorso della cartella del task
   `.ai-dev/tasks/<task-id>/` dove scrivere la bozza, contesto richiesta, path architecture
   doc, constraint, changelog, e il percorso di `.ai-dev/tasks/<task-id>/inputs/` — più gli
   `inputs/` dei task precedenti dello stesso ticket, quando esistono: sono la fonte primaria
-  delle misure, non farle ricostruire di seconda mano). Torna con `spec-draft.md` su file e un
-  sommario: al GATE 1 presenti il SOMMARIO e il PERCORSO, non la spec incollata. Fai TU le domande
-  sui buchi (registro Q&A, struttura in `templates/qa-log.md`) e presenta TU il GATE 1.
+  delle misure, non farle ricostruire di seconda mano). Torna con `spec-draft.md` su file, un
+  sommario e l'ELENCO DEI FILE LETTI nel retrieval: conservalo, lo passerai al plan-author in F2
+  (la scoperta della codebase si paga una volta, non due). Al GATE 1 presenti il SOMMARIO e il
+  PERCORSO, non la spec incollata. Fai TU le domande sui buchi (registro Q&A, struttura in
+  `templates/qa-log.md`) e presenta TU il GATE 1 — in UNA FERMATA SOLA quando le domande sono ≤3
+  (AskUserQuestion ne porta 4: le domande + l'approvazione); se sono di più, o una risposta può
+  ribaltare la bozza, prima l'intervista e poi il gate.
   Ad approvazione, la bozza (con gli emendamenti decisi) diventa la spec approvata nello Spec Store:
   è quella che registri con `record-spec --path`. Fast-path: se spec-author lo propone (post-retrieval; BUG: post-riproduzione), chiedi
   all'utente con AskUserQuestion spiegando cosa salta — niente plan-author (il piano compresso
@@ -54,16 +60,18 @@ Il sequencer dice COSA; il COME delle fasi è questo:
   `record-override --gate fast-path --reason "<scelta utente>"`.
   RAMO BUG: prima della spec, riproduci il bug (caso minimo, changelog per l'origine).
 - **F2 Piano/branch/test/codice** — sub-agent **plan-author** (passagli: il percorso della cartella
-  del task, spec approvata, registro
+  del task, spec approvata, l'ELENCO DEI FILE LETTI dallo spec-author in F1 — punto di partenza del
+  suo retrieval, non il suo perimetro —, registro
   Q&A, architecture doc dei contesti toccati, convenzioni da flow.config, test-playbook, path del
   changelog; struttura del piano in `templates/plan.md`). Torna con `plan-draft.md` su file e un
   sommario: al GATE 2 presenti il SOMMARIO e il PERCORSO, non il piano incollato. Fai TU le domande
-  sui buchi e presenta TU
-  il GATE 2 — insieme al sommario riporta le sue **note di complessità implementativa** e chiedi
-  all'utente **con quale tier implementare** (vedi "Tier del thread e escalation" più sotto).
+  sui buchi e presenta TU il GATE 2 in UNA FERMATA SOLA — una AskUserQuestion con: approvazione del
+  piano, **tier di implementazione** (informato dalle sue note di complessità, vedi "Tier del thread
+  e escalation" più sotto), **branch base** e **nome proposto** `<fix|feat>/<nome>`. Quattro
+  domande, una fermata: poi registri `approve-gate plan` e `set-branch` insieme.
   FAST-PATH attivo: il sequencer NON chiede plan-author — il piano compresso lo ricavi TU dalla
-  spec (file previsti, approccio) e lo presenti al GATE 2, che resta.
-  Poi: branch `<fix|feat>/<nome>` (chiedi base e nome); sub-agent **test-author** con la spec + la
+  spec (file previsti, approccio) e lo presenti al GATE 2, che resta (stessa fermata unica).
+  Poi: sub-agent **test-author** con la spec + la
   RICETTA dei test del progetto (test-playbook, convenzioni, testPaths, test esistenti in lettura)
   (committa i test — ramo BUG: il red-test); implementazione secondo impl-runbook; diff al GATE 3.
   Il piano e il codice di implementazione NON si passano MAI al test-author: il COSA da testare
@@ -85,11 +93,12 @@ Il sequencer dice COSA; il COME delle fasi è questo:
   l'impatto in linea sul registro ("nessun impatto, perché…" è un esito valido) e registri l'esito;
   doc-author solo se un documento va davvero aggiornato.
 - **F5 Consegna** — PR (`gh pr create` se disponibile) e update del ticket via connettore
-  (`--update-status`, stato scelto dall'utente). I passi di consegna si spengono PER-PROGETTO in
+  (`--update-status`; lo stato lo dice `flow.config.delivery.ticketStatus` se valorizzato — niente
+  domanda — altrimenti lo scegli con l'utente). I passi di consegna si spengono PER-PROGETTO in
   `flow.config.delivery` (`specTicketComment`, `pr`, `ticketUpdate`): una scelta stabile del
   progetto si dichiara una volta nella config committata, non si paga come deroga a ogni task —
-  se ti accorgi che l'utente sta derogando lo stesso passo task dopo task, proponigli di spegnerlo
-  lì (skill flow-settings).
+  se ti accorgi che l'utente sta derogando lo stesso passo task dopo task, o rispondendo sempre
+  la stessa cosa alla stessa domanda, proponigli di fissarlo lì (skill flow-settings).
 
 ## Cosa scrivi a schermo (e cosa no)
 
@@ -119,6 +128,13 @@ base alla risposta, e **2-4 opzioni con la conseguenza di ciascuna**.
 Con `AskUserQuestion`: il contesto va DENTRO `question` (è l'unico campo di cui sia garantita la
 visibilità); `header` ≤ 12 caratteri; `label` di 1-5 parole; `description` = la conseguenza di quella
 opzione. Non aggiungere un'opzione "Altro": la mette il sistema. Max 4 domande per chiamata.
+
+**Accorpa le fermate, non solo le domande.** Ogni stop è un context switch per chi risponde: il
+tempo di un task lo mangiano le attese, e le attese si moltiplicano con gli stop. Le 4 domande di
+una AskUserQuestion servono a chiudere un GATE in una fermata sola (approvazione + le decisioni
+annesse: tier, branch, emendamenti), non a spalmarle su turni successivi. Il contrario resta vero:
+non fondere in una fermata DECISIONI INDIPENDENTI che meritano riflessioni separate — il criterio è
+"stessa decisione, stessa fermata".
 
 **Le domande dei sub-agent si RISCRIVONO, non si inoltrano.** Loro le hanno formulate avendo in
 testa spec, codice e changelog; tu parli con una persona che non ha niente di tutto quello. I loro
@@ -166,7 +182,7 @@ frontmatter dell'agente — che è una modifica al kit, non una decisione di tas
   Al gate si presenta ciò che serve a DECIDERE (5-15 righe + il percorso del file + cosa serve da
   lui), non l'artefatto.
 - **Non passare MAI il parametro `model` quando invochi un sub-agent.** Il tier è dichiarato nel
-  frontmatter di ciascun agente (`haiku` per `intake` e `test-runner`, `sonnet` per `test-author` e
+  frontmatter di ciascun agente (`haiku` per `test-runner`, `sonnet` per `test-author` e
   `doc-author`, `opus` per `spec-author` e `plan-author`) ed è tarato sul lavoro che quella fase fa.
   Il parametro della chiamata SOVRASCRIVE il frontmatter: passarlo, anche "per sicurezza",
   disattiva il tiering. Se ritieni che un tier sia sbagliato, la correzione è nel frontmatter

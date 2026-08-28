@@ -19,7 +19,7 @@ lavoro; niente chiusura senza test, doc-review, changelog e ticket aggiornato �
 registrati). Le fasi sono **sei** (intake → specifica → implementazione → qualità → documentazione
 → consegna con PR), il lavoro cognitivo è svolto da **agenti dedicati per fase con il modello
 adatto** (spec-author/plan-author sul modello top, test-author/doc-author su quello intermedio,
-intake/test-runner su quello economico) e vale il **perimetro dello standard**: nei progetti col kit si
+test-runner su quello economico; l'intake è in linea) e vale il **perimetro dello standard**: nei progetti col kit si
 usano SOLO componenti del kit (hook di enforcement). Entrypoint: la skill **`flow`**
 («lavora su questo ticket»).
 
@@ -68,9 +68,19 @@ l'unica fonte di ciò che va asserito, ma il framework non si riscopre più a og
 **fast-path taglia i sub-agent redazionali, mai i gate** (niente plan-author: il piano compresso
 viene dalla spec e passa comunque dal Gate 2; doc-review in linea); i **passi di consegna sono
 configurabili per-progetto** (`flow.config.delivery`: la stessa deroga ripetuta a ogni task diventa
-una chiave committata). E il sequencer diventa **strumento di misura**: registra gli inizi-azione
-nel log dello stato (`sequencer → <passo>`), così gli intervalli fra i gate distinguono il tempo
-macchina dall'attesa umana.
+una chiave committata, incluso lo stato ticket di arrivo `ticketStatus` — se dichiarato, niente
+domanda). Le **fermate umane si accorpano**: il Gate 2 decide in un'unica AskUserQuestion piano,
+tier e branch; l'intervista di Fase 1 arriva col Gate 1 quando le domande sono poche — ogni stop è
+un context switch, e il tempo dei task lo mangiano le attese moltiplicate per gli stop. Il
+**retrieval di Fase 1 passa al plan-author** (l'elenco dei file letti: la scoperta della codebase
+si paga una volta, non due). E il sequencer diventa **strumento di misura**: registra gli
+inizi-azione nel log dello stato (`sequencer → <passo>`) e **`flowState report`** stampa le durate
+per passo, distinguendo gli intervalli con fermate umane dal tempo macchina; con la telemetria
+abilitata le stesse durate partono **via OTLP** alla chiusura del task (metriche `ai_dev_flow.*` +
+log di riepilogo, accanto a token e costo di Claude Code — backfill con `report --otel`). Infine:
+l'**intake è in linea** (il JSON del connettore è già nel contesto dell'orchestratore: lo spawn del
+sub-agent costava più del lavoro) e lo **stato per-task è locale di default** (l'install gitignora
+`.ai-dev/tasks/`; committarlo per il subentro resta una scelta di progetto).
 
 È confezionato come **plugin Claude Code**: il processo, gli artefatti e i template restano agnostici
 nel contenuto; il **plugin** (skill, hook, agenti, connettori) è lo strato adattatore per Claude Code.
@@ -137,7 +147,8 @@ copiato nei progetti e resta cambiabile dall'utente.
 
 | Dove | Tier | Come è garantito |
 | --- | --- | --- |
-| `intake` (F0), `test-runner` (F3) | economico (haiku) | frontmatter dell'agente |
+| `test-runner` (F3) | economico (haiku) | frontmatter dell'agente |
+| intake (F0) | in linea nel thread | non è un agente: il JSON del connettore è già nel contesto |
 | `spec-author` (F1), `plan-author` (F2) | top (opus) | frontmatter dell'agente |
 | `test-author` (F2), `doc-author` (F4) | intermedio (sonnet) | frontmatter dell'agente |
 | Thread principale: orchestrazione + implementazione | intermedio (sonnet) | default di progetto in `flow.config.models.mainThread` → `"model"` in `.claude/settings.json` |

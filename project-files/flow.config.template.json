@@ -39,7 +39,7 @@
   },
   "maxRefine": { "warn": 3, "block": 6 },
   "fastPath": { "askEachTime": true, "autoUnderThreshold": false, "thresholdLines": 20 },
-  "delivery": { "specTicketComment": true, "pr": true, "ticketUpdate": true },
+  "delivery": { "specTicketComment": true, "pr": true, "ticketUpdate": true, "ticketStatus": null },
   "testPaths": ["**/*.test.*", "**/*.spec.*", "tests/**", "e2e/**"],
   "dataProducingPaths": [],
   "monorepo": { "tool": "auto", "affectedBase": "pre-task" },

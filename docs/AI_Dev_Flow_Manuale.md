@@ -110,7 +110,10 @@ Tre effetti pratici che cambiano il lavoro quotidiano:
 > ★ **Un task interrotto riprende da dov'era** - a inizio sessione l'hook ti dice "task in corso, fase X" e il lavoro riparte senza ricominciare da zero.
 >
 > ★ **Un collega può subentrare** - lo stato è committabile: tu porti il task alla spec approvata,
-> chi apre il progetto dopo di te vede esattamente cosa è fatto e cosa manca.
+> chi apre il progetto dopo di te vede esattamente cosa è fatto e cosa manca. Dalla **0.5.0** è
+> **locale di default** (l'install ignora `tasks/` nel `.gitignore` di `.ai-dev/`: lo stato cambia
+> a ogni passo del sequencer e sporcherebbe ogni PR); per condividerlo si toglie quella riga -
+> scelta di progetto, committata.
 
 Dalla 0.0.8 lo stato non è solo il registro: è anche la **fonte della transizione**. Il comando
 `flowState.mjs next` - il **sequencer deterministico** - calcola il prossimo passo dai fatti
@@ -125,6 +128,13 @@ stesso passo). I fatti registrati timestampano i *completamenti*; senza l'inizio
 l'intervallo fra due gate non distingue il tempo macchina dall'attesa umana - ed è quella
 distinzione che permette di capire *dove* un task è stato lento. Un ritorno a un passo già visto
 (es. una verifica che si ri-arma) si registra di nuovo: anche i giri a vuoto diventano misurabili.
+Il comando **`flowState.mjs report`** riassume le durate per passo dal log, annotando i passi che
+contengono fermate umane: si guarda quello prima di ottimizzare alla cieca. Con la telemetria
+abilitata (`flow.config.telemetry.enabled`) le stesse durate partono **via OTLP** alla chiusura del
+task (`close`/`abort`) verso lo stack di `telemetry/`: metriche `ai_dev_flow.*` (durata per passo e
+totali: giri rossi, verifiche, deroghe, fast-path) e un log di riepilogo — così in Grafana i tempi
+del flusso stanno accanto a token e costo di Claude Code. Un endpoint irraggiungibile non blocca
+mai la chiusura; il backfill si fa con `report --otel`.
 
 **Perché il sequencer esiste (l'obiezione SAGA).** Un orchestratore centrale è il classico single
 point of failure dei pattern di orchestrazione - e per un orchestratore *AI* il rischio non è
@@ -149,7 +159,7 @@ dello standard, per tre ragioni che vale la pena capire bene:
 
 | Fase | Agente | Modello | Perché questo modello |
 |---|---|---|---|
-| F0 Intake | `intake` | economico (haiku) | parsing e classificazione: meccanico |
+| F0 Intake | - (in linea) | thread principale | parsing di un JSON già nel contesto: uno spawn costerebbe più del lavoro (dalla 0.5.0) |
 | F1 Specifica | `spec-author` | top (opus) | la fase a più leverage dell'intero flusso |
 | F2 Piano | `plan-author` | top (opus) | traduce il COSA in COME: l'unica lettura profonda della codebase |
 | F2 Test | `test-author` | intermedio (sonnet) | la derivazione è resa meccanica a monte (osservabili per clausola) |
@@ -297,7 +307,7 @@ più solo prosa: sono verificati dagli hook attraverso lo stato del task.
 
 ### 4.1 Fase 0 - Intake
 
-**Cosa succede.** Arriva un ticket (CR o BUG). L'orchestratore verifica i connettori (contract-check: se quello che serve è ROTTO ci si ferma subito), avvia lo **stato del task** (`flowState start`), legge il ticket via connettore (e l'eventuale ticket di helpdesk collegato) e delega la normalizzazione al sub-agent **intake** (modello economico): tipo, priorità, riferimenti, cliente, allegati scaricati, e - per i BUG - se esiste una descrizione di riproduzione.
+**Cosa succede.** Arriva un ticket (CR o BUG). L'orchestratore verifica i connettori (contract-check: se quello che serve è ROTTO ci si ferma subito), avvia lo **stato del task** (`flowState start`), legge il ticket via connettore (e l'eventuale ticket di helpdesk collegato) e normalizza **in linea** (dalla **0.5.0**: il JSON del connettore è già nel suo contesto - uno spawn costerebbe più del lavoro; prima era un sub-agent dedicato): tipo, priorità, riferimenti, cliente, allegati scaricati, e - per i BUG - se esiste una descrizione di riproduzione.
 
 **La regola d'oro della fase**: non si legge la codebase. E il fast-path qui è solo una
 **candidatura** dai segnali del ticket - senza aver visto il codice non si può sapere quanto codice
@@ -339,7 +349,7 @@ ordine di grandezza in più:
 > non è osservabile per lo spec-author non lo è nemmeno per lui, e diventa un emendamento
 > post-gate - cioè un secondo passaggio completo della fase più cara del flusso.
 
-L'orchestratore fa a te le domande sui buchi (registro Q&A) - riscritte col loro contesto, non inoltrate come le ha formulate il sub-agent - itera con lo spec-author se serve, e arriva al **► GATE UMANO 1: approvi la SPECIFICA?** Al gate vedi un sommario di 5-15 righe e il **percorso** della bozza, non la spec incollata. Il loop di raffinamento ha soglie dichiarate (`maxRefine`: avviso a 3 giri, blocco a 6). Per i BUG, prima della spec c'è la **riproduzione** (caso minimo, changelog per individuare l'origine).
+L'orchestratore fa a te le domande sui buchi (registro Q&A) - riscritte col loro contesto, non inoltrate come le ha formulate il sub-agent - itera con lo spec-author se serve, e arriva al **► GATE UMANO 1: approvi la SPECIFICA?** Al gate vedi un sommario di 5-15 righe e il **percorso** della bozza, non la spec incollata. Dalla **0.5.0**, quando le domande sono poche, intervista e gate arrivano in **un'unica fermata** (una AskUserQuestion: le domande + l'approvazione); se una risposta può ribaltare la bozza, prima l'intervista. Il loop di raffinamento ha soglie dichiarate (`maxRefine`: avviso a 3 giri, blocco a 6). Per i BUG, prima della spec c'è la **riproduzione** (caso minimo, changelog per individuare l'origine).
 
 Ad approvazione - e qui la 0.0.7 cambia le cose - la chiusura della fase è **garantita**: la spec va nello Spec Store (`record-spec`), il gate è registrato (`approve-gate spec`) e il task nel ticketing riceve il riferimento via `--comment` (registrato con `record-ticket-update`). Se manca qualcosa, il guardiano di fine turno lo pretende.
 
@@ -353,7 +363,7 @@ Ad approvazione - e qui la 0.0.7 cambia le cose - la chiusura della fase è **ga
 ### 4.3 Fase 2 - Implementazione
 
 **Cosa succede.** Dalla **0.3.0** il **piano** lo redige un sub-agent dedicato, **`plan-author`**
-(modello top) - e dalla **0.4.0** lo scrive su file (`.ai-dev/tasks/<id>/plan-draft.md`), presentandoti al gate il sommario e il percorso - che riceve la spec approvata, il registro Q&A, gli architecture doc dei contesti
+(modello top) - e dalla **0.4.0** lo scrive su file (`.ai-dev/tasks/<id>/plan-draft.md`), presentandoti al gate il sommario e il percorso - che riceve la spec approvata, l'**elenco dei file letti** dallo spec-author in Fase 1 (dalla **0.5.0**: punto di partenza del suo retrieval, non il suo perimetro - la scoperta della codebase si paga una volta, non due), il registro Q&A, gli architecture doc dei contesti
 toccati, le convenzioni di progetto e il test-playbook. Legge la codebase più a fondo di quanto
 faccia la Fase 1 - qui servono i punti di innesto *reali*, non plausibili - e produce approccio, file
 toccati con percorsi veri, **ordine degli interventi**, rischi, test previsti *scelti dal playbook*
@@ -367,10 +377,9 @@ Il piano **non raggiunge mai il test-author**: la spec dichiara il COSA e resta 
 spec, i test validerebbero l'approccio scelto invece del comportamento atteso. Ed è la ragione per
 cui piano e specifica sono due agenti e non uno.
 
-**► GATE UMANO 2: approvi il PIANO?** (`approve-gate plan`) - e, con le note di complessità sotto gli
-occhi, **con quale tier implementiamo?**
+**► GATE UMANO 2: approvi il PIANO?** (`approve-gate plan`) - e nella **stessa fermata**, con le note di complessità sotto gli occhi, **con quale tier implementiamo?** e **su quale branch?** Dalla **0.5.0** il gate è un'unica AskUserQuestion (piano, tier, branch base, nome): ogni stop in più è un context switch per chi risponde, e il tempo dei task lo mangiano le attese moltiplicate per gli stop.
 
-Poi, **prima che qualsiasi commit esista**, il **branch di lavoro**: ti viene chiesto da quale branch staccare (default: quello di default del repo) e proposto un nome **`<fix|feat>/<nome-breve-esplicativo>`** - `fix/` per i BUG, `feat/` per le CR, es. `feat/export-csv-ordini` - con possibilità di nome custom. Il branch è registrato nello stato (`set-branch`), e da lì in poi l'hook blocca lo sviluppo sul branch base. L'ordine non è casuale: il branch nasce prima del test-author *perché il test-author committa*, e quei commit devono già stare sul branch giusto.
+Il **branch di lavoro** nasce quindi **prima che qualsiasi commit esista**: base scelta da te (default: quello di default del repo) e nome proposto **`<fix|feat>/<nome-breve-esplicativo>`** - `fix/` per i BUG, `feat/` per le CR, es. `feat/export-csv-ordini` - con possibilità di nome custom. Il branch è registrato nello stato (`set-branch`), e da lì in poi l'hook blocca lo sviluppo sul branch base. L'ordine non è casuale: il branch nasce prima del test-author *perché il test-author committa*, e quei commit devono già stare sul branch giusto.
 
 Il lavoro si biforca sui due binari strutturalmente separati:
 
@@ -536,7 +545,7 @@ per l'attribuzione), mai contenuti. Per spegnerla davvero: `flow-settings` (che 
 
 > **Tu:** «Lavora su questo task: https://app.productive.io/12345-acme/tasks/task/67890»
 
-L'agente invoca la skill **`flow`** e da lì è il processo a guidare - letteralmente: a ogni giro l'orchestratore chiede al sequencer «qual è il prossimo passo?» (`flowState next`) ed esegue ciò che risponde. In sequenza: contract-check, stato avviato, intake (sub-agent economico), spec-author che ti porta bozza + domande, **Gate 1**, salvataggio spec + commento sul ticket (garantiti), plan-author che ti porta il piano con le note di complessità, **Gate 2** (dove decidi anche il tier), richiesta del branch («da `main`? Propongo `feat/export-csv-ordini`»), test-author che committa i test, implementazione (con l'eventuale gate snapshot se tocchi dati), **Gate 3** sul diff, selezione test dal playbook + test-runner, doc-author che aggiorna documenti e changelog, PR proposta verso il branch base, ticket in Review. A ogni passo lo stato registra; a ogni mancanza il guardiano blocca.
+L'agente invoca la skill **`flow`** e da lì è il processo a guidare - letteralmente: a ogni giro l'orchestratore chiede al sequencer «qual è il prossimo passo?» (`flowState next`) ed esegue ciò che risponde. In sequenza: contract-check, stato avviato, intake in linea, spec-author che ti porta bozza + domande, **Gate 1**, salvataggio spec + commento sul ticket (garantiti), plan-author che ti porta il piano con le note di complessità, **Gate 2** (dove decidi anche il tier), richiesta del branch («da `main`? Propongo `feat/export-csv-ordini`»), test-author che committa i test, implementazione (con l'eventuale gate snapshot se tocchi dati), **Gate 3** sul diff, selezione test dal playbook + test-runner, doc-author che aggiorna documenti e changelog, PR proposta verso il branch base, ticket in Review. A ogni passo lo stato registra; a ogni mancanza il guardiano blocca.
 
 Se ti interrompi a metà - riunione, fine giornata - alla sessione dopo l'hook ti accoglie con «Task in corso: productive-67890, fase quality» e si riparte da lì: il sequencer risponde la stessa cosa a qualunque sessione. Se il task lo prende un collega, per lui vale lo stesso. E se il task muore (cliente che ritira la richiesta): «abbandona il task» → `abort --reason`, che chiude lo stato e ti propone le compensazioni (branch da eliminare, ticket da annotare).
 
@@ -732,6 +741,7 @@ kit, non da qui. Cambiandola con `flow-settings`, va riallineata anche la chiave
 | `specTicketComment` | `true` | Commento sul ticket a spec approvata (fine Fase 1). `false` = il sequencer non lo chiede. |
 | `pr` | `true` | Proposta di PR in Fase 5. `false` = niente PR (la consegna è il solo ticket). |
 | `ticketUpdate` | `true` | Update di stato del ticket alla consegna. `false` = il sequencer e il guardiano non lo pretendono. |
+| `ticketStatus` | `null` | Lo stato di arrivo di default (es. `"Review"`): se valorizzato, alla consegna non viene chiesto. |
 
 *Letta da*: sequencer (`flowState next`), guardiano di fine turno.
 È la forma giusta di una scelta **stabile** del progetto: la stessa deroga ripetuta a ogni task va
@@ -798,5 +808,5 @@ Attenzione al doppio livello: **ciò che attiva davvero la telemetria non è que
 
 ### Lo stato per-task (non è in `flow.config`)
 
-Lo stato non si configura: vive in `.ai-dev/tasks/<id>/state.json` ed è gestito esclusivamente da `bin/flowState.mjs`. Comandi: `start` (avvia/riprende), **`next`** (il sequencer: il prossimo passo calcolato dai fatti), `show`, `approve-gate <spec|plan|diff>`, `set-branch`, `record-spec`, `record-tests-authored`, `record-snapshot`, **`record-manifest`** / **`diff-manifest`**
-(manifest "prima" e inventario per confronto, nei progetti senza git), `record-verification`, `record-doc-review`, `record-changelog`, `record-ticket-update`, `record-pr`, `record-override` (deroghe, sempre con motivo), `close` e **`abort --reason`** (abbandono governato, con compensazioni). È committabile (riprendibilità e handoff), versionato (`stateVersion`) e coperto dalle migrazioni.
+Lo stato non si configura: vive in `.ai-dev/tasks/<id>/state.json` ed è gestito esclusivamente da `bin/flowState.mjs`. Comandi: `start` (avvia/riprende), **`next`** (il sequencer: il prossimo passo calcolato dai fatti), **`report`** (durate per passo dal log: dove è andato il tempo), `show`, `approve-gate <spec|plan|diff>`, `set-branch`, `record-spec`, `record-tests-authored`, `record-snapshot`, **`record-manifest`** / **`diff-manifest`**
+(manifest "prima" e inventario per confronto, nei progetti senza git), `record-verification`, `record-doc-review`, `record-changelog`, `record-ticket-update`, `record-pr`, `record-override` (deroghe, sempre con motivo), `close` e **`abort --reason`** (abbandono governato, con compensazioni). È locale di default (gitignorato dall'install) ma committabile a scelta del progetto (riprendibilità e handoff), versionato (`stateVersion`) e coperto dalle migrazioni.

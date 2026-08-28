@@ -32,7 +32,9 @@ Ogni task ha uno stato persistito (`.ai-dev/tasks/<id>/state.json`, unico access
 `bin/flowState.mjs`): fase corrente, gate approvati, branch, artefatti prodotti, verifiche,
 deroghe. È un registro di FATTI, non un workflow engine. Effetti: gli hook possono far rispettare
 i contratti di fase; un task interrotto RIPRENDE da dov'era; un collega può SUBENTRARE leggendo lo
-stato. Lo stato punta agli artefatti, non li contiene: è ricostruibile, mai un ostaggio.
+stato. Lo stato punta agli artefatti, non li contiene: è ricostruibile, mai un ostaggio. È LOCALE
+di default (l'install gitignora `tasks/`: cambia a ogni passo e sporcherebbe ogni PR); committarlo
+per il subentro è una scelta di progetto — si toglie la riga dal .gitignore di `.ai-dev/`.
 
 ## Sequencer deterministico (anti single-point-of-failure cognitivo)
 "Qual è il prossimo passo" NON è una decisione dell'AI: è una funzione dei fatti registrati,
@@ -44,7 +46,12 @@ sessione, letto lo stato, produce la stessa sequenza.
 Il sequencer registra anche gli INIZI-AZIONE nel log dello stato (`sequencer → <passo>`, una volta
 per passo indicato): i fatti timestampano i completamenti, e senza l'altro estremo gli intervalli
 fra i gate non distinguono il tempo macchina dall'attesa umana. È ciò che rende i tempi del
-processo misurabili a posteriori, ritorni su passi già visti inclusi.
+processo misurabili a posteriori, ritorni su passi già visti inclusi. Il comando
+`flowState.mjs report` riassume le durate per passo dal log (i passi con fermate umane sono
+annotati): è così che si vede DOVE un task è stato lento, prima di ottimizzare alla cieca.
+Con la telemetria abilitata (flow.config.telemetry) le stesse durate si esportano via OTLP alla
+chiusura del task (metriche `ai_dev_flow.*` + log di riepilogo), accanto a token e costo di
+Claude Code; l'export non blocca mai la chiusura (backfill: `report --otel`).
 
 ## Abbandono e compensazioni
 Un task si può abbandonare solo per scelta umana motivata: `flowState.mjs abort --reason "<r>"`.
@@ -74,7 +81,6 @@ revisione. È il presidio che trova i difetti, e vale ciò che costa.
 Il lavoro cognitivo di ogni fase è svolto da un sub-agent dedicato, eseguito col modello adatto
 alla natura della fase (qualità dove serve, economia dove basta). L'isolamento è anche un
 contratto: un sub-agent riceve SOLO i suoi input dichiarati, non la conversazione.
-- intake (Fase 0) → modello economico: normalizzazione meccanica.
 - spec-author (Fase 1) → modello top: la fase a più leverage.
 - plan-author (Fase 2) → modello top: traduce il COSA in COME, l'unica lettura profonda della
   codebase del flusso. Un COME sbagliato si paga con un rifacimento.
@@ -119,6 +125,10 @@ Due vincoli strutturali, non stilistici:
   domanda.
 - Le domande dei sub-agent si RISCRIVONO, non si inoltrano. Inoltrarle verbatim è la causa più
   comune di domande incomprensibili: sono state scritte per un lettore che aveva tutto in testa.
+- Le FERMATE si accorpano: ogni stop è un context switch per chi risponde, e il tempo di un task
+  lo mangiano le attese moltiplicate per gli stop. Un gate si chiude in una fermata sola con le
+  decisioni annesse (Gate 2: piano + tier + branch); il limite è "stessa decisione, stessa
+  fermata" — decisioni indipendenti che meritano riflessioni separate non si fondono.
 Lingua: chiara e breve, senza gergo interno non ancora noto a chi risponde. Se una domanda esce
 lunga o contorta, non è un problema di forma: chi la pone non ha ancora capito cosa sta chiedendo.
 
@@ -168,7 +178,9 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
 - Ingresso: una richiesta (CR/evolutiva o BUG) dal ticketing.
 - Contract-check dei connettori PRIMA di usarli; lo stato del task viene avviato qui
   (flowState start).
-- Il sub-agent intake normalizza la richiesta: tipo, priorità, riferimenti, allegati.
+- L'orchestratore normalizza la richiesta IN LINEA: tipo, priorità, riferimenti, allegati.
+  Il JSON del connettore è già nel suo contesto: uno spawn costerebbe più del lavoro (fino alla
+  0.4.0 era un sub-agent dedicato).
 - Classifica CR vs BUG. Produce un "contesto richiesta" minimale.
 - NON legge la codebase in questa fase (risparmio).
 - Fast-path: qui si valuta SOLO la CANDIDATURA, dai segnali del ticket. La proposta vera
@@ -200,7 +212,9 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
   modifica è circoscritta si propone il fast-path all'utente, spiegando cosa salta e i rischi.
   La scelta è SEMPRE umana e registrata.
 - Intervista sui buchi: domande SOLO dove la spec è incompleta (Regola del 98%). Risposte nel
-  registro Q&A.
+  registro Q&A. Quando le domande sono poche, intervista e gate si presentano in UN'UNICA FERMATA
+  (ogni stop è un context switch per chi risponde); se una risposta può ribaltare la bozza,
+  prima l'intervista, poi il gate.
 - ► GATE UMANO 1: la persona approva la SPECIFICA (→ flowState approve-gate spec).
 - Loop di raffinamento con soglie (flow.config.maxRefine: avviso e blocco).
 - A spec approvata (GARANTITO dal guardiano di fine turno): salvataggio nello Spec Store
@@ -210,18 +224,20 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
 
 ### Fase 2 — Implementazione
 - Il sub-agent plan-author redige il piano SU FILE (`.ai-dev/tasks/<id>/plan-draft.md`) dalla
-  SPEC APPROVATA (approccio, file toccati con
-  percorsi reali, ordine degli interventi, rischi, test previsti SCELTI dal playbook) più il
+  SPEC APPROVATA e dall'elenco dei FILE LETTI in Fase 1 (punto di partenza del suo retrieval, non
+  il suo perimetro: la scoperta della codebase si paga una volta, non due) — approccio, file
+  toccati con percorsi reali, ordine degli interventi, rischi, test previsti SCELTI dal playbook — più il
   CONTROLLO DI COPERTURA (ogni clausola della spec ha un intervento che la realizza; ogni
   intervento ha una clausola che lo richiede) e le NOTE DI COMPLESSITÀ implementativa.
 - Il piano NON raggiunge MAI il test-author: la spec dichiara il COSA e resta la sua unica fonte
   del comportamento da testare (la ricetta dei test dice solo come si scrivono qui).
   È questa separazione a rendere strutturale l'anti teaching-to-the-test — se il COME colasse nella
   spec, i test validerebbero l'approccio scelto invece del comportamento atteso.
-- ► GATE UMANO 2: la persona approva il PIANO (→ approve-gate plan). Con le note di complessità si
-  decide anche CON QUALE TIER implementare (vedi "Tier del thread principale e escalation").
-- BRANCH DI LAVORO (prima del test-author, che committa): si chiede da quale branch staccare e
-  si propone `<fix|feat>/<nome-breve-esplicativo>` (fix=BUG, feat=CR); nome custom ammesso.
+- ► GATE UMANO 2: la persona approva il PIANO (→ approve-gate plan). È UNA FERMATA SOLA che decide
+  tre cose insieme: il piano, CON QUALE TIER implementare (informata dalle note di complessità,
+  vedi "Tier del thread principale e escalation") e il BRANCH di lavoro (base + nome).
+- BRANCH DI LAVORO (prima del test-author, che committa — di norma già deciso al Gate 2): si
+  propone `<fix|feat>/<nome-breve-esplicativo>` (fix=BUG, feat=CR); nome custom ammesso.
   Registrato nello stato (set-branch). L'hook pre-edit-guard BLOCCA lo sviluppo senza
   spec+piano+branch e lo sviluppo sul branch base.
 - In parallelo e PRIMA dell'implementazione: il sub-agent test-author scrive i test e li committa.
@@ -290,8 +306,9 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
 - PROGETTI SENZA GIT (deroga `branch` registrata): non c'è PR da proporre, quindi il passo si salta
   e la consegna è il solo aggiornamento del ticket — che resta pretesa dal sequencer, prendendo il
   changelog come riferimento temporale al posto della PR.
-- Aggiornamento stato del task nel ticketing via connettore (--update-status: Review/Done —
-  lo stato di arrivo lo sceglie la persona) — GARANTITO dal guardiano di fine turno.
+- Aggiornamento stato del task nel ticketing via connettore (--update-status: Review/Done — lo
+  stato di arrivo lo dice `flow.config.delivery.ticketStatus` se valorizzato, senza domanda;
+  altrimenti lo sceglie la persona) — GARANTITO dal guardiano di fine turno.
 - I passi di consegna sono configurabili PER-PROGETTO (flow.config.delivery: specTicketComment,
   pr, ticketUpdate): un progetto che non usa PR o non aggiorna il ticket lo DICHIARA nella config
   committata — la stessa deroga ripetuta a ogni task è un difetto di configurazione, non una

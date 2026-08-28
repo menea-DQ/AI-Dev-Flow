@@ -88,4 +88,7 @@ cosa più costosa e meno letta che puoi fare. Consegna:
   perimetro;
 - l'elenco delle domande sui buchi, ognuna col contesto del punto 5;
 - esito dell'impact analysis (una riga se non ha trovato conflitti);
+- l'elenco dei FILE LETTI nel retrieval (percorso + mezza riga sul ruolo di ciascuno):
+  l'orchestratore lo passerà al plan-author come punto di partenza del suo retrieval — la
+  scoperta della codebase si paga una volta, non due;
 - eventuale drift dei doc, eventuale eleggibilità fast-path motivata.
