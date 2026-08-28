@@ -2,21 +2,23 @@
 // Hook Stop: il guardiano di fine turno. Due compiti:
 //
 // 1) VERIFICA (Fase 3): se ci sono modifiche che ricadono nel test-playbook e lo stato del task non
-//    registra una verifica per ESATTAMENTE questo diff (hash), blocca finché i test non sono
-//    eseguiti (o l'utente non salta, con motivazione registrata). Se il codice cambia dopo una
-//    verifica, l'hash cambia e il gate si RI-ARMA da solo (GAP-05).
+//    registra una verifica per lo STATO ATTUALE del codice coperto dal playbook (hash sul CONTENUTO
+//    dei file nei pathPatterns — vedi currentVerificationHash), blocca finché i test non sono
+//    eseguiti (o l'utente non salta, con motivazione registrata). Se quel codice cambia dopo una
+//    verifica, l'hash cambia e il gate si RI-ARMA da solo (GAP-05). Doc, changelog e commit NON
+//    lo ri-armano: non toccano il contenuto coperto dai test.
 //
 // 2) CHECKLIST DI CHIUSURA (GAP-01): a implementazione conclusa (verifica registrata), il turno non
 //    si chiude finché doc-review, changelog e aggiornamento ticket non risultano fatti o
 //    esplicitamente saltati (registrati nello stato, auditabili).
 //
-// Senza task attivo: fallback sul marcatore di sessione, con l'hash del diff nel contenuto del
-// marcatore (così anche fuori flusso il gate si ri-arma se il codice cambia dopo la verifica).
+// Senza task attivo: fallback sul marcatore di sessione, con l'hash di verifica nel contenuto del
+// marcatore (così anche fuori flusso il gate si ri-arma se il codice coperto cambia dopo la verifica).
 
 import { existsSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { readHookInput, isFlowProject, loadFlowConfig, projectDirectory, matchesAnyPattern, markerPath, blockWithInstruction } from './hookShared.mjs';
-import { loadActiveState, currentDiffHash, hasOverride } from '../../bin/flowState.mjs';
+import { loadActiveState, currentVerificationHash, hasOverride } from '../../bin/flowState.mjs';
 
 const FLOW_STATE_CLI = 'node "${CLAUDE_PLUGIN_ROOT}/bin/flowState.mjs"';
 
@@ -52,19 +54,19 @@ const applicableTests = Object.entries(config.testPlaybook ?? {})
 const state = loadActiveState(projectRoot);
 
 if (state && state.phase !== 'done' && state.phase !== 'aborted') {
-  const diffHash = currentDiffHash(projectRoot);
+  const codeHash = currentVerificationHash(projectRoot);
   // Una verifica ROSSA non è una verifica soddisfatta: il gate resta armato finché i test non
-  // passano (o l'utente non salta, motivando). Guardare solo l'hash del diff lascerebbe chiudere
+  // passano (o l'utente non salta, motivando). Guardare solo l'hash lascerebbe chiudere
   // il turno con i test rossi purché il rosso sia stato registrato.
-  const redForThisDiff = state.verification?.status === 'failed' && state.verification.diffHash === diffHash;
-  const verifiedForThisDiff = Boolean(state.verification) && state.verification.diffHash === diffHash && !redForThisDiff;
+  const redForThisDiff = state.verification?.status === 'failed' && state.verification.diffHash === codeHash;
+  const verifiedForThisDiff = Boolean(state.verification) && state.verification.diffHash === codeHash && !redForThisDiff;
 
   // ————— 1) Verifica dal test-playbook —————
   if (applicableTests.length > 0 && !verifiedForThisDiff) {
-    const reArmed = state.verification && state.verification.diffHash !== diffHash;
+    const reArmed = state.verification && state.verification.diffHash !== codeHash;
     blockWithInstruction(
       `[AI-Dev Flow · post-work verification] Task "${state.task.id}": ${redForThisDiff ? 'i test sono ROSSI sul codice attuale' : 'modifiche in aree coperte dal test-playbook'}` +
-      `${reArmed ? ' e il codice è CAMBIATO dopo l\'ultima verifica (il gate si è ri-armato)' : ''}.\n\n` +
+      `${reArmed ? ' e il codice COPERTO DAL PLAYBOOK è cambiato dopo l\'ultima verifica (il gate si è ri-armato)' : ''}.\n\n` +
       `Test pertinenti:\n${applicableTests.join('\n')}\n\n` +
       (redForThisDiff
         ? `I ROSSI SI RISOLVONO NEL CODICE: i file di test sono read-only per te. Se ritieni che un test\n` +
@@ -92,7 +94,7 @@ if (state && state.phase !== 'done' && state.phase !== 'aborted') {
     if (!state.changelog) {
       missing.push(`changelog non aggiornato — scrivi la voce (scelta fatta e perché) e registra: ${FLOW_STATE_CLI} record-changelog`);
     }
-    if (state.task?.connector && (state.ticketUpdates ?? []).length === 0) {
+    if (state.task?.connector && (state.ticketUpdates ?? []).length === 0 && config.delivery?.ticketUpdate !== false) {
       missing.push(`ticket non aggiornato — aggiorna lo stato via connettore: node "\${CLAUDE_PLUGIN_ROOT}/connectors/${state.task.connector}.mjs" --update-status "${state.task.reference ?? state.task.id}" "<stato>" e registra: ${FLOW_STATE_CLI} record-ticket-update --status "<stato>"`);
     }
     if (missing.length > 0) {
@@ -107,12 +109,12 @@ if (state && state.phase !== 'done' && state.phase !== 'aborted') {
   process.exit(0);
 }
 
-// ————— Fallback senza task attivo (marcatore con hash del diff) —————
+// ————— Fallback senza task attivo (marcatore con hash di verifica) —————
 if (changedPaths.length === 0 || applicableTests.length === 0) {
   process.exit(0);
 }
 const verifyMarker = markerPath('verify', sessionId);
-const diffHash = currentDiffHash(projectRoot) ?? 'no-git';
+const diffHash = currentVerificationHash(projectRoot);
 if (existsSync(verifyMarker) && readFileSync(verifyMarker, 'utf8').trim() === diffHash) {
   process.exit(0);
 }

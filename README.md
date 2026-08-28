@@ -3,7 +3,7 @@
 Plugin Claude Code per uno sviluppo software AI-assistito (human-in-the-loop), **abilitabile e
 configurabile per singolo progetto**.
 
-> Versione **0.4.0** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
+> Versione **0.5.0** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
 > possono introdurre cambiamenti non retro-compatibili (convenzione semver per le 0.x).
 
 ## Cos'è
@@ -57,6 +57,20 @@ non una stima ex-ante. Registrata come deroga, mai silenziosa. Nella stessa rele
 trovate testando: il guardiano di fine turno non considera più soddisfatta una verifica **rossa** (un
 rosso registrato non fa chiudere il turno), e nei progetti **senza git** il sequencer salta il passo
 della PR invece di inciamparci, mantenendo però l'obbligo di aggiornare il ticket.
+
+Dalla **0.5.0** il flusso è **veloce dove non decide nessuno** — release guidata dalle misure sui
+primi 13 task reali, senza toccare i presidi (gate, test prima del codice, hook). Quattro interventi:
+il **gate di verifica si ri-arma solo se cambia il codice coperto dal playbook** (hash sul contenuto
+dei file nei `pathPatterns`, non sull'intero diff git: doc, changelog e commit non forzano più
+ri-verifiche spurie — 7 task su 13 ne pagavano); il **test-author riceve la *ricetta* dei test**
+(playbook, convenzioni, testPaths, test esistenti in lettura — mai piano né codice: la spec resta
+l'unica fonte di ciò che va asserito, ma il framework non si riscopre più a ogni task); il
+**fast-path taglia i sub-agent redazionali, mai i gate** (niente plan-author: il piano compresso
+viene dalla spec e passa comunque dal Gate 2; doc-review in linea); i **passi di consegna sono
+configurabili per-progetto** (`flow.config.delivery`: la stessa deroga ripetuta a ogni task diventa
+una chiave committata). E il sequencer diventa **strumento di misura**: registra gli inizi-azione
+nel log dello stato (`sequencer → <passo>`), così gli intervalli fra i gate distinguono il tempo
+macchina dall'attesa umana.
 
 È confezionato come **plugin Claude Code**: il processo, gli artefatti e i template restano agnostici
 nel contenuto; il **plugin** (skill, hook, agenti, connettori) è lo strato adattatore per Claude Code.
@@ -198,7 +212,7 @@ AI-Dev-Flow/                     radice = marketplace + plugin
 │   ├── intake.md                Fase 0 — normalizzazione richiesta (haiku)
 │   ├── spec-author.md           Fase 1 — bozza spec + impact analysis (opus)
 │   ├── plan-author.md           Fase 2 — piano dalla spec approvata (opus)
-│   ├── test-author.md           Fase 2 — test dalla sola spec, isolato (sonnet)
+│   ├── test-author.md           Fase 2 — test dalla spec (unica fonte del COSA) + ricetta dei test, isolato dal COME (sonnet)
 │   ├── test-runner.md           Fase 3 — esecuzione test (haiku)
 │   └── doc-author.md            Fase 4 — doc-review + changelog (sonnet)
 ├── hooks/

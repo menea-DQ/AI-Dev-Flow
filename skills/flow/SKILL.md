@@ -48,7 +48,9 @@ Il sequencer dice COSA; il COME delle fasi è questo:
   sui buchi (registro Q&A, struttura in `templates/qa-log.md`) e presenta TU il GATE 1.
   Ad approvazione, la bozza (con gli emendamenti decisi) diventa la spec approvata nello Spec Store:
   è quella che registri con `record-spec --path`. Fast-path: se spec-author lo propone (post-retrieval; BUG: post-riproduzione), chiedi
-  all'utente con AskUserQuestion spiegando cosa salta; se accetta:
+  all'utente con AskUserQuestion spiegando cosa salta — niente plan-author (il piano compresso
+  viene dalla spec, presentato comunque al Gate 2), niente test-author separato (in Fase 3 girano
+  i test del playbook), doc-review in linea; i TRE GATE restano tutti. Se accetta:
   `record-override --gate fast-path --reason "<scelta utente>"`.
   RAMO BUG: prima della spec, riproduci il bug (caso minimo, changelog per l'origine).
 - **F2 Piano/branch/test/codice** — sub-agent **plan-author** (passagli: il percorso della cartella
@@ -59,10 +61,14 @@ Il sequencer dice COSA; il COME delle fasi è questo:
   sui buchi e presenta TU
   il GATE 2 — insieme al sommario riporta le sue **note di complessità implementativa** e chiedi
   all'utente **con quale tier implementare** (vedi "Tier del thread e escalation" più sotto).
-  Poi: branch `<fix|feat>/<nome>` (chiedi base e nome); sub-agent **test-author** con SOLO la spec
+  FAST-PATH attivo: il sequencer NON chiede plan-author — il piano compresso lo ricavi TU dalla
+  spec (file previsti, approccio) e lo presenti al GATE 2, che resta.
+  Poi: branch `<fix|feat>/<nome>` (chiedi base e nome); sub-agent **test-author** con la spec + la
+  RICETTA dei test del progetto (test-playbook, convenzioni, testPaths, test esistenti in lettura)
   (committa i test — ramo BUG: il red-test); implementazione secondo impl-runbook; diff al GATE 3.
-  Il piano NON si passa MAI al test-author: lui lavora sulla sola spec, ed è ciò che rende
-  strutturale l'anti teaching-to-the-test.
+  Il piano e il codice di implementazione NON si passano MAI al test-author: il COSA da testare
+  arriva solo dalla spec — è ciò che rende strutturale l'anti teaching-to-the-test. La ricetta dei
+  test dice solo COME si scrivono i test qui, non il COME della soluzione.
   PROGETTI SENZA GIT (deroga `branch` registrata): non c'è diff, quindi l'inventario del GATE 3
   si costruisce per CONFRONTO, non a memoria e non con una `find -newermt` a timestamp indovinato.
   All'inizio della fase, da codice ancora intatto: `flowState.mjs record-manifest` (scrive
@@ -75,9 +81,15 @@ Il sequencer dice COSA; il COME delle fasi è questo:
   è ciò che fa sapere al sequencer che si rientra in implementazione e gli fa contare i giri, da
   cui nasce la proposta di escalation. Registrare `done` su test rossi è una dichiarazione falsa.
 - **F4 Documentazione** — sub-agent **doc-author** (spec, diff, registro
-  flow.config.documentation.docs, architecture doc, changelog).
+  flow.config.documentation.docs, architecture doc, changelog). FAST-PATH attivo: valuti TU
+  l'impatto in linea sul registro ("nessun impatto, perché…" è un esito valido) e registri l'esito;
+  doc-author solo se un documento va davvero aggiornato.
 - **F5 Consegna** — PR (`gh pr create` se disponibile) e update del ticket via connettore
-  (`--update-status`, stato scelto dall'utente).
+  (`--update-status`, stato scelto dall'utente). I passi di consegna si spengono PER-PROGETTO in
+  `flow.config.delivery` (`specTicketComment`, `pr`, `ticketUpdate`): una scelta stabile del
+  progetto si dichiara una volta nella config committata, non si paga come deroga a ogni task —
+  se ti accorgi che l'utente sta derogando lo stesso passo task dopo task, proponigli di spegnerlo
+  lì (skill flow-settings).
 
 ## Cosa scrivi a schermo (e cosa no)
 

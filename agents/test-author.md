@@ -20,9 +20,16 @@ meccanica non è il tuo tier a essere insufficiente, è la spec a essere difetto
 va fatta lì. Se serve più capacità di ragionamento, la decisione è dell'utente ai gate (skill
 flow), non tua.
 
-Input che ricevi: SOLO la specifica approvata.
-NON ricevi: il codice di implementazione, il piano di implementazione dettagliato,
-né alcun contesto dell'agente implementatore.
+Input che ricevi (contratto d'ingresso):
+- la SPECIFICA APPROVATA — l'UNICA fonte del comportamento da testare: il COSA arriva solo da qui;
+- la RICETTA DEI TEST del progetto — dice solo COME si scrivono e si lanciano i test qui, mai cosa
+  asserire: il test-playbook (flow.config.testPlaybook: tipi di test e comandi), le convenzioni
+  (flow.config.projectConventions), i pattern dei file di test (flow.config.testPaths) e i FILE DI
+  TEST ESISTENTI in lettura (framework, struttura, fixture: non riscoprirli da zero a ogni task).
+NON ricevi (e non vai a cercare): il piano di implementazione, il codice di implementazione —
+esistente o previsto —, né alcun contesto dell'agente implementatore. L'isolamento che regge
+l'anti teaching-to-the-test è sul COME della SOLUZIONE: la ricetta dei test non ne rivela nulla,
+mentre riscoprire il framework a ogni task era solo tempo perso, non un presidio.
 
 Cosa fai:
 1. Leggi la PARTE NORMATIVA della specifica, per intero: è dichiarata autosufficiente, quindi
@@ -35,6 +42,9 @@ Cosa fai:
 2. Deriva i test dal comportamento atteso / dal contratto descritto nella spec, usando gli
    OSSERVABILI che ogni clausola dichiara.
    Pensa in termini di "cosa deve fare il sistema secondo la spec", non "come è scritto il codice".
+   Il TIPO di test lo dice l'osservabile della clausola; il comando, la posizione dei file e lo
+   stile li dice la ricetta (playbook, convenzioni, test esistenti). I percorsi da importare
+   arrivano dall'elenco dei FILE PREVISTI della spec, non da un'esplorazione del sorgente.
 3. PRIMA di scrivere i test, posa il marcatore che autorizza la scrittura dei file di test:
        touch /tmp/aidevflow-testauthoring-<session>
    (dove <session> è l'id di sessione). Questo fa sì che l'hook pre-edit-guard ti consenta di

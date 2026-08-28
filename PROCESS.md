@@ -1,6 +1,6 @@
 # AI-Dev Flow — Processo
-process-version: 0.4.0
-compatibile-con: ">=0.4.0 <0.5.0"
+process-version: 0.5.0
+compatibile-con: ">=0.5.0 <0.6.0"
 
 ## Principio fondante
 L'AI esegue, la persona decide nei punti chiave (human-in-the-loop).
@@ -41,6 +41,10 @@ con l'azione da svolgere e il comando di registrazione). L'orchestratore esegue 
 next → esegui → registra → next. Così la DIREZIONE del flusso è codice (meccanico), non memoria
 dell'agente; gli hook restano l'ENFORCEMENT indipendente. L'orchestratore è usa-e-getta: qualunque
 sessione, letto lo stato, produce la stessa sequenza.
+Il sequencer registra anche gli INIZI-AZIONE nel log dello stato (`sequencer → <passo>`, una volta
+per passo indicato): i fatti timestampano i completamenti, e senza l'altro estremo gli intervalli
+fra i gate non distinguono il tempo macchina dall'attesa umana. È ciò che rende i tempi del
+processo misurabili a posteriori, ritorni su passi già visti inclusi.
 
 ## Abbandono e compensazioni
 Un task si può abbandonare solo per scelta umana motivata: `flowState.mjs abort --reason "<r>"`.
@@ -188,9 +192,10 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
 - CONTROLLO DI OSSERVABILITÀ, prima del gate: ogni clausola del comportamento atteso dichiara COME
   SI OSSERVA (quale tipo di test la coprirebbe, su cosa asserisce). Una clausola senza osservabile
   non è una clausola: è una domanda di gate. Si verifica anche la coerenza interna fra le decisioni
-  di gate e le sezioni redatte prima di esse. Motivo: il test-author di Fase 2 lavora alla cieca
-  sulla sola spec — ciò che non è osservabile in Fase 1 diventa un emendamento post-gate, cioè un
-  secondo passaggio completo della fase più cara.
+  di gate e le sezioni redatte prima di esse. Motivo: per il test-author di Fase 2 la spec è
+  l'UNICA fonte del comportamento da testare (lavora alla cieca rispetto a codice e piano) — ciò
+  che non è osservabile in Fase 1 diventa un emendamento post-gate, cioè un secondo passaggio
+  completo della fase più cara.
 - FAST-PATH (proposta vera): a retrieval fatto — e per i BUG dopo la riproduzione — se la
   modifica è circoscritta si propone il fast-path all'utente, spiegando cosa salta e i rischi.
   La scelta è SEMPRE umana e registrata.
@@ -200,6 +205,8 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
 - Loop di raffinamento con soglie (flow.config.maxRefine: avviso e blocco).
 - A spec approvata (GARANTITO dal guardiano di fine turno): salvataggio nello Spec Store
   (record-spec) + commento sul task nel ticketing via connettore (--comment) con il riferimento.
+  Il commento è disattivabile PER-PROGETTO (flow.config.delivery.specTicketComment): una scelta
+  stabile si dichiara una volta nella config committata, non si paga come deroga a ogni task.
 
 ### Fase 2 — Implementazione
 - Il sub-agent plan-author redige il piano SU FILE (`.ai-dev/tasks/<id>/plan-draft.md`) dalla
@@ -207,7 +214,8 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
   percorsi reali, ordine degli interventi, rischi, test previsti SCELTI dal playbook) più il
   CONTROLLO DI COPERTURA (ogni clausola della spec ha un intervento che la realizza; ogni
   intervento ha una clausola che lo richiede) e le NOTE DI COMPLESSITÀ implementativa.
-- Il piano NON raggiunge MAI il test-author: la spec dichiara il COSA e resta il suo unico input.
+- Il piano NON raggiunge MAI il test-author: la spec dichiara il COSA e resta la sua unica fonte
+  del comportamento da testare (la ricetta dei test dice solo come si scrivono qui).
   È questa separazione a rendere strutturale l'anti teaching-to-the-test — se il COME colasse nella
   spec, i test validerebbero l'approccio scelto invece del comportamento atteso.
 - ► GATE UMANO 2: la persona approva il PIANO (→ approve-gate plan). Con le note di complessità si
@@ -216,8 +224,11 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
   si propone `<fix|feat>/<nome-breve-esplicativo>` (fix=BUG, feat=CR); nome custom ammesso.
   Registrato nello stato (set-branch). L'hook pre-edit-guard BLOCCA lo sviluppo senza
   spec+piano+branch e lo sviluppo sul branch base.
-- In parallelo e PRIMA dell'implementazione: il sub-agent test-author scrive i test ricevendo
-  SOLO la spec e li committa (isolamento strutturale, vedi Qualità).
+- In parallelo e PRIMA dell'implementazione: il sub-agent test-author scrive i test e li committa.
+  Riceve la spec — UNICA fonte del comportamento da testare — più la RICETTA DEI TEST del progetto
+  (test-playbook, convenzioni, testPaths, test esistenti in lettura): la ricetta dice solo COME si
+  scrivono i test qui, mai cosa asserire. MAI il piano, MAI il codice di implementazione
+  (isolamento strutturale, vedi Qualità).
 - L'agente implementazione scrive il codice. Rispetta le convenzioni di progetto dichiarate in
   flow.config (NON le inferisce). NON può modificare i file di test (hook pre-edit-guard, anche
   via Bash: pre-bash-guard).
@@ -246,9 +257,13 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
 - Su monorepo: il test-selector interroga il tool nativo (Turborepo/Nx --affected);
   se assente, fallback conservativo (lancia tutto l'ambito coinvolto) + avviso.
 - GARANTITO: il guardiano di fine turno (hook Stop) blocca la chiusura del turno finché la
-  verifica non è registrata per ESATTAMENTE il diff corrente (hash); se il codice cambia dopo
-  la verifica, il gate si ri-arma da solo. Una verifica ROSSA non lo soddisfa: il gate resta armato
-  finché i test non passano. Skip solo esplicito e motivato (registrato).
+  verifica non è registrata per lo stato ATTUALE del codice coperto dal playbook — l'hash si
+  calcola sul CONTENUTO dei file nei pathPatterns del test-playbook, non sull'intero diff git.
+  Se quel codice cambia dopo la verifica, il gate si ri-arma da solo; doc, changelog, salvataggi
+  nello Spec Store e commit NON lo ri-armano (non toccano il codice sotto test — l'hash globale
+  costringeva a ri-verifiche spurie a ogni scrittura del flusso stesso). Una verifica ROSSA non lo
+  soddisfa: il gate resta armato finché i test non passano. Skip solo esplicito e motivato
+  (registrato).
 - Se i test passano → Fase 4. Se falliscono → torna all'implementazione (fix); i test non si toccano.
 - Un ROSSO è un FATTO e si registra (`record-verification --status failed`): è ciò che rende il
   rientro in implementazione visibile al sequencer invece di essere un vuoto nello stato, e ciò che
@@ -277,6 +292,10 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
   changelog come riferimento temporale al posto della PR.
 - Aggiornamento stato del task nel ticketing via connettore (--update-status: Review/Done —
   lo stato di arrivo lo sceglie la persona) — GARANTITO dal guardiano di fine turno.
+- I passi di consegna sono configurabili PER-PROGETTO (flow.config.delivery: specTicketComment,
+  pr, ticketUpdate): un progetto che non usa PR o non aggiorna il ticket lo DICHIARA nella config
+  committata — la stessa deroga ripetuta a ogni task è un difetto di configurazione, non una
+  decisione.
 - Chiusura dello stato del task (flowState close).
 
 ## Ramo BUG (variante della Fase 1-2)
@@ -289,9 +308,18 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
 - Fase 0: solo CANDIDATURA (segnali del ticket). Fase 1, a retrieval fatto (e riproduzione per i
   BUG): PROPOSTA vera, con criteri verificati sul codice (modifica circoscritta, no schema dati,
   no API pubbliche, soglia righe in flow.config.fastPath).
-- Il sistema SI FERMA e chiede alla persona, spiegando cosa significa (skip impact-analysis e
-  skip sub-agent test separato) e i rischi. La scelta è registrata nello stato (record-override).
-- La persona può sempre forzare il percorso completo su un singolo task.
+- Cosa taglia (i sub-agent, mai i gate): NIENTE plan-author — il piano compresso è nella spec
+  approvata (file previsti, approccio) e si presenta comunque al Gate 2; NIENTE test-author
+  separato — in Fase 3 girano i test del playbook; doc-review IN LINEA dall'orchestratore
+  (registrazione comunque obbligatoria: "nessun impatto, perché…" è un esito valido).
+  Un fast-path che taglia solo il test-author non è un fast-path: il costo fisso di un task
+  piccolo sta nei sub-agent redazionali.
+- Se durante il piano compresso emerge che la modifica NON è più circoscritta, si rientra nel
+  percorso completo (plan-author): il fast-path è una scommessa revocabile, non un binario.
+- Il sistema SI FERMA e chiede alla persona, spiegando cosa salta e i rischi. La scelta è
+  registrata nello stato (record-override).
+- La persona può sempre forzare il percorso completo su un singolo task. I TRE GATE UMANI restano
+  in ogni caso.
 
 ## I tre gate umani (riepilogo)
 1. Specifica  2. Piano  3. Revisione rapida del diff.
@@ -305,10 +333,13 @@ flow.config.perimeter). L'hook di perimetro BLOCCA il resto: il flusso deve esse
 chiunque apra il progetto. Whitelistare un componente è una decisione umana, committata.
 
 ## Garanzia di qualità (anti teaching-to-the-test)
-I test sono scritti da un sub-agent isolato che riceve solo la spec, PRIMA del codice,
-e committati prima dell'implementazione. Gli hook pre-edit-guard e pre-bash-guard li rendono
-read-only per l'agente implementatore (anche via shell). L'isolamento è verificabile
-(git timestamp + hook).
+I test sono scritti da un sub-agent isolato PRIMA del codice e committati prima
+dell'implementazione. L'isolamento è sul COME della soluzione: il test-author riceve la spec
+(unica fonte di ciò che va asserito) e la RICETTA dei test del progetto (playbook, convenzioni,
+posizione e stile dei test esistenti) — MAI il piano né il codice di implementazione. La ricetta
+non rivela nulla della soluzione: farla riscoprire a ogni task era un costo, non un presidio.
+Gli hook pre-edit-guard e pre-bash-guard rendono i test read-only per l'agente implementatore
+(anche via shell). L'isolamento è verificabile (git timestamp + hook).
 
 ## Snapshot "before" per le modifiche ai dati
 Per le modifiche che toccano codice produttore di dati, la prova di non-regressione richiede

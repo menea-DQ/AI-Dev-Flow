@@ -1,6 +1,6 @@
 # AI-Dev Flow - Manuale di progetto
 
-> Documento di riferimento dello standard aziendale AI-Dev Flow, versione kit **0.4.0**.
+> Documento di riferimento dello standard aziendale AI-Dev Flow, versione kit **0.5.0**.
 > Lettore: lo sviluppatore che deve installare il kit su un progetto e lavorarci dentro.
 > Questo manuale è discorsivo per scelta: spiega il perché delle cose, non solo il cosa.
 > La fonte di verità normativa resta il repo (`PROCESS.md`, `INSTALL.md`, skill, hook, codice);
@@ -32,9 +32,12 @@ test, le convenzioni di progetto e il registro della documentazione vengono **ch
 un'intervista all'installazione e scritti nella configurazione. L'agente poi li *applica*.
 
 **Anti teaching-to-the-test strutturale.** I test non li scrive chi scrive il codice: li scrive un
-sub-agent isolato che riceve **solo la specifica**, prima che il codice esista, e li committa. Da
-quel momento due hook li rendono read-only per l'implementatore - sia con gli strumenti di editing,
-sia **via shell**. La garanzia è verificabile (git history) e fisica (gli hook bloccano).
+sub-agent isolato che riceve la specifica come **unica fonte di ciò che va asserito** (più la
+*ricetta* dei test del progetto - playbook, convenzioni, dove vivono i test - che dice come si
+scrivono qui, mai cosa asserire; il piano e il codice di implementazione non li vede MAI), prima
+che il codice esista, e li committa. Da quel momento due hook li rendono read-only per
+l'implementatore - sia con gli strumenti di editing, sia **via shell**. La garanzia è verificabile
+(git history) e fisica (gli hook bloccano).
 
 **Knowledge-store versionato.** Specifiche approvate (Spec Store), changelog delle decisioni
 (append-only, con i *perché*), documenti di architettura **per-contesto** (il sistema com'è *ora*,
@@ -115,6 +118,13 @@ registrati (prima condizione non soddisfatta = prossimo passo, con l'azione da s
 comando di registrazione). E l'abbandono di un task è governato: `flowState.mjs abort --reason`
 chiude lo stato (che resta come audit trail) ed elenca le **compensazioni** da proporre -
 eliminare il branch di lavoro, annotare il ticket, ripulire lo snapshot.
+
+Dalla **0.5.0** il sequencer è anche lo **strumento di misura** del processo: la prima volta che
+indica un passo lo annota nel log dello stato (`sequencer → <passo>`, con dedup sui richiami dello
+stesso passo). I fatti registrati timestampano i *completamenti*; senza l'inizio-azione,
+l'intervallo fra due gate non distingue il tempo macchina dall'attesa umana - ed è quella
+distinzione che permette di capire *dove* un task è stato lento. Un ritorno a un passo già visto
+(es. una verifica che si ri-arma) si registra di nuovo: anche i giri a vuoto diventano misurabili.
 
 **Perché il sequencer esiste (l'obiezione SAGA).** Un orchestratore centrale è il classico single
 point of failure dei pattern di orchestrazione - e per un orchestratore *AI* il rischio non è
@@ -268,7 +278,7 @@ Gli **hook** sono i guardiani deterministici - scattano sempre, non dipendono da
 - `perimeterGuard` (PreToolUse su Skill e MCP) - l'enforcement del perimetro: blocca skill e server
   MCP fuori dal kit e dalle whitelist.
 - `preWorkSnapshot` (PreToolUse) - alla prima modifica di codice produttore di dati chiede (a te) se catturare lo snapshot "before"; la decisione finisce nello stato del task.
-- `postWorkVerification` (Stop) - il **guardiano di fine turno**: non lascia chiudere un turno con modifiche in aree coperte dal test-playbook senza una verifica registrata per *esattamente* quel diff (se il codice cambia dopo la verifica, il gate **si ri-arma da solo**); e a implementazione conclusa non lascia chiudere senza doc-review, changelog e ticket aggiornato (o skip espliciti).
+- `postWorkVerification` (Stop) - il **guardiano di fine turno**: non lascia chiudere un turno con modifiche in aree coperte dal test-playbook senza una verifica registrata per lo stato *attuale* del codice coperto - dalla **0.5.0** l'hash è sul **contenuto dei file nei pathPatterns del playbook**, non sull'intero diff git: se quel codice cambia dopo la verifica il gate **si ri-arma da solo**, mentre doc, changelog e commit non lo ri-armano (l'hash globale forzava ri-verifiche spurie a ogni scrittura del flusso stesso). E a implementazione conclusa non lascia chiudere senza doc-review, changelog e ticket aggiornato (o skip espliciti).
 
 I **connettori** (Productive per il ticketing, Zammad per l'helpdesk - i default aziendali) sono
 script bundlati con un contratto uniforme: in **lettura** restituiscono il JSON normalizzato del
@@ -325,7 +335,7 @@ ordine di grandezza in più:
 > osservabile non è una clausola: è una domanda di gate, e va spostata fra le domande. Nello stesso
 > passaggio si verifica la coerenza interna fra le decisioni prese al gate e le sezioni redatte
 > prima di esse (una decisione al gate può aver reso incompleta una tabella scritta mezz'ora prima).
-> Il motivo è strutturale: il test-author di Fase 2 lavora **alla cieca** sulla sola spec. Ciò che
+> Il motivo è strutturale: per il test-author di Fase 2 la spec è l'**unica fonte** del comportamento da testare (lavora alla cieca rispetto a codice e piano). Ciò che
 > non è osservabile per lo spec-author non lo è nemmeno per lui, e diventa un emendamento
 > post-gate - cioè un secondo passaggio completo della fase più cara del flusso.
 
@@ -352,7 +362,7 @@ prima non esistevano: un **controllo di copertura** (ogni clausola della spec ha
 realizza; ogni intervento ha una clausola che lo richiede - il resto è fuori perimetro) e le **note
 di complessità implementativa**, che ti servono al gate per decidere con quale tier implementare.
 
-Il piano **non raggiunge mai il test-author**: la spec dichiara il COSA e resta il suo unico input.
+Il piano **non raggiunge mai il test-author**: la spec dichiara il COSA e resta la sua unica fonte del comportamento da testare (la ricetta dei test dice solo come si scrivono qui).
 È questa separazione a rendere strutturale l'anti teaching-to-the-test - se il COME colasse nella
 spec, i test validerebbero l'approccio scelto invece del comportamento atteso. Ed è la ragione per
 cui piano e specifica sono due agenti e non uno.
@@ -364,7 +374,7 @@ Poi, **prima che qualsiasi commit esista**, il **branch di lavoro**: ti viene ch
 
 Il lavoro si biforca sui due binari strutturalmente separati:
 
-*Binario test.* Il sub-agent **test-author** riceve **solo la specifica**, posa il marcatore che lo autorizza, deriva i test dal contratto descritto nella spec, li **committa** (il timestamp git prova che esistono prima del codice) e rimuove il marcatore. Da quel momento i test sono blindati su entrambi i canali: editing (`preEditGuard`) e shell (`preBashGuard`).
+*Binario test.* Il sub-agent **test-author** riceve la specifica - **unica fonte di ciò che va asserito** - più, dalla **0.5.0**, la *ricetta* dei test del progetto (test-playbook, convenzioni, `testPaths`, test esistenti in lettura: come si scrivono i test *qui*, senza riscoprire il framework a ogni task - misurato: ~54 minuti a task di sola riscoperta); MAI il piano né il codice di implementazione. Posa il marcatore che lo autorizza, deriva i test dal contratto descritto nella spec, li **committa** (il timestamp git prova che esistono prima del codice) e rimuove il marcatore. Da quel momento i test sono blindati su entrambi i canali: editing (`preEditGuard`) e shell (`preBashGuard`).
 
 *Binario codice.* L'implementatore lavora con contesto minimo (spec + piano + architecture doc), applica le **convenzioni dichiarate** (mai inferite), non può toccare i test (se ne ritiene uno sbagliato, lo segnala a te). Sulle modifiche a codice produttore di dati (`dataProducingPaths`) scatta il gate dello **snapshot "before"**: il confronto pre/post è possibile solo se lo stato "before" è catturato a codice pristino - la scelta (cattura o skip motivato) è tua e resta registrata nello stato, valida per tutto il task anche su più sessioni.
 
@@ -384,7 +394,7 @@ Chiude la fase il **► GATE UMANO 3: occhiata al diff** (o all'inventario per c
 
 | Contratto F2 | |
 |---|---|
-| **Richiede** | Gate 1 registrato. Per il piano: spec approvata + architecture doc + convenzioni + test-playbook. Per il codice: Gate 2 + branch registrati (hook). Per i test: **solo la spec**. |
+| **Richiede** | Gate 1 registrato. Per il piano: spec approvata + architecture doc + convenzioni + test-playbook. Per il codice: Gate 2 + branch registrati (hook). Per i test: la spec (**unica fonte del COSA**) + la ricetta dei test (playbook, convenzioni, testPaths) - mai piano né codice. |
 | **Produce** | Piano con copertura verificata e note di complessità; test committati prima del codice; implementazione con diff rivisto al Gate 3; branch di lavoro; decisione snapshot registrata; eventuale escalation di tier registrata. |
 | **Vincola** | Senza Gate 1+2+branch l'hook **blocca fisicamente** la scrittura di sorgenti. I test sono immutabili per l'implementatore. Senza snapshot "before", niente non-regression sui dati in F3. |
 | **Convenzioni** | Branch `<fix|feat>/<slug>`; convenzioni applicate, mai inferite; contesto minimo; deroghe solo via `record-override` con motivo. |
@@ -395,7 +405,7 @@ Chiude la fase il **► GATE UMANO 3: occhiata al diff** (o all'inventario per c
 
 L'**esecuzione** è del sub-agent **test-runner** (modello economico): lancia i comandi *esatti*, senza modificarli, e riporta fatti - pass/fail e l'estratto d'errore utile. Verdi → si registra `record-verification --status done` e si prosegue. Rossi → si registrano (`--status failed`) e si torna in Fase 2; i test non si aggiustano. Dalla **0.3.0** registrare il rosso non è una formalità: è ciò che rende il rientro in implementazione visibile al sequencer invece di essere un vuoto nello stato, e ciò che gli fa **contare i giri** - superata la soglia `models.escalateAfterRedRounds`, è lui a proporti l'escalation di tier.
 
-La garanzia è del guardiano di fine turno: la verifica registrata vale per **l'hash esatto del diff verificato**. Se dopo i test tocchi ancora il codice, il gate si ri-arma da solo - non esiste più il "ho già verificato" generico. E dalla **0.3.0** una verifica **rossa** non lo soddisfa: registrare il rosso è obbligatorio, ma non è un permesso di chiudere - il gate resta armato finché i test non passano (o non salti, motivando).
+La garanzia è del guardiano di fine turno: la verifica registrata vale per lo **stato attuale del codice coperto dal playbook** - dalla **0.5.0** l'hash si calcola sul *contenuto* dei file nei `pathPatterns` del test-playbook, non sull'intero diff git. Se dopo i test tocchi ancora quel codice, il gate si ri-arma da solo - non esiste più il "ho già verificato" generico; doc, changelog, salvataggi nello Spec Store e commit invece **non** lo ri-armano (con l'hash globale erano proprio le scritture del flusso stesso a forzare ri-verifiche spurie: misurato, 7 task su 13). E dalla **0.3.0** una verifica **rossa** non lo soddisfa: registrare il rosso è obbligatorio, ma non è un permesso di chiudere - il gate resta armato finché i test non passano (o non salti, motivando).
 
 | Contratto F3 | |
 |---|---|
@@ -433,6 +443,8 @@ di tutti i task successivi.
 
 **Cosa succede.** La chiusura verso l'esterno, tutta meccanica: la **PR** dal branch di lavoro verso il branch base registrato nello stato (titolo dalla spec, corpo con link a spec e changelog, riferimento al ticket; `record-pr`), e l'**aggiornamento del ticket** via connettore - `--update-status "<ref>" "<stato>"` - con lo stato di arrivo (Review/Done) scelto da te e registrato. Poi `flowState close`: il task esce dallo stato attivo, il suo file di stato resta come audit trail.
 
+Dalla **0.5.0** i passi di consegna sono **configurabili per-progetto** (`flow.config.delivery`: `specTicketComment`, `pr`, `ticketUpdate`): un progetto che non apre PR o non aggiorna il ticket lo dichiara **una volta** nella config committata, e il sequencer non chiede più quei passi. La stessa deroga ripetuta a ogni task è un difetto di configurazione, non una decisione - se ti accorgi che stai derogando sempre lo stesso passo, spegnilo con `flow-settings`.
+
 Nei **progetti senza git** (deroga `branch` registrata) non c'è una PR da proporre: dalla **0.3.0** il
 sequencer salta quel passo invece di inciampare, e la consegna resta il solo aggiornamento del ticket
 - che continua a pretendere, usando il changelog come riferimento temporale al posto della PR.
@@ -449,19 +461,21 @@ Per i bug le Fasi 1–2 sono TDD da regressione: prima la **riproduzione** (caso
 
 ### 4.8 Il fast-path
 
-Due momenti distinti, per costruzione: in **Fase 0** solo la *candidatura* (segnali del ticket); in **Fase 1**, a retrieval fatto - e per i BUG a riproduzione fatta - la *proposta* vera, con i criteri finalmente verificabili: modifica circoscritta, niente schema dati, niente API pubbliche, soglia righe (`fastPath.thresholdLines`). Il sistema si ferma e ti spiega cosa salta (impact analysis, sub-agent test separato) e i rischi; la tua scelta è registrata (`record-override --gate fast-path`). Puoi sempre forzare il percorso completo.
+Due momenti distinti, per costruzione: in **Fase 0** solo la *candidatura* (segnali del ticket); in **Fase 1**, a retrieval fatto - e per i BUG a riproduzione fatta - la *proposta* vera, con i criteri finalmente verificabili: modifica circoscritta, niente schema dati, niente API pubbliche, soglia righe (`fastPath.thresholdLines`). Il sistema si ferma e ti spiega cosa salta e i rischi; la tua scelta è registrata (`record-override --gate fast-path`). Puoi sempre forzare il percorso completo.
+
+Dalla **0.5.0** il fast-path taglia i **sub-agent redazionali, mai i gate**: niente plan-author (il piano compresso è nella spec approvata - file previsti, approccio - e lo presenta l'orchestratore al Gate 2, che resta), niente test-author separato (in Fase 3 girano comunque i test del playbook), doc-review in linea (registrazione obbligatoria: «nessun impatto, perché…» è un esito valido). Prima tagliava solo il test-author - misurato sul campo, non era un fast-path: il costo fisso di un task piccolo sta nei sub-agent redazionali (~2 ore di processo attorno a mezz'ora di lavoro). Se durante il piano compresso emerge che la modifica non è più circoscritta, si rientra nel percorso completo: è una scommessa revocabile, non un binario. I **tre gate umani restano in ogni caso**.
 
 ---
 
 ## 5. La mappa dei contratti: chi vincola chi
 
 - **F0 → F1**: senza contesto richiesta (e connettori sani) non si specifica nulla.
-- **F1 → F2**: senza Gate 1 registrato non si pianifica; la spec è l'unico input del test-author -
+- **F1 → F2**: senza Gate 1 registrato non si pianifica; la spec è l'unica fonte del COSA per il test-author -
   il contratto più rigido del flusso.
 - **Dentro F2**: senza Gate 2 + branch registrati l'hook blocca il codice; i test committati
   precedono il codice (ordine provato da git); la decisione snapshot precede il codice sui dati.
 - **F2 → F3**: senza Gate 3 niente qualità; senza playbook niente selezione; la verifica vale per
-  l'hash esatto del diff - cambi il codice, si ri-arma.
+  il contenuto del codice coperto dal playbook - cambi quel codice, si ri-arma (doc e changelog no).
 - **F3 → F4**: test verdi registrati, o non si chiude.
 - **F4 → F5**: doc-review + changelog registrati, o non si chiude.
 - **F5 → il futuro**: PR e ticket chiusi; lo stato del task resta come audit trail; changelog e
@@ -557,7 +571,7 @@ Intake dal connettore Zammad, riproduzione del caso minimo (il changelog indica 
 
 ## 8. Best practice
 
-**Cura la spec più di ogni altra cosa.** È l'unico input del test-author e la base del piano.
+**Cura la spec più di ogni altra cosa.** È l'unica fonte di ciò che il test-author asserirà, e la base del piano.
 Dieci minuti in più al Gate 1 valgono ore dopo.
 
 **Non svuotare i gate.** Approvare senza leggere rende il processo un teatrino - e ora che le
@@ -710,6 +724,18 @@ kit, non da qui. Cambiandola con `flow-settings`, va riallineata anche la chiave
 | `thresholdLines` | `20` | Soglia in righe toccate - applicata in **Fase 1**, a retrieval fatto (in F0 esiste solo la candidatura dai segnali del ticket). |
 
 *Letta da*: spec-author / skill flow (F1).
+
+### `delivery` - quali passi di consegna pretende il sequencer
+
+| Chiave | Default | Effetto |
+|---|---|---|
+| `specTicketComment` | `true` | Commento sul ticket a spec approvata (fine Fase 1). `false` = il sequencer non lo chiede. |
+| `pr` | `true` | Proposta di PR in Fase 5. `false` = niente PR (la consegna è il solo ticket). |
+| `ticketUpdate` | `true` | Update di stato del ticket alla consegna. `false` = il sequencer e il guardiano non lo pretendono. |
+
+*Letta da*: sequencer (`flowState next`), guardiano di fine turno.
+È la forma giusta di una scelta **stabile** del progetto: la stessa deroga ripetuta a ogni task va
+trasformata in una chiave qui (decisione committata), non ripetuta.
 
 ### `testPaths` - cosa è "un file di test"
 
