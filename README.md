@@ -68,9 +68,14 @@ l'unica fonte di ciò che va asserito, ma il framework non si riscopre più a og
 **fast-path taglia i sub-agent redazionali, mai i gate** (niente plan-author: il piano compresso
 viene dalla spec e passa comunque dal Gate 2; doc-review in linea); i **passi di consegna sono
 configurabili per-progetto** (`flow.config.delivery`: la stessa deroga ripetuta a ogni task diventa
-una chiave committata). E il sequencer diventa **strumento di misura**: registra gli inizi-azione
-nel log dello stato (`sequencer → <passo>`), così gli intervalli fra i gate distinguono il tempo
-macchina dall'attesa umana.
+una chiave committata, incluso lo stato ticket di arrivo `ticketStatus` — se dichiarato, niente
+domanda). Le **fermate umane si accorpano**: il Gate 2 decide in un'unica AskUserQuestion piano,
+tier e branch; l'intervista di Fase 1 arriva col Gate 1 quando le domande sono poche — ogni stop è
+un context switch, e il tempo dei task lo mangiano le attese moltiplicate per gli stop. Il
+**retrieval di Fase 1 passa al plan-author** (l'elenco dei file letti: la scoperta della codebase
+si paga una volta, non due). E il sequencer diventa **strumento di misura**: registra gli
+inizi-azione nel log dello stato (`sequencer → <passo>`) e **`flowState report`** stampa le durate
+per passo, distinguendo gli intervalli con fermate umane dal tempo macchina.
 
 È confezionato come **plugin Claude Code**: il processo, gli artefatti e i template restano agnostici
 nel contenuto; il **plugin** (skill, hook, agenti, connettori) è lo strato adattatore per Claude Code.

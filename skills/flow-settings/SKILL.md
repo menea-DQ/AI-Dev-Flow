@@ -38,9 +38,11 @@ senza che l'utente debba editare il JSON a mano.
      completi), `"inherit"` (non tocca lo stile del progetto), o il nome di un altro stile.
    - `delivery`: quali passi di consegna il sequencer pretende in questo progetto —
      `specTicketComment` (commento sul ticket a spec approvata), `pr` (proposta di PR in Fase 5),
-     `ticketUpdate` (update di stato del ticket alla consegna). Metterli a `false` è la forma
-     giusta di una scelta STABILE del progetto: se l'utente sta derogando lo stesso passo a ogni
-     task, proponigli di spegnerlo qui (decisione committata, non deroga ripetuta).
+     `ticketUpdate` (update di stato del ticket alla consegna), `ticketStatus` (lo stato di
+     arrivo di default, es. "Review": se valorizzato, alla consegna non si chiede). Metterli a
+     `false` (o valorizzare `ticketStatus`) è la forma giusta di una scelta STABILE del progetto:
+     se l'utente sta derogando lo stesso passo — o rispondendo sempre la stessa cosa — a ogni
+     task, proponigli di fissarlo qui (decisione committata, non deroga ripetuta).
    - `maxRefine`, `fastPath`, `connectors`, `tokenEconomy`: soglie e opzioni.
 3. Valida la modifica contro lo schema di `flow.config`. Se una scelta è ambigua, applica la
    Regola del 98% e CHIEDI; non indovinare.

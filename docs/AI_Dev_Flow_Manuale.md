@@ -125,6 +125,8 @@ stesso passo). I fatti registrati timestampano i *completamenti*; senza l'inizio
 l'intervallo fra due gate non distingue il tempo macchina dall'attesa umana - ed è quella
 distinzione che permette di capire *dove* un task è stato lento. Un ritorno a un passo già visto
 (es. una verifica che si ri-arma) si registra di nuovo: anche i giri a vuoto diventano misurabili.
+Il comando **`flowState.mjs report`** riassume le durate per passo dal log, annotando i passi che
+contengono fermate umane: si guarda quello prima di ottimizzare alla cieca.
 
 **Perché il sequencer esiste (l'obiezione SAGA).** Un orchestratore centrale è il classico single
 point of failure dei pattern di orchestrazione - e per un orchestratore *AI* il rischio non è
@@ -339,7 +341,7 @@ ordine di grandezza in più:
 > non è osservabile per lo spec-author non lo è nemmeno per lui, e diventa un emendamento
 > post-gate - cioè un secondo passaggio completo della fase più cara del flusso.
 
-L'orchestratore fa a te le domande sui buchi (registro Q&A) - riscritte col loro contesto, non inoltrate come le ha formulate il sub-agent - itera con lo spec-author se serve, e arriva al **► GATE UMANO 1: approvi la SPECIFICA?** Al gate vedi un sommario di 5-15 righe e il **percorso** della bozza, non la spec incollata. Il loop di raffinamento ha soglie dichiarate (`maxRefine`: avviso a 3 giri, blocco a 6). Per i BUG, prima della spec c'è la **riproduzione** (caso minimo, changelog per individuare l'origine).
+L'orchestratore fa a te le domande sui buchi (registro Q&A) - riscritte col loro contesto, non inoltrate come le ha formulate il sub-agent - itera con lo spec-author se serve, e arriva al **► GATE UMANO 1: approvi la SPECIFICA?** Al gate vedi un sommario di 5-15 righe e il **percorso** della bozza, non la spec incollata. Dalla **0.5.0**, quando le domande sono poche, intervista e gate arrivano in **un'unica fermata** (una AskUserQuestion: le domande + l'approvazione); se una risposta può ribaltare la bozza, prima l'intervista. Il loop di raffinamento ha soglie dichiarate (`maxRefine`: avviso a 3 giri, blocco a 6). Per i BUG, prima della spec c'è la **riproduzione** (caso minimo, changelog per individuare l'origine).
 
 Ad approvazione - e qui la 0.0.7 cambia le cose - la chiusura della fase è **garantita**: la spec va nello Spec Store (`record-spec`), il gate è registrato (`approve-gate spec`) e il task nel ticketing riceve il riferimento via `--comment` (registrato con `record-ticket-update`). Se manca qualcosa, il guardiano di fine turno lo pretende.
 
@@ -353,7 +355,7 @@ Ad approvazione - e qui la 0.0.7 cambia le cose - la chiusura della fase è **ga
 ### 4.3 Fase 2 - Implementazione
 
 **Cosa succede.** Dalla **0.3.0** il **piano** lo redige un sub-agent dedicato, **`plan-author`**
-(modello top) - e dalla **0.4.0** lo scrive su file (`.ai-dev/tasks/<id>/plan-draft.md`), presentandoti al gate il sommario e il percorso - che riceve la spec approvata, il registro Q&A, gli architecture doc dei contesti
+(modello top) - e dalla **0.4.0** lo scrive su file (`.ai-dev/tasks/<id>/plan-draft.md`), presentandoti al gate il sommario e il percorso - che riceve la spec approvata, l'**elenco dei file letti** dallo spec-author in Fase 1 (dalla **0.5.0**: punto di partenza del suo retrieval, non il suo perimetro - la scoperta della codebase si paga una volta, non due), il registro Q&A, gli architecture doc dei contesti
 toccati, le convenzioni di progetto e il test-playbook. Legge la codebase più a fondo di quanto
 faccia la Fase 1 - qui servono i punti di innesto *reali*, non plausibili - e produce approccio, file
 toccati con percorsi veri, **ordine degli interventi**, rischi, test previsti *scelti dal playbook*
@@ -367,10 +369,9 @@ Il piano **non raggiunge mai il test-author**: la spec dichiara il COSA e resta 
 spec, i test validerebbero l'approccio scelto invece del comportamento atteso. Ed è la ragione per
 cui piano e specifica sono due agenti e non uno.
 
-**► GATE UMANO 2: approvi il PIANO?** (`approve-gate plan`) - e, con le note di complessità sotto gli
-occhi, **con quale tier implementiamo?**
+**► GATE UMANO 2: approvi il PIANO?** (`approve-gate plan`) - e nella **stessa fermata**, con le note di complessità sotto gli occhi, **con quale tier implementiamo?** e **su quale branch?** Dalla **0.5.0** il gate è un'unica AskUserQuestion (piano, tier, branch base, nome): ogni stop in più è un context switch per chi risponde, e il tempo dei task lo mangiano le attese moltiplicate per gli stop.
 
-Poi, **prima che qualsiasi commit esista**, il **branch di lavoro**: ti viene chiesto da quale branch staccare (default: quello di default del repo) e proposto un nome **`<fix|feat>/<nome-breve-esplicativo>`** - `fix/` per i BUG, `feat/` per le CR, es. `feat/export-csv-ordini` - con possibilità di nome custom. Il branch è registrato nello stato (`set-branch`), e da lì in poi l'hook blocca lo sviluppo sul branch base. L'ordine non è casuale: il branch nasce prima del test-author *perché il test-author committa*, e quei commit devono già stare sul branch giusto.
+Il **branch di lavoro** nasce quindi **prima che qualsiasi commit esista**: base scelta da te (default: quello di default del repo) e nome proposto **`<fix|feat>/<nome-breve-esplicativo>`** - `fix/` per i BUG, `feat/` per le CR, es. `feat/export-csv-ordini` - con possibilità di nome custom. Il branch è registrato nello stato (`set-branch`), e da lì in poi l'hook blocca lo sviluppo sul branch base. L'ordine non è casuale: il branch nasce prima del test-author *perché il test-author committa*, e quei commit devono già stare sul branch giusto.
 
 Il lavoro si biforca sui due binari strutturalmente separati:
 
@@ -732,6 +733,7 @@ kit, non da qui. Cambiandola con `flow-settings`, va riallineata anche la chiave
 | `specTicketComment` | `true` | Commento sul ticket a spec approvata (fine Fase 1). `false` = il sequencer non lo chiede. |
 | `pr` | `true` | Proposta di PR in Fase 5. `false` = niente PR (la consegna è il solo ticket). |
 | `ticketUpdate` | `true` | Update di stato del ticket alla consegna. `false` = il sequencer e il guardiano non lo pretendono. |
+| `ticketStatus` | `null` | Lo stato di arrivo di default (es. `"Review"`): se valorizzato, alla consegna non viene chiesto. |
 
 *Letta da*: sequencer (`flowState next`), guardiano di fine turno.
 È la forma giusta di una scelta **stabile** del progetto: la stessa deroga ripetuta a ogni task va
@@ -798,5 +800,5 @@ Attenzione al doppio livello: **ciò che attiva davvero la telemetria non è que
 
 ### Lo stato per-task (non è in `flow.config`)
 
-Lo stato non si configura: vive in `.ai-dev/tasks/<id>/state.json` ed è gestito esclusivamente da `bin/flowState.mjs`. Comandi: `start` (avvia/riprende), **`next`** (il sequencer: il prossimo passo calcolato dai fatti), `show`, `approve-gate <spec|plan|diff>`, `set-branch`, `record-spec`, `record-tests-authored`, `record-snapshot`, **`record-manifest`** / **`diff-manifest`**
+Lo stato non si configura: vive in `.ai-dev/tasks/<id>/state.json` ed è gestito esclusivamente da `bin/flowState.mjs`. Comandi: `start` (avvia/riprende), **`next`** (il sequencer: il prossimo passo calcolato dai fatti), **`report`** (durate per passo dal log: dove è andato il tempo), `show`, `approve-gate <spec|plan|diff>`, `set-branch`, `record-spec`, `record-tests-authored`, `record-snapshot`, **`record-manifest`** / **`diff-manifest`**
 (manifest "prima" e inventario per confronto, nei progetti senza git), `record-verification`, `record-doc-review`, `record-changelog`, `record-ticket-update`, `record-pr`, `record-override` (deroghe, sempre con motivo), `close` e **`abort --reason`** (abbandono governato, con compensazioni). È committabile (riprendibilità e handoff), versionato (`stateVersion`) e coperto dalle migrazioni.

@@ -18,6 +18,8 @@ del flusso dove la lettura profonda della codebase serve davvero, e va pagata un
 Input che ricevi (contratto d'ingresso — chi ti invoca te li passa, tu non vai a cercarli altrove):
 - il PERCORSO DELLA CARTELLA DEL TASK (`.ai-dev/tasks/<task-id>/`): è lì che scrivi la bozza;
 - la SPECIFICA APPROVATA (percorso), con le eventuali emendazioni decise al Gate 1;
+- l'ELENCO DEI FILE LETTI dallo spec-author in Fase 1 (percorsi + ruolo): è il PUNTO DI PARTENZA
+  del tuo retrieval, non il suo perimetro — verifichi e integri, non rifai la scoperta da zero;
 - il registro Q&A del task, se esiste: contiene le risposte già date, non rifarle;
 - l'elenco dei contesti coinvolti con i rispettivi documenti di architettura (percorsi);
 - i constraint e le convenzioni di progetto (da flow.config.projectConventions);
@@ -28,8 +30,10 @@ Cosa fai:
 1. Leggi la PARTE NORMATIVA della spec: è il contratto da realizzare. La parte di motivazione
    serve solo a sciogliere un'ambiguità di lettura.
 2. Per ogni contesto toccato, LEGGI PRIMA il documento di architettura, POI il codice rilevante —
-   qui in modo più profondo che in Fase 1: devi conoscere i punti di innesto reali, non
-   plausibili. Se il documento è in drift rispetto al codice, SEGNALALO.
+   PARTENDO dai file letti in Fase 1, e qui in modo più profondo: devi conoscere i punti di
+   innesto reali, non plausibili. L'elenco di Fase 1 ti risparmia la ricerca, non la lettura:
+   se il piano tocca file che lì non compaiono, li aggiungi tu. Se il documento è in drift
+   rispetto al codice, SEGNALALO.
    Del changelog leggi le sole TESTE "Vincolante": ti dicono quali aree sono congelate, quali
    invarianti regge il codice e quali debiti sono già dichiarati. Non rileggere la narrativa.
 3. Redigi la bozza di piano SU FILE, in `<cartella-task>/plan-draft.md` (template

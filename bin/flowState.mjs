@@ -18,6 +18,7 @@
 //                                        sui richiami dello stesso passo): i fatti timestampano i completamenti,
 //                                        e senza l'altro estremo gli intervalli fra i gate non distinguono
 //                                        il tempo macchina dall'attesa umana.
+//   node flowState.mjs report          ← durate per passo dal log (inizi-azione + fatti): dove è andato il tempo
 //   node flowState.mjs abort --reason <r>   ← abbandono con compensazioni (chiude lo stato, elenca cosa ripulire)
 //   node flowState.mjs active | show | close | clear-active
 //   node flowState.mjs set-phase <intake|spec|plan|implementation|quality|documentation|delivery|done>
@@ -313,14 +314,14 @@ export function nextStep(state, projectRoot) {
     }
     return {
       phase: 'F2 · Piano',
-      action: 'Lancia il sub-agent plan-author (spec approvata + architecture doc + convenzioni + test-playbook): produce approccio, file toccati, ordine, rischi, test previsti dal playbook e le NOTE DI COMPLESSITÀ. Presenta TU il PIANO al GATE UMANO 2 — e con le note di complessità chiedi all\'utente con quale tier implementare (vedi skill flow).',
-      record: `ad approvazione dell'utente: ${cli} approve-gate plan`,
+      action: 'Lancia il sub-agent plan-author (spec approvata + file letti in Fase 1 + architecture doc + convenzioni + test-playbook): produce approccio, file toccati, ordine, rischi, test previsti dal playbook e le NOTE DI COMPLESSITÀ. Presenta TU il PIANO al GATE UMANO 2 in UNA SOLA FERMATA (una AskUserQuestion): approvazione del piano, tier di implementazione (informato dalle note di complessità), branch base e nome proposto — ogni stop in più è un context switch per chi risponde.',
+      record: `ad approvazione dell'utente: ${cli} approve-gate plan · e con la stessa risposta: ${cli} set-branch --name <branch> --base <base>`,
     };
   }
   if (!state.branch?.name && !hasOverride(state, 'branch')) {
     return {
       phase: 'F2 · Branch',
-      action: 'Crea il branch di lavoro PRIMA di ogni commit: chiedi all\'utente il branch base e proponi <fix|feat>/<nome-breve-esplicativo> (nome custom ammesso). Poi: git checkout -b <branch>.'
+      action: 'Crea il branch di lavoro PRIMA di ogni commit (se non l\'hai già deciso col Gate 2): chiedi all\'utente il branch base e proponi <fix|feat>/<nome-breve-esplicativo> (nome custom ammesso). Poi: git checkout -b <branch>.'
         + (currentGitBranch(projectRoot) === null ? ' — ATTENZIONE: qui non c\'è un repository git. Se il progetto non ne ha uno, la deroga va registrata: record-override --gate branch --reason "<motivo dell\'utente>".' : ''),
       record: `${cli} set-branch --name <branch> --base <base>`,
     };
@@ -405,10 +406,15 @@ export function nextStep(state, projectRoot) {
   const deliveryReference = state.pr?.at ?? state.changelog?.updatedAt ?? '';
   const finalTicketUpdate = (state.ticketUpdates ?? []).some((u) => u.at > deliveryReference);
   if (!finalTicketUpdate && delivery.ticketUpdate !== false) {
+    // Con un default di progetto (delivery.ticketStatus) lo stato di arrivo è già deciso:
+    // niente domanda — una scelta stabile non si ripete a ogni task.
+    const ticketStatus = typeof delivery.ticketStatus === 'string' && delivery.ticketStatus.trim() !== '' ? delivery.ticketStatus : null;
     return {
       phase: 'F5 · Consegna (ticket)',
-      action: `Aggiorna lo stato del ticket (chiedi all'utente: Review o Done): node "\${CLAUDE_PLUGIN_ROOT}/connectors/${conn}.mjs" --update-status "${ref}" "<stato>"`,
-      record: `${cli} record-ticket-update --status "<stato>"`,
+      action: ticketStatus
+        ? `Aggiorna lo stato del ticket a "${ticketStatus}" (default di progetto flow.config.delivery.ticketStatus: niente domanda): node "\${CLAUDE_PLUGIN_ROOT}/connectors/${conn}.mjs" --update-status "${ref}" "${ticketStatus}"`
+        : `Aggiorna lo stato del ticket (chiedi all'utente: Review o Done): node "\${CLAUDE_PLUGIN_ROOT}/connectors/${conn}.mjs" --update-status "${ref}" "<stato>"`,
+      record: `${cli} record-ticket-update --status "${ticketStatus ?? '<stato>'}"`,
     };
   }
   return {
@@ -522,6 +528,41 @@ function runCli() {
   switch (command) {
     case 'show': {
       console.log(JSON.stringify(state, null, 2));
+      return;
+    }
+    // Report dei tempi: ogni marcatore `sequencer → <passo>` apre un intervallo che si chiude al
+    // marcatore successivo (o alla chiusura del task). I passi che contengono fermate umane sono
+    // annotati: lì dentro c'è anche attesa, non solo lavoro macchina.
+    case 'report': {
+      const log = state.log ?? [];
+      const markers = log.filter((entry) => entry.event.startsWith('sequencer → '));
+      if (markers.length === 0) {
+        console.log(`Task "${state.task.id}": nessun inizio-azione nel log. Il report per-passo richiede task lavorati con kit >= 0.5.0 (il sequencer registra i marcatori "sequencer → <passo>").`);
+        return;
+      }
+      const HUMAN_STOP_STEPS = new Set([
+        'F1 · Specifica', // intervista + Gate 1
+        'F2 · Piano', 'F2 · Piano (fast-path)', // Gate 2 + tier + branch
+        'F2 · Branch',
+        'F2 · Implementazione', // Gate 3 in coda
+        'F5 · Consegna (ticket)', // scelta dello stato (se non c'è un default di progetto)
+      ]);
+      const formatDuration = (millis) => {
+        const minutes = Math.round(millis / 60000);
+        return minutes >= 60 ? `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, '0')}` : `${minutes}m`;
+      };
+      const closedAt = state.phase === 'done' || state.phase === 'aborted' ? new Date(state.updatedAt) : null;
+      console.log(`Report tempi — task "${state.task.id}" (fase: ${state.phase})`);
+      console.log(`  avvio → primo passo: ${formatDuration(new Date(markers[0].at) - new Date(state.startedAt))}`);
+      for (let index = 0; index < markers.length; index += 1) {
+        const stepName = markers[index].event.slice('sequencer → '.length);
+        const from = new Date(markers[index].at);
+        const to = index + 1 < markers.length ? new Date(markers[index + 1].at) : closedAt;
+        console.log(`  ${stepName}: ${to ? formatDuration(to - from) : `in corso da ${formatDuration(Date.now() - from)}`}${HUMAN_STOP_STEPS.has(stepName) ? '  (include fermate umane)' : ''}`);
+      }
+      const verifications = log.filter((entry) => entry.event.startsWith('verifica test:')).length;
+      console.log(`  totale: ${closedAt ? formatDuration(closedAt - new Date(state.startedAt)) : `in corso da ${formatDuration(Date.now() - new Date(state.startedAt))}`}`
+        + ` · verifiche registrate: ${verifications} · giri rossi: ${(state.redRounds ?? []).length}`);
       return;
     }
     case 'next': {
