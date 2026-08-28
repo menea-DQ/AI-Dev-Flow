@@ -37,7 +37,9 @@ Così il "qual è il prossimo passo" non dipende dalla tua memoria: è meccanico
 Il sequencer dice COSA; il COME delle fasi è questo:
 
 - **F0 Intake** — contract-check (`connectors/check.mjs`), lettura ticket via connettore
-  (+ helpdesk referenziato), normalizzazione col sub-agent **intake**. Niente codebase.
+  (+ helpdesk referenziato), normalizzazione IN LINEA: estrai TU dal JSON del connettore tipo
+  (CR/BUG), priorità, riferimenti, cliente, allegati, riproduzione sì/no per i BUG — il JSON è
+  già nel tuo contesto, uno spawn costerebbe più del lavoro. Niente codebase.
   Fast-path: solo candidatura.
 - **F1 Specifica** — sub-agent **spec-author** (passagli: il percorso della cartella del task
   `.ai-dev/tasks/<task-id>/` dove scrivere la bozza, contesto richiesta, path architecture
@@ -180,7 +182,7 @@ frontmatter dell'agente — che è una modifica al kit, non una decisione di tas
   Al gate si presenta ciò che serve a DECIDERE (5-15 righe + il percorso del file + cosa serve da
   lui), non l'artefatto.
 - **Non passare MAI il parametro `model` quando invochi un sub-agent.** Il tier è dichiarato nel
-  frontmatter di ciascun agente (`haiku` per `intake` e `test-runner`, `sonnet` per `test-author` e
+  frontmatter di ciascun agente (`haiku` per `test-runner`, `sonnet` per `test-author` e
   `doc-author`, `opus` per `spec-author` e `plan-author`) ed è tarato sul lavoro che quella fase fa.
   Il parametro della chiamata SOVRASCRIVE il frontmatter: passarlo, anche "per sicurezza",
   disattiva il tiering. Se ritieni che un tier sia sbagliato, la correzione è nel frontmatter

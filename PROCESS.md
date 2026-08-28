@@ -32,7 +32,9 @@ Ogni task ha uno stato persistito (`.ai-dev/tasks/<id>/state.json`, unico access
 `bin/flowState.mjs`): fase corrente, gate approvati, branch, artefatti prodotti, verifiche,
 deroghe. È un registro di FATTI, non un workflow engine. Effetti: gli hook possono far rispettare
 i contratti di fase; un task interrotto RIPRENDE da dov'era; un collega può SUBENTRARE leggendo lo
-stato. Lo stato punta agli artefatti, non li contiene: è ricostruibile, mai un ostaggio.
+stato. Lo stato punta agli artefatti, non li contiene: è ricostruibile, mai un ostaggio. È LOCALE
+di default (l'install gitignora `tasks/`: cambia a ogni passo e sporcherebbe ogni PR); committarlo
+per il subentro è una scelta di progetto — si toglie la riga dal .gitignore di `.ai-dev/`.
 
 ## Sequencer deterministico (anti single-point-of-failure cognitivo)
 "Qual è il prossimo passo" NON è una decisione dell'AI: è una funzione dei fatti registrati,
@@ -47,6 +49,9 @@ fra i gate non distinguono il tempo macchina dall'attesa umana. È ciò che rend
 processo misurabili a posteriori, ritorni su passi già visti inclusi. Il comando
 `flowState.mjs report` riassume le durate per passo dal log (i passi con fermate umane sono
 annotati): è così che si vede DOVE un task è stato lento, prima di ottimizzare alla cieca.
+Con la telemetria abilitata (flow.config.telemetry) le stesse durate si esportano via OTLP alla
+chiusura del task (metriche `ai_dev_flow.*` + log di riepilogo), accanto a token e costo di
+Claude Code; l'export non blocca mai la chiusura (backfill: `report --otel`).
 
 ## Abbandono e compensazioni
 Un task si può abbandonare solo per scelta umana motivata: `flowState.mjs abort --reason "<r>"`.
@@ -76,7 +81,6 @@ revisione. È il presidio che trova i difetti, e vale ciò che costa.
 Il lavoro cognitivo di ogni fase è svolto da un sub-agent dedicato, eseguito col modello adatto
 alla natura della fase (qualità dove serve, economia dove basta). L'isolamento è anche un
 contratto: un sub-agent riceve SOLO i suoi input dichiarati, non la conversazione.
-- intake (Fase 0) → modello economico: normalizzazione meccanica.
 - spec-author (Fase 1) → modello top: la fase a più leverage.
 - plan-author (Fase 2) → modello top: traduce il COSA in COME, l'unica lettura profonda della
   codebase del flusso. Un COME sbagliato si paga con un rifacimento.
@@ -174,7 +178,9 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
 - Ingresso: una richiesta (CR/evolutiva o BUG) dal ticketing.
 - Contract-check dei connettori PRIMA di usarli; lo stato del task viene avviato qui
   (flowState start).
-- Il sub-agent intake normalizza la richiesta: tipo, priorità, riferimenti, allegati.
+- L'orchestratore normalizza la richiesta IN LINEA: tipo, priorità, riferimenti, allegati.
+  Il JSON del connettore è già nel suo contesto: uno spawn costerebbe più del lavoro (fino alla
+  0.4.0 era un sub-agent dedicato).
 - Classifica CR vs BUG. Produce un "contesto richiesta" minimale.
 - NON legge la codebase in questa fase (risparmio).
 - Fast-path: qui si valuta SOLO la CANDIDATURA, dai segnali del ticket. La proposta vera

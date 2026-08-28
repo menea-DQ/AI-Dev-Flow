@@ -110,7 +110,10 @@ Tre effetti pratici che cambiano il lavoro quotidiano:
 > ★ **Un task interrotto riprende da dov'era** - a inizio sessione l'hook ti dice "task in corso, fase X" e il lavoro riparte senza ricominciare da zero.
 >
 > ★ **Un collega può subentrare** - lo stato è committabile: tu porti il task alla spec approvata,
-> chi apre il progetto dopo di te vede esattamente cosa è fatto e cosa manca.
+> chi apre il progetto dopo di te vede esattamente cosa è fatto e cosa manca. Dalla **0.5.0** è
+> **locale di default** (l'install ignora `tasks/` nel `.gitignore` di `.ai-dev/`: lo stato cambia
+> a ogni passo del sequencer e sporcherebbe ogni PR); per condividerlo si toglie quella riga -
+> scelta di progetto, committata.
 
 Dalla 0.0.8 lo stato non è solo il registro: è anche la **fonte della transizione**. Il comando
 `flowState.mjs next` - il **sequencer deterministico** - calcola il prossimo passo dai fatti
@@ -126,7 +129,12 @@ l'intervallo fra due gate non distingue il tempo macchina dall'attesa umana - ed
 distinzione che permette di capire *dove* un task è stato lento. Un ritorno a un passo già visto
 (es. una verifica che si ri-arma) si registra di nuovo: anche i giri a vuoto diventano misurabili.
 Il comando **`flowState.mjs report`** riassume le durate per passo dal log, annotando i passi che
-contengono fermate umane: si guarda quello prima di ottimizzare alla cieca.
+contengono fermate umane: si guarda quello prima di ottimizzare alla cieca. Con la telemetria
+abilitata (`flow.config.telemetry.enabled`) le stesse durate partono **via OTLP** alla chiusura del
+task (`close`/`abort`) verso lo stack di `telemetry/`: metriche `ai_dev_flow.*` (durata per passo e
+totali: giri rossi, verifiche, deroghe, fast-path) e un log di riepilogo — così in Grafana i tempi
+del flusso stanno accanto a token e costo di Claude Code. Un endpoint irraggiungibile non blocca
+mai la chiusura; il backfill si fa con `report --otel`.
 
 **Perché il sequencer esiste (l'obiezione SAGA).** Un orchestratore centrale è il classico single
 point of failure dei pattern di orchestrazione - e per un orchestratore *AI* il rischio non è
@@ -151,7 +159,7 @@ dello standard, per tre ragioni che vale la pena capire bene:
 
 | Fase | Agente | Modello | Perché questo modello |
 |---|---|---|---|
-| F0 Intake | `intake` | economico (haiku) | parsing e classificazione: meccanico |
+| F0 Intake | - (in linea) | thread principale | parsing di un JSON già nel contesto: uno spawn costerebbe più del lavoro (dalla 0.5.0) |
 | F1 Specifica | `spec-author` | top (opus) | la fase a più leverage dell'intero flusso |
 | F2 Piano | `plan-author` | top (opus) | traduce il COSA in COME: l'unica lettura profonda della codebase |
 | F2 Test | `test-author` | intermedio (sonnet) | la derivazione è resa meccanica a monte (osservabili per clausola) |
@@ -299,7 +307,7 @@ più solo prosa: sono verificati dagli hook attraverso lo stato del task.
 
 ### 4.1 Fase 0 - Intake
 
-**Cosa succede.** Arriva un ticket (CR o BUG). L'orchestratore verifica i connettori (contract-check: se quello che serve è ROTTO ci si ferma subito), avvia lo **stato del task** (`flowState start`), legge il ticket via connettore (e l'eventuale ticket di helpdesk collegato) e delega la normalizzazione al sub-agent **intake** (modello economico): tipo, priorità, riferimenti, cliente, allegati scaricati, e - per i BUG - se esiste una descrizione di riproduzione.
+**Cosa succede.** Arriva un ticket (CR o BUG). L'orchestratore verifica i connettori (contract-check: se quello che serve è ROTTO ci si ferma subito), avvia lo **stato del task** (`flowState start`), legge il ticket via connettore (e l'eventuale ticket di helpdesk collegato) e normalizza **in linea** (dalla **0.5.0**: il JSON del connettore è già nel suo contesto - uno spawn costerebbe più del lavoro; prima era un sub-agent dedicato): tipo, priorità, riferimenti, cliente, allegati scaricati, e - per i BUG - se esiste una descrizione di riproduzione.
 
 **La regola d'oro della fase**: non si legge la codebase. E il fast-path qui è solo una
 **candidatura** dai segnali del ticket - senza aver visto il codice non si può sapere quanto codice
@@ -537,7 +545,7 @@ per l'attribuzione), mai contenuti. Per spegnerla davvero: `flow-settings` (che 
 
 > **Tu:** «Lavora su questo task: https://app.productive.io/12345-acme/tasks/task/67890»
 
-L'agente invoca la skill **`flow`** e da lì è il processo a guidare - letteralmente: a ogni giro l'orchestratore chiede al sequencer «qual è il prossimo passo?» (`flowState next`) ed esegue ciò che risponde. In sequenza: contract-check, stato avviato, intake (sub-agent economico), spec-author che ti porta bozza + domande, **Gate 1**, salvataggio spec + commento sul ticket (garantiti), plan-author che ti porta il piano con le note di complessità, **Gate 2** (dove decidi anche il tier), richiesta del branch («da `main`? Propongo `feat/export-csv-ordini`»), test-author che committa i test, implementazione (con l'eventuale gate snapshot se tocchi dati), **Gate 3** sul diff, selezione test dal playbook + test-runner, doc-author che aggiorna documenti e changelog, PR proposta verso il branch base, ticket in Review. A ogni passo lo stato registra; a ogni mancanza il guardiano blocca.
+L'agente invoca la skill **`flow`** e da lì è il processo a guidare - letteralmente: a ogni giro l'orchestratore chiede al sequencer «qual è il prossimo passo?» (`flowState next`) ed esegue ciò che risponde. In sequenza: contract-check, stato avviato, intake in linea, spec-author che ti porta bozza + domande, **Gate 1**, salvataggio spec + commento sul ticket (garantiti), plan-author che ti porta il piano con le note di complessità, **Gate 2** (dove decidi anche il tier), richiesta del branch («da `main`? Propongo `feat/export-csv-ordini`»), test-author che committa i test, implementazione (con l'eventuale gate snapshot se tocchi dati), **Gate 3** sul diff, selezione test dal playbook + test-runner, doc-author che aggiorna documenti e changelog, PR proposta verso il branch base, ticket in Review. A ogni passo lo stato registra; a ogni mancanza il guardiano blocca.
 
 Se ti interrompi a metà - riunione, fine giornata - alla sessione dopo l'hook ti accoglie con «Task in corso: productive-67890, fase quality» e si riparte da lì: il sequencer risponde la stessa cosa a qualunque sessione. Se il task lo prende un collega, per lui vale lo stesso. E se il task muore (cliente che ritira la richiesta): «abbandona il task» → `abort --reason`, che chiude lo stato e ti propone le compensazioni (branch da eliminare, ticket da annotare).
 
@@ -801,4 +809,4 @@ Attenzione al doppio livello: **ciò che attiva davvero la telemetria non è que
 ### Lo stato per-task (non è in `flow.config`)
 
 Lo stato non si configura: vive in `.ai-dev/tasks/<id>/state.json` ed è gestito esclusivamente da `bin/flowState.mjs`. Comandi: `start` (avvia/riprende), **`next`** (il sequencer: il prossimo passo calcolato dai fatti), **`report`** (durate per passo dal log: dove è andato il tempo), `show`, `approve-gate <spec|plan|diff>`, `set-branch`, `record-spec`, `record-tests-authored`, `record-snapshot`, **`record-manifest`** / **`diff-manifest`**
-(manifest "prima" e inventario per confronto, nei progetti senza git), `record-verification`, `record-doc-review`, `record-changelog`, `record-ticket-update`, `record-pr`, `record-override` (deroghe, sempre con motivo), `close` e **`abort --reason`** (abbandono governato, con compensazioni). È committabile (riprendibilità e handoff), versionato (`stateVersion`) e coperto dalle migrazioni.
+(manifest "prima" e inventario per confronto, nei progetti senza git), `record-verification`, `record-doc-review`, `record-changelog`, `record-ticket-update`, `record-pr`, `record-override` (deroghe, sempre con motivo), `close` e **`abort --reason`** (abbandono governato, con compensazioni). È locale di default (gitignorato dall'install) ma committabile a scelta del progetto (riprendibilità e handoff), versionato (`stateVersion`) e coperto dalle migrazioni.

@@ -18,7 +18,8 @@
 //                                        sui richiami dello stesso passo): i fatti timestampano i completamenti,
 //                                        e senza l'altro estremo gli intervalli fra i gate non distinguono
 //                                        il tempo macchina dall'attesa umana.
-//   node flowState.mjs report          ← durate per passo dal log (inizi-azione + fatti): dove è andato il tempo
+//   node flowState.mjs report [--otel] ← durate per passo dal log (inizi-azione + fatti): dove è andato il tempo;
+//                                        con --otel le esporta anche all'endpoint OTLP di flow.config.telemetry
 //   node flowState.mjs abort --reason <r>   ← abbandono con compensazioni (chiude lo stato, elenca cosa ripulire)
 //   node flowState.mjs active | show | close | clear-active
 //   node flowState.mjs set-phase <intake|spec|plan|implementation|quality|documentation|delivery|done>
@@ -38,7 +39,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, readdirSync, statSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { join, dirname, relative, sep } from 'node:path';
+import { join, dirname, relative, sep, basename, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { readFlowConfig, matchesAnyPattern } from '../lib/common.mjs';
@@ -254,6 +255,159 @@ export function currentVerificationHash(projectRoot) {
   return createHash('sha256').update(serializeManifest(entries)).digest('hex');
 }
 
+// ————— Tempi del flusso: intervalli per passo e telemetria —————
+// Ogni marcatore `sequencer → <passo>` apre un intervallo che si chiude al marcatore successivo
+// (o alla chiusura del task). I passi che contengono fermate umane sono annotati: lì dentro c'è
+// anche attesa, non solo lavoro macchina.
+
+export const HUMAN_STOP_STEPS = new Set([
+  'F1 · Specifica', // intervista + Gate 1
+  'F2 · Piano', 'F2 · Piano (fast-path)', // Gate 2: piano + tier + branch
+  'F2 · Branch',
+  'F2 · Implementazione', // Gate 3 in coda
+  'F5 · Consegna (ticket)', // scelta dello stato (senza un default di progetto)
+]);
+
+export function computeStepIntervals(state) {
+  const log = state.log ?? [];
+  const markers = log.filter((entry) => entry.event.startsWith('sequencer → '));
+  const closedAt = state.phase === 'done' || state.phase === 'aborted' ? state.updatedAt : null;
+  const steps = markers.map((marker, index) => {
+    const name = marker.event.slice('sequencer → '.length);
+    return {
+      name,
+      from: marker.at,
+      to: index + 1 < markers.length ? markers[index + 1].at : closedAt,
+      humanStop: HUMAN_STOP_STEPS.has(name),
+    };
+  });
+  return { steps, startedAt: state.startedAt, closedAt, firstMarkerAt: markers[0]?.at ?? null };
+}
+
+export function formatMinutes(millis) {
+  const minutes = Math.round(millis / 60000);
+  return minutes >= 60 ? `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, '0')}` : `${minutes}m`;
+}
+
+// Export OTLP dei tempi del flusso: arricchisce la telemetria di Claude Code (token/costo) con la
+// dimensione che le manca — DOVE va il tempo di un task. Gauge su /v1/metrics (una serie per passo,
+// più i totali del task) e un log di riepilogo su /v1/logs; encoding JSON, endpoint e attivazione
+// da flow.config.telemetry (stessa sorgente di intento dello stack in telemetry/). Il timestamp dei
+// datapoint è il momento dell'export (i backfill compaiono "ora": le date vere restano negli
+// attributi); un endpoint irraggiungibile non blocca mai il flusso.
+function toOtelAttributes(pairs) {
+  return Object.entries(pairs)
+    .filter(([, value]) => value !== null && value !== undefined)
+    .map(([key, value]) => ({
+      key,
+      value: typeof value === 'boolean' ? { boolValue: value } : typeof value === 'number' ? { doubleValue: value } : { stringValue: String(value) },
+    }));
+}
+
+async function postOtlpJson(endpoint, path, payload) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
+  try {
+    const response = await fetch(`${endpoint}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function exportTimingsToOtel(state, projectRoot) {
+  const telemetry = readFlowConfig(projectRoot).telemetry ?? {};
+  if (telemetry.enabled !== true) {
+    return { sent: false, reason: 'telemetria disabilitata (flow.config.telemetry.enabled)' };
+  }
+  const endpoint = String(telemetry.otlpEndpoint ?? '').replace(/\/+$/, '');
+  if (endpoint === '') {
+    return { sent: false, reason: 'flow.config.telemetry.otlpEndpoint mancante' };
+  }
+  const { steps, startedAt, closedAt } = computeStepIntervals(state);
+  const finishedSteps = steps.filter((step) => step.to);
+  if (finishedSteps.length === 0 && !closedAt) {
+    return { sent: false, reason: 'nessun intervallo concluso da esportare' };
+  }
+  const timeUnixNano = `${Date.now()}000000`;
+  const minutesBetween = (fromIso, toIso) => Math.round(((new Date(toIso) - new Date(fromIso)) / 60000) * 10) / 10;
+  const taskAttributes = {
+    'task.id': state.task.id,
+    'task.type': state.task.type ?? 'unknown',
+    'task.phase': state.phase,
+    'fast.path': hasOverride(state, 'fast-path'),
+  };
+  const dataPoint = (value, attributes) => ({ timeUnixNano, asDouble: value, attributes: toOtelAttributes(attributes) });
+  const gauge = (name, unit, dataPoints) => ({ name, unit, gauge: { dataPoints } });
+  const metrics = [];
+  if (finishedSteps.length > 0) {
+    metrics.push(gauge('ai_dev_flow.step.duration_minutes', 'min', finishedSteps.map((step) =>
+      dataPoint(minutesBetween(step.from, step.to), { ...taskAttributes, step: step.name, 'human.stops': step.humanStop }))));
+  }
+  const verifications = (state.log ?? []).filter((entry) => entry.event.startsWith('verifica test:')).length;
+  if (closedAt) {
+    metrics.push(
+      gauge('ai_dev_flow.task.duration_minutes', 'min', [dataPoint(minutesBetween(startedAt, closedAt), taskAttributes)]),
+      gauge('ai_dev_flow.task.red_rounds', '1', [dataPoint((state.redRounds ?? []).length, taskAttributes)]),
+      gauge('ai_dev_flow.task.verifications', '1', [dataPoint(verifications, taskAttributes)]),
+      gauge('ai_dev_flow.task.overrides', '1', [dataPoint((state.overrides ?? []).length, taskAttributes)]),
+    );
+  }
+  const resource = {
+    attributes: toOtelAttributes({
+      'service.name': telemetry.serviceName ?? 'ai-dev-flow',
+      'project.name': telemetry.projectName ?? basename(resolve(projectRoot)),
+    }),
+  };
+  const scope = { name: 'ai-dev-flow/flowState' };
+  await postOtlpJson(endpoint, '/v1/metrics', { resourceMetrics: [{ resource, scopeMetrics: [{ scope, metrics }] }] });
+  const stepsSummary = finishedSteps.map((step) => `${step.name}: ${formatMinutes(new Date(step.to) - new Date(step.from))}`).join(' · ');
+  await postOtlpJson(endpoint, '/v1/logs', {
+    resourceLogs: [{
+      resource,
+      scopeLogs: [{
+        scope,
+        logRecords: [{
+          timeUnixNano,
+          severityText: 'INFO',
+          body: { stringValue: `AI-Dev Flow · task ${state.task.id} (${state.phase})${closedAt ? ` · totale ${formatMinutes(new Date(closedAt) - new Date(startedAt))}` : ''}${stepsSummary ? ` · ${stepsSummary}` : ''}` },
+          attributes: toOtelAttributes({
+            ...taskAttributes,
+            event: 'flow-task-report',
+            'started.at': startedAt,
+            'closed.at': closedAt,
+            'red.rounds': (state.redRounds ?? []).length,
+            verifications,
+            overrides: (state.overrides ?? []).length,
+          }),
+        }],
+      }],
+    }],
+  });
+  return { sent: true, endpoint };
+}
+
+// Tenta l'export e non blocca MAI il flusso: la telemetria è osservabilità, non un presidio.
+async function tryExportTimings(state, projectRoot, { silentWhenDisabled = false } = {}) {
+  try {
+    const outcome = await exportTimingsToOtel(state, projectRoot);
+    if (outcome.sent) {
+      console.log(`Telemetria: tempi del task esportati via OTLP (${outcome.endpoint}).`);
+    } else if (!silentWhenDisabled) {
+      console.log(`Telemetria: export non eseguito — ${outcome.reason}.`);
+    }
+  } catch (error) {
+    console.log(`Telemetria: endpoint OTLP non raggiungibile (${error.message}). Il task non è bloccato: riesporta quando vuoi con: flowState.mjs report --otel --task ${state.task.id}`);
+  }
+}
+
 // ————— Il sequencer deterministico (comando `next`) —————
 // Il "qual è il prossimo passo" NON è una decisione dell'LLM: è una funzione dei FATTI registrati.
 // Prima condizione non soddisfatta = prossimo passo. L'orchestratore esegue, registra, richiama.
@@ -276,7 +430,7 @@ export function nextStep(state, projectRoot) {
   if (state.phase === 'intake') {
     return {
       phase: 'F0 · Intake',
-      action: 'Completa l\'intake: contract-check dei connettori, lettura del ticket via connettore, normalizzazione col sub-agent intake (niente codebase).',
+      action: 'Completa l\'intake: contract-check dei connettori, lettura del ticket via connettore, normalizzazione IN LINEA (estrai tu dal JSON del connettore: tipo CR/BUG, priorità, riferimenti, cliente, allegati, riproduzione sì/no per i BUG, candidatura fast-path dai segnali del ticket — il JSON è già nel tuo contesto: uno spawn costerebbe più del lavoro). Niente codebase.',
       record: `${cli} set-phase spec`,
     };
   }
@@ -489,7 +643,7 @@ function loadStateOrFail(projectRoot, options) {
   return state;
 }
 
-function runCli() {
+async function runCli() {
   const { positional, options } = parseCliArguments(process.argv.slice(2));
   const command = positional[0];
   const projectRoot = options.project ?? process.cwd();
@@ -530,39 +684,24 @@ function runCli() {
       console.log(JSON.stringify(state, null, 2));
       return;
     }
-    // Report dei tempi: ogni marcatore `sequencer → <passo>` apre un intervallo che si chiude al
-    // marcatore successivo (o alla chiusura del task). I passi che contengono fermate umane sono
-    // annotati: lì dentro c'è anche attesa, non solo lavoro macchina.
+    // Report dei tempi (vedi computeStepIntervals). Con --otel esporta anche via OTLP.
     case 'report': {
-      const log = state.log ?? [];
-      const markers = log.filter((entry) => entry.event.startsWith('sequencer → '));
-      if (markers.length === 0) {
+      const { steps, startedAt, closedAt, firstMarkerAt } = computeStepIntervals(state);
+      if (steps.length === 0) {
         console.log(`Task "${state.task.id}": nessun inizio-azione nel log. Il report per-passo richiede task lavorati con kit >= 0.5.0 (il sequencer registra i marcatori "sequencer → <passo>").`);
         return;
       }
-      const HUMAN_STOP_STEPS = new Set([
-        'F1 · Specifica', // intervista + Gate 1
-        'F2 · Piano', 'F2 · Piano (fast-path)', // Gate 2 + tier + branch
-        'F2 · Branch',
-        'F2 · Implementazione', // Gate 3 in coda
-        'F5 · Consegna (ticket)', // scelta dello stato (se non c'è un default di progetto)
-      ]);
-      const formatDuration = (millis) => {
-        const minutes = Math.round(millis / 60000);
-        return minutes >= 60 ? `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, '0')}` : `${minutes}m`;
-      };
-      const closedAt = state.phase === 'done' || state.phase === 'aborted' ? new Date(state.updatedAt) : null;
       console.log(`Report tempi — task "${state.task.id}" (fase: ${state.phase})`);
-      console.log(`  avvio → primo passo: ${formatDuration(new Date(markers[0].at) - new Date(state.startedAt))}`);
-      for (let index = 0; index < markers.length; index += 1) {
-        const stepName = markers[index].event.slice('sequencer → '.length);
-        const from = new Date(markers[index].at);
-        const to = index + 1 < markers.length ? new Date(markers[index + 1].at) : closedAt;
-        console.log(`  ${stepName}: ${to ? formatDuration(to - from) : `in corso da ${formatDuration(Date.now() - from)}`}${HUMAN_STOP_STEPS.has(stepName) ? '  (include fermate umane)' : ''}`);
+      console.log(`  avvio → primo passo: ${formatMinutes(new Date(firstMarkerAt) - new Date(startedAt))}`);
+      for (const step of steps) {
+        console.log(`  ${step.name}: ${step.to ? formatMinutes(new Date(step.to) - new Date(step.from)) : `in corso da ${formatMinutes(Date.now() - new Date(step.from))}`}${step.humanStop ? '  (include fermate umane)' : ''}`);
       }
-      const verifications = log.filter((entry) => entry.event.startsWith('verifica test:')).length;
-      console.log(`  totale: ${closedAt ? formatDuration(closedAt - new Date(state.startedAt)) : `in corso da ${formatDuration(Date.now() - new Date(state.startedAt))}`}`
+      const verifications = (state.log ?? []).filter((entry) => entry.event.startsWith('verifica test:')).length;
+      console.log(`  totale: ${closedAt ? formatMinutes(new Date(closedAt) - new Date(startedAt)) : `in corso da ${formatMinutes(Date.now() - new Date(startedAt))}`}`
         + ` · verifiche registrate: ${verifications} · giri rossi: ${(state.redRounds ?? []).length}`);
+      if (options.otel === true) {
+        await tryExportTimings(state, projectRoot);
+      }
       return;
     }
     case 'next': {
@@ -650,6 +789,7 @@ function runCli() {
       appendLog(state, `task ABBANDONATO: ${reason}`);
       saveTaskState(projectRoot, state);
       rmSync(activePointerPath(projectRoot), { force: true });
+      await tryExportTimings(state, projectRoot, { silentWhenDisabled: true });
       console.log(`Task "${state.task.id}" abbandonato (motivo registrato). ACTIVE rimosso; lo stato resta come audit trail.`);
       console.log('COMPENSAZIONI da proporre all\'utente:');
       if (state.branch?.name) {
@@ -777,6 +917,7 @@ function runCli() {
       saveTaskState(projectRoot, state);
       rmSync(activePointerPath(projectRoot), { force: true });
       console.log(`Task "${state.task.id}" chiuso. ACTIVE rimosso.`);
+      await tryExportTimings(state, projectRoot, { silentWhenDisabled: true });
       return;
     }
     default:
@@ -788,5 +929,5 @@ function runCli() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  runCli();
+  await runCli();
 }

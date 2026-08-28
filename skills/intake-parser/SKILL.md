@@ -26,9 +26,9 @@ Cosa fare:
    Le credenziali stanno in .ai-dev/connectors.env (il connettore le carica da solo); se ne manca
    una, il connettore lo dice e tu giri il messaggio all'utente.
    Se un task di ticketing rimanda a un ticket di helpdesk (campo references), leggi anche quello.
-3. Delega la normalizzazione al sub-agent **intake** (modello economico), passandogli i JSON:
-   estrae tipo (CR/BUG), priorità, riferimenti, cliente, allegati; per i BUG segna se c'è una
-   descrizione di riproduzione.
+3. Normalizza IN LINEA (il JSON del connettore è già nel tuo contesto: uno spawn costerebbe
+   più del lavoro): estrai tipo (CR/BUG), priorità, riferimenti, cliente, allegati; per i BUG
+   segna se c'è una descrizione di riproduzione utilizzabile.
 4. FAST-PATH — qui si valuta SOLO la CANDIDATURA, dai segnali del ticket (etichette, dimensione
    dichiarata). La PROPOSTA vera avviene in Fase 1, dopo il retrieval mirato (e per i BUG dopo la
    riproduzione): senza aver visto il codice non si può sapere quanto codice tocca la modifica.

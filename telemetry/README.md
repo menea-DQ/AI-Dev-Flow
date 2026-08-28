@@ -65,6 +65,37 @@ disattiva. L'`uninstall` rimuove il blocco dal `.envrc` e le variabili da settin
 Nota team: committa il `.envrc` per condividerlo coi colleghi (non contiene segreti — solo l'endpoint);
 ognuno esegue `direnv allow` una volta. Senza committarlo, la telemetria resta solo sulla tua macchina.
 
+## Metriche del flusso (`ai_dev_flow.*`) — dove va il TEMPO di un task
+
+La telemetria di Claude Code dice quanto COSTA una sessione; dalla **0.5.0** il kit aggiunge la
+dimensione che le manca: **dove va il tempo di un task**. Alla chiusura (`flowState close`/`abort`),
+se `flow.config.telemetry.enabled` è `true`, `flowState.mjs` esporta via **OTLP/HTTP (JSON)** allo
+stesso `otlpEndpoint`:
+
+- su `/v1/metrics`, **gauge** con attributi `task.id`, `task.type`, `fast.path`:
+  - `ai_dev_flow.step.duration_minutes` — durata di ogni passo del sequencer (attributi `step`,
+    `human.stops`: i passi che contengono fermate umane, cioè attesa oltre al lavoro macchina);
+  - `ai_dev_flow.task.duration_minutes`, `ai_dev_flow.task.red_rounds`,
+    `ai_dev_flow.task.verifications`, `ai_dev_flow.task.overrides` — i totali del task;
+- su `/v1/logs`, un **log di riepilogo** per task (`event=flow-task-report`, con `started.at`/
+  `closed.at` e il breakdown dei passi nel body) — finisce in Loki, comodo come timeline.
+
+Note: il timestamp dei datapoint è il **momento dell'export** (le date vere del task stanno negli
+attributi: i backfill compaiono "ora"); un endpoint irraggiungibile **non blocca mai** la chiusura
+del task (si riesporta con `flowState.mjs report --otel --task <id>`); la sorgente dei dati è il
+log dello stato per-task (inizi-azione del sequencer + fatti registrati), nessun contenuto di
+prompt/codice.
+
+Query di partenza (Grafana → Explore → Prometheus):
+
+```promql
+# durata mediana per passo, per progetto (dove va il tempo del processo)
+avg by (step) (ai_dev_flow_step_duration_minutes{project_name="<progetto>"})
+
+# task con giri rossi (il loop più caro)
+ai_dev_flow_task_red_rounds > 0
+```
+
 ## Visualizzazione
 
 In Grafana → Explore → datasource Prometheus → query sulle metriche `claude_code_*` (token, costo,
