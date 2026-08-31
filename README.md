@@ -3,7 +3,7 @@
 Plugin Claude Code per uno sviluppo software AI-assistito (human-in-the-loop), **abilitabile e
 configurabile per singolo progetto**.
 
-> Versione **0.5.0** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
+> Versione **0.5.1** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
 > possono introdurre cambiamenti non retro-compatibili (convenzione semver per le 0.x).
 
 ## Cos'è
@@ -81,6 +81,19 @@ log di riepilogo, accanto a token e costo di Claude Code — backfill con `repor
 l'**intake è in linea** (il JSON del connettore è già nel contesto dell'orchestratore: lo spawn del
 sub-agent costava più del lavoro) e lo **stato per-task è locale di default** (l'install gitignora
 `.ai-dev/tasks/`; committarlo per il subentro resta una scelta di progetto).
+
+Dalla **0.5.1** — misure del secondo giro (4 task reali sulla 0.5.0) — l'hash di verifica **salta i
+file ignorati da git** e i **documenti governati dal flusso**: con un playbook `**/*` erano i test
+stessi a ri-armare il gate scrivendo build cache e report (2.180 dei 2.601 file hashati stavano in
+`.next/`), e la doc-review di Fase 4 forzava una ri-verifica a ogni task. Le **fermate umane sono
+misurate**, non stimate: l'hook `questionTiming` timestampa domanda e risposta di ogni
+AskUserQuestion, e `report`/telemetria separano l'attesa umana dal tempo macchina
+(`ai_dev_flow.*.human_wait_minutes`). E i **test tornano proporzionali**: il test-author deve
+scrivere un caso per osservabile (più i soli casi limite dichiarati) e ha il divieto dei **test a
+digest** del contenuto — presidio sbagliato per le aree congelate (si rompe a ogni tocco legittimo
+e impone manutenzione a ogni task futuro): al loro posto, test di comportamento o check di
+perimetro. Misurato sul campo: 60-70 casi per task incrementale e una suite cumulativa cresciuta
+di +73 casi in 4 giorni.
 
 È confezionato come **plugin Claude Code**: il processo, gli artefatti e i template restano agnostici
 nel contenuto; il **plugin** (skill, hook, agenti, connettori) è lo strato adattatore per Claude Code.

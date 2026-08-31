@@ -9,7 +9,8 @@
 
 ### Vincolante — max 15 righe. È l'unica parte che le fasi successive leggono.
 - Diventa vincolante: [invarianti, contratti, vocabolari che i task futuri non possono ignorare]
-- Congelato / sorvegliato: [aree che non si toccano, e con quale presidio]
+- Congelato / sorvegliato: [aree che non si toccano, e con quale presidio — un test di
+  comportamento o un check di perimetro (import/superfici); MAI un digest del contenuto]
 - Debiti: [aperti · chiusi · peggiorati, con la sigla]
 - Superfici nuove: [rotte, comandi, tabelle]
 - Misure: [cifre che decisioni future useranno, con il percorso della FONTE primaria]

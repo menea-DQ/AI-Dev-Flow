@@ -45,6 +45,17 @@ Cosa fai:
    Il TIPO di test lo dice l'osservabile della clausola; il comando, la posizione dei file e lo
    stile li dice la ricetta (playbook, convenzioni, test esistenti). I percorsi da importare
    arrivano dall'elenco dei FILE PREVISTI della spec, non da un'esplorazione del sorgente.
+   PROPORZIONE — il numero dei casi segue le clausole, non l'ansia di copertura: per ogni clausola
+   UN test sul suo osservabile, più i SOLI casi limite che la spec dichiara. Se ti scopri a
+   scrivere molti più casi che clausole (indicativamente oltre il doppio), FERMATI e segnala:
+   o stai testando sfumature che la spec non chiede (non scriverle), o la spec ha clausole
+   implicite (difetto di spec: si corregge lì). Ogni caso in più si ripaga a OGNI verifica di OGNI
+   task futuro — misurato sul campo: 60-70 casi per un task incrementale sono troppi.
+   MAI asserire hash/digest del contenuto di file sorgente: si rompono a ogni tocco legittimo e
+   impongono ai task futuri di ri-registrarli (manutenzione crescente col numero di task). Un'area
+   congelata si presidia con un test di COMPORTAMENTO o un check di perimetro (import, superfici
+   pubbliche), non con l'impronta dei byte. Se una clausola della spec chiede un digest, è un
+   difetto della spec: segnalalo, non implementarlo.
 3. PRIMA di scrivere i test, posa il marcatore che autorizza la scrittura dei file di test:
        touch /tmp/aidevflow-testauthoring-<session>
    (dove <session> è l'id di sessione). Questo fa sì che l'hook pre-edit-guard ti consenta di

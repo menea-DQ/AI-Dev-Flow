@@ -1,6 +1,6 @@
 # AI-Dev Flow - Manuale di progetto
 
-> Documento di riferimento dello standard aziendale AI-Dev Flow, versione kit **0.5.0**.
+> Documento di riferimento dello standard aziendale AI-Dev Flow, versione kit **0.5.1**.
 > Lettore: lo sviluppatore che deve installare il kit su un progetto e lavorarci dentro.
 > Questo manuale è discorsivo per scelta: spiega il perché delle cose, non solo il cosa.
 > La fonte di verità normativa resta il repo (`PROCESS.md`, `INSTALL.md`, skill, hook, codice);
@@ -129,7 +129,9 @@ l'intervallo fra due gate non distingue il tempo macchina dall'attesa umana - ed
 distinzione che permette di capire *dove* un task è stato lento. Un ritorno a un passo già visto
 (es. una verifica che si ri-arma) si registra di nuovo: anche i giri a vuoto diventano misurabili.
 Il comando **`flowState.mjs report`** riassume le durate per passo dal log, annotando i passi che
-contengono fermate umane: si guarda quello prima di ottimizzare alla cieca. Con la telemetria
+contengono fermate umane - e dalla **0.5.1**, grazie all'hook `questionTiming` su AskUserQuestion,
+riporta l'**attesa umana misurata** (coppie domanda→risposta) dentro ogni passo, non stimata:
+si guarda quello prima di ottimizzare alla cieca. Con la telemetria
 abilitata (`flow.config.telemetry.enabled`) le stesse durate partono **via OTLP** alla chiusura del
 task (`close`/`abort`) verso lo stack di `telemetry/`: metriche `ai_dev_flow.*` (durata per passo e
 totali: giri rossi, verifiche, deroghe, fast-path) e un log di riepilogo — così in Grafana i tempi
@@ -288,7 +290,8 @@ Gli **hook** sono i guardiani deterministici - scattano sempre, non dipendono da
 - `perimeterGuard` (PreToolUse su Skill e MCP) - l'enforcement del perimetro: blocca skill e server
   MCP fuori dal kit e dalle whitelist.
 - `preWorkSnapshot` (PreToolUse) - alla prima modifica di codice produttore di dati chiede (a te) se catturare lo snapshot "before"; la decisione finisce nello stato del task.
-- `postWorkVerification` (Stop) - il **guardiano di fine turno**: non lascia chiudere un turno con modifiche in aree coperte dal test-playbook senza una verifica registrata per lo stato *attuale* del codice coperto - dalla **0.5.0** l'hash è sul **contenuto dei file nei pathPatterns del playbook**, non sull'intero diff git: se quel codice cambia dopo la verifica il gate **si ri-arma da solo**, mentre doc, changelog e commit non lo ri-armano (l'hash globale forzava ri-verifiche spurie a ogni scrittura del flusso stesso). E a implementazione conclusa non lascia chiudere senza doc-review, changelog e ticket aggiornato (o skip espliciti).
+- `postWorkVerification` (Stop) - il **guardiano di fine turno**: non lascia chiudere un turno con modifiche in aree coperte dal test-playbook senza una verifica registrata per lo stato *attuale* del codice coperto - dalla **0.5.0** l'hash è sul **contenuto dei file nei pathPatterns del playbook**, non sull'intero diff git: se quel codice cambia dopo la verifica il gate **si ri-arma da solo**, mentre doc, changelog e commit non lo ri-armano (l'hash globale forzava ri-verifiche spurie a ogni scrittura del flusso stesso). Dalla **0.5.1** restano fuori dall'hash anche con un playbook `**/*`: i file **ignorati da git** (build cache, report dei test, `.env` - erano i test stessi a ri-armare il gate scrivendoli: misurato, 2.180 dei 2.601 file hashati stavano in `.next/`), i **documenti governati dal flusso** (registro documentazione, changelog, spec store, architecture doc: output di Fase 4, non codice sotto test) e una lista di directory volatili di default per i progetti senza git. E a implementazione conclusa non lascia chiudere senza doc-review, changelog e ticket aggiornato (o skip espliciti).
+- `questionTiming` (PreToolUse + PostToolUse su AskUserQuestion, dalla **0.5.1**) - **misura, non presidio**: timestampa nello stato quando una domanda è posta e quando arriva la risposta. Sono le coppie che permettono a `report` e telemetria di separare l'**attesa umana** dal tempo macchina dentro ogni passo. Non blocca mai.
 
 I **connettori** (Productive per il ticketing, Zammad per l'helpdesk - i default aziendali) sono
 script bundlati con un contratto uniforme: in **lettura** restituiscono il JSON normalizzato del
@@ -383,7 +386,7 @@ Il **branch di lavoro** nasce quindi **prima che qualsiasi commit esista**: base
 
 Il lavoro si biforca sui due binari strutturalmente separati:
 
-*Binario test.* Il sub-agent **test-author** riceve la specifica - **unica fonte di ciò che va asserito** - più, dalla **0.5.0**, la *ricetta* dei test del progetto (test-playbook, convenzioni, `testPaths`, test esistenti in lettura: come si scrivono i test *qui*, senza riscoprire il framework a ogni task - misurato: ~54 minuti a task di sola riscoperta); MAI il piano né il codice di implementazione. Posa il marcatore che lo autorizza, deriva i test dal contratto descritto nella spec, li **committa** (il timestamp git prova che esistono prima del codice) e rimuove il marcatore. Da quel momento i test sono blindati su entrambi i canali: editing (`preEditGuard`) e shell (`preBashGuard`).
+*Binario test.* Il sub-agent **test-author** riceve la specifica - **unica fonte di ciò che va asserito** - più, dalla **0.5.0**, la *ricetta* dei test del progetto (test-playbook, convenzioni, `testPaths`, test esistenti in lettura: come si scrivono i test *qui*, senza riscoprire il framework a ogni task - misurato: ~54 minuti a task di sola riscoperta); MAI il piano né il codice di implementazione. Dalla **0.5.1** il contratto impone la **proporzione**: un caso per osservabile più i soli casi limite dichiarati dalla spec - se i casi superano di molto le clausole è un difetto da segnalare, non prudenza (misurato: 60-70 casi per task incrementale, pagati a ogni verifica futura) - e vieta i **test a digest** del contenuto (si rompono a ogni tocco legittimo: un'area congelata si presidia con un test di comportamento o un check di perimetro). Posa il marcatore che lo autorizza, deriva i test dal contratto descritto nella spec, li **committa** (il timestamp git prova che esistono prima del codice) e rimuove il marcatore. Da quel momento i test sono blindati su entrambi i canali: editing (`preEditGuard`) e shell (`preBashGuard`).
 
 *Binario codice.* L'implementatore lavora con contesto minimo (spec + piano + architecture doc), applica le **convenzioni dichiarate** (mai inferite), non può toccare i test (se ne ritiene uno sbagliato, lo segnala a te). Sulle modifiche a codice produttore di dati (`dataProducingPaths`) scatta il gate dello **snapshot "before"**: il confronto pre/post è possibile solo se lo stato "before" è catturato a codice pristino - la scelta (cattura o skip motivato) è tua e resta registrata nello stato, valida per tutto il task anche su più sessioni.
 

@@ -158,12 +158,13 @@ function toRelativeProjectPath(projectRoot, absolutePath) {
   return toPosix(relative(projectRoot, absolutePath));
 }
 
-// Raccoglie {percorso relativo → hash del contenuto} sotto le directory dichiarate.
-// `include` (opzionale): se presente, si hashano SOLO i file che combaciano con quei pattern —
-// le directory si attraversano comunque (un pattern di file non combacia mai con una directory).
-export function collectManifest(projectRoot, settings) {
-  const { paths, exclude, include } = settings;
-  const entries = new Map();
+// Percorsi relativi dei file che combaciano coi pattern, SENZA leggerne il contenuto: la selezione
+// va fatta prima di hashare (e prima del filtro gitignore della verifica). `include` (opzionale):
+// se presente, restano SOLO i file che combaciano — le directory si attraversano comunque
+// (un pattern di file non combacia mai con una directory).
+export function collectMatchingPaths(projectRoot, settings) {
+  const { paths = ['.'], exclude, include } = settings;
+  const found = [];
 
   const visit = (absolutePath) => {
     const relativePath = toPosix(relative(projectRoot, absolutePath));
@@ -188,17 +189,26 @@ export function collectManifest(projectRoot, settings) {
     if (include && !matchesAnyPattern(relativePath, include)) {
       return;
     }
-    try {
-      entries.set(relativePath, createHash('sha256').update(readFileSync(absolutePath)).digest('hex'));
-    } catch {
-      // illeggibile: meglio ometterlo che far fallire l'inventario
-    }
+    found.push(relativePath);
   };
 
   for (const declaredPath of paths) {
     const absolutePath = join(projectRoot, declaredPath);
     if (existsSync(absolutePath)) {
       visit(absolutePath);
+    }
+  }
+  return found.sort();
+}
+
+// Raccoglie {percorso relativo → hash del contenuto} sotto le directory dichiarate.
+export function collectManifest(projectRoot, settings) {
+  const entries = new Map();
+  for (const relativePath of collectMatchingPaths(projectRoot, settings)) {
+    try {
+      entries.set(relativePath, createHash('sha256').update(readFileSync(join(projectRoot, relativePath))).digest('hex'));
+    } catch {
+      // illeggibile: meglio ometterlo che far fallire l'inventario
     }
   }
   return entries;
@@ -239,11 +249,52 @@ export function compareManifest(before, after) {
 // Content-based ha due corollari voluti: un COMMIT non ri-arma nulla (il contenuto non cambia),
 // e il gate funziona identico nei progetti SENZA git. Se il codice coperto cambia davvero dopo
 // una verifica, l'hash cambia e il gate si ri-arma da solo (GAP-05, semantica invariata).
-export const VERIFICATION_EXCLUDE = [...MANIFEST_DEFAULT_EXCLUDE, '.ai-dev/**'];
+// Esclusioni della verifica: oltre a quelle del manifest, gli artefatti del flusso (.ai-dev) e i
+// SOTTOPRODOTTI volatili comuni (build cache, report dei test). Sono scritti da build e test: se
+// entrassero nell'hash sarebbero i TEST STESSI a ri-armare il gate (misurato sul campo: con un
+// playbook `**/*`, 2.180 dei 2.601 file hashati stavano in .next/). Nei progetti git il filtro
+// vero è il .gitignore (vedi gitIgnoredPaths); questa lista è la cintura per i progetti senza git.
+export const VERIFICATION_EXCLUDE = [
+  ...MANIFEST_DEFAULT_EXCLUDE,
+  '.ai-dev/**',
+  '.next/**', '.nuxt/**', '.svelte-kit/**', '.turbo/**', '.cache/**', '.parcel-cache/**',
+  '.vercel/**', '.serverless/**',
+  'playwright-report/**', 'test-results/**', '**/*.tsbuildinfo',
+  '**/__pycache__/**', '.pytest_cache/**', '.venv/**', 'venv/**', '.tox/**', '.gradle/**',
+];
 
 export function playbookPatterns(projectRoot) {
   const playbook = readFlowConfig(projectRoot).testPlaybook ?? {};
   return Object.values(playbook).flatMap((entry) => (Array.isArray(entry?.pathPatterns) ? entry.pathPatterns : []));
+}
+
+// I documenti GOVERNATI dal flusso — registro documentazione, changelog, spec store, architecture
+// doc — sono OUTPUT della Fase 4/1, non codice sotto test: aggiornarli non deve ri-armare la
+// verifica di Fase 3 (con un playbook `**/*` era proprio la doc-review a forzare una ri-verifica
+// a ogni task). Chi vuole test sulla documentazione li dichiara su path NON registrati qui.
+export function flowOwnedDocPatterns(projectRoot) {
+  const config = readFlowConfig(projectRoot);
+  const docPaths = (config.documentation?.docs ?? []).map((doc) => doc?.path).filter(Boolean);
+  const architectureDocs = Object.values(config.architectureDocs?.byContext ?? {}).map((entry) => entry?.path).filter(Boolean);
+  const changelogPath = config.changelog?.path;
+  const specStore = config.specStore?.path ? `${config.specStore.path}/**` : null;
+  return [...docPaths, ...architectureDocs, changelogPath, specStore].filter(Boolean);
+}
+
+// I file IGNORATI da git sono sottoprodotti per dichiarazione del progetto stesso (build, cache,
+// report, .env): non sono codice sotto test e non entrano nell'hash di verifica. Senza git (o
+// senza percorsi ignorati) il filtro è vuoto e restano le esclusioni statiche.
+export function gitIgnoredPaths(projectRoot, relativePaths) {
+  if (relativePaths.length === 0) {
+    return new Set();
+  }
+  try {
+    const stdout = execSync('git check-ignore --stdin', { cwd: projectRoot, input: `${relativePaths.join('\n')}\n`, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['pipe', 'pipe', 'ignore'] });
+    return new Set(stdout.split('\n').filter(Boolean));
+  } catch (error) {
+    // exit 1 = nessun percorso ignorato (stdout vuoto); qualunque altro caso (niente git): nessun filtro.
+    return new Set(typeof error?.stdout === 'string' ? error.stdout.split('\n').filter(Boolean) : []);
+  }
 }
 
 export function currentVerificationHash(projectRoot) {
@@ -251,8 +302,21 @@ export function currentVerificationHash(projectRoot) {
   if (patterns.length === 0) {
     return 'no-playbook'; // niente perimetro dichiarato: l'hash non può ri-armare il gate
   }
-  const entries = collectManifest(projectRoot, { paths: ['.'], exclude: VERIFICATION_EXCLUDE, include: patterns });
-  return createHash('sha256').update(serializeManifest(entries)).digest('hex');
+  const exclude = [...VERIFICATION_EXCLUDE, ...flowOwnedDocPatterns(projectRoot)];
+  const candidates = collectMatchingPaths(projectRoot, { exclude, include: patterns });
+  const ignored = gitIgnoredPaths(projectRoot, candidates);
+  const hash = createHash('sha256');
+  for (const relativePath of candidates) {
+    if (ignored.has(relativePath)) {
+      continue;
+    }
+    try {
+      hash.update(relativePath).update('\0').update(readFileSync(join(projectRoot, relativePath))).update('\0');
+    } catch {
+      // file svanito durante la scansione
+    }
+  }
+  return hash.digest('hex');
 }
 
 // ————— Tempi del flusso: intervalli per passo e telemetria —————
@@ -268,20 +332,39 @@ export const HUMAN_STOP_STEPS = new Set([
   'F5 · Consegna (ticket)', // scelta dello stato (senza un default di progetto)
 ]);
 
+// Eventi delle fermate umane, scritti dall'hook questionTiming (Pre/PostToolUse su
+// AskUserQuestion): l'attesa umana diventa un fatto MISURATO, non stimato.
+export const QUESTION_ASKED_EVENT = 'fermata umana: domanda posta (AskUserQuestion)';
+export const QUESTION_ANSWERED_EVENT = 'fermata umana: risposta ricevuta';
+
 export function computeStepIntervals(state) {
   const log = state.log ?? [];
   const markers = log.filter((entry) => entry.event.startsWith('sequencer → '));
   const closedAt = state.phase === 'done' || state.phase === 'aborted' ? state.updatedAt : null;
+  // Coppie domanda→risposta: una domanda senza risposta (turno interrotto) non fa coppia.
+  const waits = [];
+  let askedAt = null;
+  for (const entry of log) {
+    if (entry.event === QUESTION_ASKED_EVENT) {
+      askedAt = entry.at;
+    } else if (entry.event === QUESTION_ANSWERED_EVENT && askedAt !== null) {
+      waits.push({ from: askedAt, to: entry.at });
+      askedAt = null;
+    }
+  }
+  const nowIso = new Date().toISOString();
   const steps = markers.map((marker, index) => {
     const name = marker.event.slice('sequencer → '.length);
-    return {
-      name,
-      from: marker.at,
-      to: index + 1 < markers.length ? markers[index + 1].at : closedAt,
-      humanStop: HUMAN_STOP_STEPS.has(name),
-    };
+    const from = marker.at;
+    const to = index + 1 < markers.length ? markers[index + 1].at : closedAt;
+    const end = to ?? nowIso;
+    const humanWaitMs = waits
+      .filter((wait) => wait.from >= from && wait.from < end)
+      .reduce((total, wait) => total + (new Date(wait.to) - new Date(wait.from)), 0);
+    return { name, from, to, humanStop: HUMAN_STOP_STEPS.has(name), humanWaitMs };
   });
-  return { steps, startedAt: state.startedAt, closedAt, firstMarkerAt: markers[0]?.at ?? null };
+  const totalHumanWaitMs = waits.reduce((total, wait) => total + (new Date(wait.to) - new Date(wait.from)), 0);
+  return { steps, startedAt: state.startedAt, closedAt, firstMarkerAt: markers[0]?.at ?? null, totalHumanWaitMs };
 }
 
 export function formatMinutes(millis) {
@@ -331,7 +414,7 @@ export async function exportTimingsToOtel(state, projectRoot) {
   if (endpoint === '') {
     return { sent: false, reason: 'flow.config.telemetry.otlpEndpoint mancante' };
   }
-  const { steps, startedAt, closedAt } = computeStepIntervals(state);
+  const { steps, startedAt, closedAt, totalHumanWaitMs } = computeStepIntervals(state);
   const finishedSteps = steps.filter((step) => step.to);
   if (finishedSteps.length === 0 && !closedAt) {
     return { sent: false, reason: 'nessun intervallo concluso da esportare' };
@@ -350,11 +433,17 @@ export async function exportTimingsToOtel(state, projectRoot) {
   if (finishedSteps.length > 0) {
     metrics.push(gauge('ai_dev_flow.step.duration_minutes', 'min', finishedSteps.map((step) =>
       dataPoint(minutesBetween(step.from, step.to), { ...taskAttributes, step: step.name, 'human.stops': step.humanStop }))));
+    const stepsWithWait = finishedSteps.filter((step) => step.humanWaitMs > 0);
+    if (stepsWithWait.length > 0) {
+      metrics.push(gauge('ai_dev_flow.step.human_wait_minutes', 'min', stepsWithWait.map((step) =>
+        dataPoint(Math.round((step.humanWaitMs / 60000) * 10) / 10, { ...taskAttributes, step: step.name }))));
+    }
   }
   const verifications = (state.log ?? []).filter((entry) => entry.event.startsWith('verifica test:')).length;
   if (closedAt) {
     metrics.push(
       gauge('ai_dev_flow.task.duration_minutes', 'min', [dataPoint(minutesBetween(startedAt, closedAt), taskAttributes)]),
+      gauge('ai_dev_flow.task.human_wait_minutes', 'min', [dataPoint(Math.round((totalHumanWaitMs / 60000) * 10) / 10, taskAttributes)]),
       gauge('ai_dev_flow.task.red_rounds', '1', [dataPoint((state.redRounds ?? []).length, taskAttributes)]),
       gauge('ai_dev_flow.task.verifications', '1', [dataPoint(verifications, taskAttributes)]),
       gauge('ai_dev_flow.task.overrides', '1', [dataPoint((state.overrides ?? []).length, taskAttributes)]),
@@ -686,7 +775,7 @@ async function runCli() {
     }
     // Report dei tempi (vedi computeStepIntervals). Con --otel esporta anche via OTLP.
     case 'report': {
-      const { steps, startedAt, closedAt, firstMarkerAt } = computeStepIntervals(state);
+      const { steps, startedAt, closedAt, firstMarkerAt, totalHumanWaitMs } = computeStepIntervals(state);
       if (steps.length === 0) {
         console.log(`Task "${state.task.id}": nessun inizio-azione nel log. Il report per-passo richiede task lavorati con kit >= 0.5.0 (il sequencer registra i marcatori "sequencer → <passo>").`);
         return;
@@ -694,10 +783,12 @@ async function runCli() {
       console.log(`Report tempi — task "${state.task.id}" (fase: ${state.phase})`);
       console.log(`  avvio → primo passo: ${formatMinutes(new Date(firstMarkerAt) - new Date(startedAt))}`);
       for (const step of steps) {
-        console.log(`  ${step.name}: ${step.to ? formatMinutes(new Date(step.to) - new Date(step.from)) : `in corso da ${formatMinutes(Date.now() - new Date(step.from))}`}${step.humanStop ? '  (include fermate umane)' : ''}`);
+        const waitNote = step.humanWaitMs > 0 ? `, di cui attesa alle domande ${formatMinutes(step.humanWaitMs)}` : (step.humanStop ? '  (include fermate umane)' : '');
+        console.log(`  ${step.name}: ${step.to ? formatMinutes(new Date(step.to) - new Date(step.from)) : `in corso da ${formatMinutes(Date.now() - new Date(step.from))}`}${waitNote}`);
       }
       const verifications = (state.log ?? []).filter((entry) => entry.event.startsWith('verifica test:')).length;
       console.log(`  totale: ${closedAt ? formatMinutes(new Date(closedAt) - new Date(startedAt)) : `in corso da ${formatMinutes(Date.now() - new Date(startedAt))}`}`
+        + `${totalHumanWaitMs > 0 ? ` · attesa umana misurata: ${formatMinutes(totalHumanWaitMs)}` : ''}`
         + ` · verifiche registrate: ${verifications} · giri rossi: ${(state.redRounds ?? []).length}`);
       if (options.otel === true) {
         await tryExportTimings(state, projectRoot);

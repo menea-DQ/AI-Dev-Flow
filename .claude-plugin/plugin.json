@@ -1,7 +1,7 @@
 {
   "name": "ai-dev-flow",
   "displayName": "AI-Dev Flow",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Processo di sviluppo software AI-assistito (human-in-the-loop), abilitabile e configurabile per singolo progetto. Skill di processo, hook di qualità e installer deterministico.",
   "author": {
     "name": "Massimiliano Enea",

@@ -1,5 +1,5 @@
 # AI-Dev Flow — Processo
-process-version: 0.5.0
+process-version: 0.5.1
 compatibile-con: ">=0.5.0 <0.6.0"
 
 ## Principio fondante
@@ -52,6 +52,9 @@ annotati): è così che si vede DOVE un task è stato lento, prima di ottimizzar
 Con la telemetria abilitata (flow.config.telemetry) le stesse durate si esportano via OTLP alla
 chiusura del task (metriche `ai_dev_flow.*` + log di riepilogo), accanto a token e costo di
 Claude Code; l'export non blocca mai la chiusura (backfill: `report --otel`).
+Le FERMATE UMANE sono misurate, non stimate: un hook su AskUserQuestion timestampa nello stato
+quando una domanda è posta e quando arriva la risposta — il report e la telemetria separano così
+l'attesa umana dal tempo macchina dentro ogni passo.
 
 ## Abbandono e compensazioni
 Un task si può abbandonare solo per scelta umana motivata: `flowState.mjs abort --reason "<r>"`.
@@ -275,9 +278,13 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
 - GARANTITO: il guardiano di fine turno (hook Stop) blocca la chiusura del turno finché la
   verifica non è registrata per lo stato ATTUALE del codice coperto dal playbook — l'hash si
   calcola sul CONTENUTO dei file nei pathPatterns del test-playbook, non sull'intero diff git.
-  Se quel codice cambia dopo la verifica, il gate si ri-arma da solo; doc, changelog, salvataggi
-  nello Spec Store e commit NON lo ri-armano (non toccano il codice sotto test — l'hash globale
-  costringeva a ri-verifiche spurie a ogni scrittura del flusso stesso). Una verifica ROSSA non lo
+  Dall'hash restano FUORI, anche con un playbook `**/*`: i file IGNORATI da git (sottoprodotti per
+  dichiarazione del progetto: build cache, report dei test, .env — erano i test stessi a ri-armare
+  il gate scrivendoli), i documenti GOVERNATI dal flusso (registro documentazione, changelog, spec
+  store, architecture doc: sono output della Fase 4, non codice sotto test) e una lista di
+  directory volatili di default per i progetti senza git.
+  Se il codice coperto cambia dopo la verifica, il gate si ri-arma da solo; doc, changelog,
+  salvataggi nello Spec Store e commit NON lo ri-armano. Una verifica ROSSA non lo
   soddisfa: il gate resta armato finché i test non passano. Skip solo esplicito e motivato
   (registrato).
 - Se i test passano → Fase 4. Se falliscono → torna all'implementazione (fix); i test non si toccano.
@@ -351,7 +358,11 @@ chiunque apra il progetto. Whitelistare un componente è una decisione umana, co
 
 ## Garanzia di qualità (anti teaching-to-the-test)
 I test sono scritti da un sub-agent isolato PRIMA del codice e committati prima
-dell'implementazione. L'isolamento è sul COME della soluzione: il test-author riceve la spec
+dell'implementazione. Sono PROPORZIONALI alla spec: un caso per osservabile più i soli casi limite
+dichiarati — l'eccesso è un difetto (della spec o della derivazione), non prudenza, e si paga a
+ogni verifica di ogni task futuro. Il presidio di un'area congelata è un test di comportamento o
+un check di perimetro: MAI un hash/digest del contenuto (si rompe a ogni tocco legittimo e impone
+manutenzione crescente col numero di task). L'isolamento è sul COME della soluzione: il test-author riceve la spec
 (unica fonte di ciò che va asserito) e la RICETTA dei test del progetto (playbook, convenzioni,
 posizione e stile dei test esistenti) — MAI il piano né il codice di implementazione. La ricetta
 non rivela nulla della soluzione: farla riscoprire a ogni task era un costo, non un presidio.

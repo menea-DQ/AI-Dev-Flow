@@ -75,8 +75,11 @@ stesso `otlpEndpoint`:
 - su `/v1/metrics`, **gauge** con attributi `task.id`, `task.type`, `fast.path`:
   - `ai_dev_flow.step.duration_minutes` — durata di ogni passo del sequencer (attributi `step`,
     `human.stops`: i passi che contengono fermate umane, cioè attesa oltre al lavoro macchina);
-  - `ai_dev_flow.task.duration_minutes`, `ai_dev_flow.task.red_rounds`,
-    `ai_dev_flow.task.verifications`, `ai_dev_flow.task.overrides` — i totali del task;
+  - `ai_dev_flow.step.human_wait_minutes` — l'ATTESA UMANA misurata dentro il passo (coppie
+    domanda→risposta timestampate dall'hook `questionTiming`, dalla 0.5.1);
+  - `ai_dev_flow.task.duration_minutes`, `ai_dev_flow.task.human_wait_minutes`,
+    `ai_dev_flow.task.red_rounds`, `ai_dev_flow.task.verifications`,
+    `ai_dev_flow.task.overrides` — i totali del task;
 - su `/v1/logs`, un **log di riepilogo** per task (`event=flow-task-report`, con `started.at`/
   `closed.at` e il breakdown dei passi nel body) — finisce in Loki, comodo come timeline.
 
