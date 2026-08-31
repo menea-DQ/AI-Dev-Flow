@@ -25,13 +25,19 @@ contratti. Ogni skip/deroga è registrato nello stato (auditabile), mai silenzio
 - **perimeterGuard.mjs** — `PreToolUse` (Skill|mcp__*). Enforcement del perimetro: nei progetti col
   kit si usano SOLO le skill del kit, Ponytail e le whitelist esplicite di `flow.config.perimeter`.
   Ogni altro server MCP o skill è bloccato.
+- **questionTiming.mjs** — `PreToolUse` + `PostToolUse` su AskUserQuestion. MISURA, non presidio:
+  timestampa nello stato del task quando una domanda è posta e quando arriva la risposta — le
+  coppie che permettono a `flowState report` e alla telemetria di separare l'attesa umana dal
+  tempo macchina. Non blocca mai (exit 0 sempre); senza task attivo non fa nulla.
 - **preWorkSnapshot.mjs** — `PreToolUse`. Alla prima modifica di codice produttore di dati
   (`dataProducingPaths`), fa chiedere all'utente se catturare lo snapshot "before". Con task attivo
   la decisione è registrata NELLO STATO (persistente tra sessioni); senza, marcatore di sessione.
 - **postWorkVerification.mjs** — `Stop`. Il guardiano di fine turno: (1) se ci sono modifiche nei
   `pathPatterns` del test-playbook non coperte da una verifica registrata per lo stato ATTUALE del
   codice coperto (hash sul CONTENUTO dei file nei pathPatterns, non sull'intero diff git: doc,
-  changelog e commit non ri-armano), blocca finché i test non girano (o skip motivato) — se quel
+  changelog e commit non ri-armano; dalla 0.5.1 restano fuori anche i file IGNORATI da git — build
+  cache e report scritti dai test stessi — e i documenti governati dal flusso), blocca finché i
+  test non girano (o skip motivato) — se quel
   codice cambia dopo la verifica, il gate si **ri-arma da solo**, e una verifica registrata come `failed` NON lo soddisfa
   (il rosso si risolve nel codice: i test restano read-only); (2) a implementazione conclusa, blocca la chiusura
   finché doc-review, changelog e aggiornamento ticket non risultano fatti o esplicitamente saltati.

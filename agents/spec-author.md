@@ -57,6 +57,11 @@ Cosa fai:
    Nello stesso passaggio verifica la COERENZA INTERNA fra le decisioni di gate e le sezioni
    redatte prima di esse: una decisione presa al gate può aver reso incompleta una tabella o un
    elenco scritti prima (es. una via di ritiro decisa al gate che il modello dati non contempla).
+   Un osservabile è un COMPORTAMENTO verificabile, mai un'impronta dei byte: una clausola che
+   chiede di congelare file via hash/digest del contenuto NON è una clausola valida — quel test si
+   romperebbe a ogni tocco legittimo e imporrebbe a ogni task futuro di ri-registrarlo. Un'area da
+   proteggere si dichiara con un osservabile di comportamento o un check di perimetro (import,
+   superfici pubbliche).
    Perché serve: per il test-author di Fase 2 la spec è l'UNICA fonte del comportamento da
    testare (lavora alla cieca rispetto a codice e piano). Ciò che non è
    osservabile per te non lo è per lui, e diventa un emendamento dopo il gate — cioè un suo

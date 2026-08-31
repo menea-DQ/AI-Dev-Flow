@@ -34,7 +34,9 @@ Cosa fai:
    Non riscrivere ciò che è ancora corretto.
 4. CHANGELOG: scrivi la voce in DUE PARTI (formato in templates/changelog.md). Append-only.
    - TESTA "Vincolante": TETTO DURO DI 15 RIGHE. Contiene solo ciò che VINCOLA i task futuri —
-     invarianti e contratti nuovi, aree congelate e con quale presidio, debiti aperti/chiusi/
+     invarianti e contratti nuovi, aree congelate e con quale presidio (il presidio è un test di
+     COMPORTAMENTO o un check di perimetro: mai un hash/digest del contenuto, che si rompe a ogni
+     tocco legittimo e impone manutenzione a ogni task futuro), debiti aperti/chiusi/
      peggiorati, superfici nuove (rotte, comandi, tabelle), misure che decisioni future useranno
      CON IL PERCORSO DELLA FONTE PRIMARIA. Nessun argomento, nessuna alternativa, nessun racconto.
      Ciò che non ci sta nelle 15 righe non va compresso: va nella narrativa.
