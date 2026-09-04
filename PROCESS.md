@@ -1,5 +1,5 @@
 # AI-Dev Flow — Processo
-process-version: 0.5.1
+process-version: 0.5.2
 compatibile-con: ">=0.5.0 <0.6.0"
 
 ## Principio fondante
@@ -204,6 +204,11 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
   PRIMARIA delle misure: nessuna cifra si dichiara "non verificabile" senza averli aperti.
 - La spec si redige in DUE PARTI: normativa (il contratto, autosufficiente per il test-author) e
   motivazione (il perché). Il changelog si legge dalle sole teste "Vincolante".
+- PROPORZIONE della spec: la spec segue il PERIMETRO (regola speculare a quella del test-author).
+  La spec è il MOLTIPLICATORE di costo delle fasi a valle — ogni clausola diventa test, copertura
+  di piano e verifiche ripetute: un incremento da 1-2 file merita una parte normativa di poche
+  decine di righe; poche file previsti e più di ~10 clausole = si sta specificando oltre il
+  necessario (misurato: spec di 542 e 818 righe per implementazioni da 7 e 2 minuti).
 - CONTROLLO DI OSSERVABILITÀ, prima del gate: ogni clausola del comportamento atteso dichiara COME
   SI OSSERVA (quale tipo di test la coprirebbe, su cosa asserisce). Una clausola senza osservabile
   non è una clausola: è una domanda di gate. Si verifica anche la coerenza interna fra le decisioni
@@ -330,8 +335,11 @@ Il processo si appoggia a un piccolo insieme di artefatti versionati (file .md),
 
 ## Fast-path (task piccoli)
 - Fase 0: solo CANDIDATURA (segnali del ticket). Fase 1, a retrieval fatto (e riproduzione per i
-  BUG): PROPOSTA vera, con criteri verificati sul codice (modifica circoscritta, no schema dati,
-  no API pubbliche, soglia righe in flow.config.fastPath).
+  BUG): PROPOSTA vera. Il criterio è il COSTO DELLA REDAZIONE, non le righe di diff: file previsti
+  entro flow.config.fastPath.maxFiles (default 3), nessuno schema dati, nessuna API pubblica —
+  dentro quei limiti il fast-path è la PROPOSTA DI DEFAULT, non l'eccezione (la soglia righe
+  thresholdLines resta un indizio secondario). Misurato il contrario: 0 fast-path su 10 task,
+  con rapporti redazione/lavoro fino a 20:1.
 - Cosa taglia (i sub-agent, mai i gate): NIENTE plan-author — il piano compresso è nella spec
   approvata (file previsti, approccio) e si presenta comunque al Gate 2; NIENTE test-author
   separato — in Fase 3 girano i test del playbook; doc-review IN LINEA dall'orchestratore

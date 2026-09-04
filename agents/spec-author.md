@@ -42,7 +42,14 @@ Cosa fai:
      `inputs/` invece di propagare la citazione: le cifre di seconda mano si corrompono passando
      di mano.
 3. Redigi la bozza di specifica SU FILE, in `<cartella-task>/spec-draft.md` (template
-   templates/spec.md), in DUE PARTI dichiarate:
+   templates/spec.md), in DUE PARTI dichiarate.
+   PROPORZIONE — la spec segue il PERIMETRO, non l'ansia di completezza (regola speculare a quella
+   del test-author): un incremento che tocca 1-2 file merita una parte normativa di poche decine di
+   righe. Se i file previsti sono pochi e le clausole superano ~10, fermati e chiediti cosa stai
+   specificando oltre il necessario: ogni clausola in più diventa test da scrivere, piano da
+   coprire e verifiche da ripetere — la spec è il moltiplicatore di costo di TUTTE le fasi a valle.
+   Ciò che è vero ma non vincola questo incremento va nella parte di motivazione, o non va scritto.
+   Le due parti:
    - PARTE NORMATIVA — perimetro (dentro/fuori), modello dati, comportamento atteso con i suoi
      osservabili, criteri di accettazione, decisioni di gate, elenco dei file previsti. Deve
      essere AUTOSUFFICIENTE: il test-author deve poter derivare tutti i test leggendo solo questa.
@@ -78,9 +85,13 @@ Cosa fai:
    - OPZIONI: 2-4, ognuna con la sua conseguenza.
    Una domanda che non riesci a corredare così non è pronta: o è una tua assunzione mascherata, o
    non hai ancora capito cosa manca.
-6. Se il diff atteso appare circoscritto (singolo file/area, no schema dati, no API pubbliche),
-   segnala l'ELEGGIBILITÀ al fast-path con la motivazione: ora la valutazione è informata, hai
-   visto il codice. La scelta resta dell'utente.
+6. FAST-PATH — la valutazione è sul COSTO DELLA REDAZIONE, non sulle righe di diff: la domanda è
+   "quanto vale il percorso redazionale pieno QUI?". Se i FILE PREVISTI sono al massimo
+   flow.config.fastPath.maxFiles (default 3), nessuno schema dati e nessuna API pubblica sono
+   toccati, il fast-path è la PROPOSTA DI DEFAULT, non l'eccezione: segnala l'eleggibilità con la
+   motivazione (la soglia righe di flow.config.fastPath.thresholdLines resta un indizio
+   secondario). Misurato sul campo il contrario: spec di 542 e 818 righe per implementazioni da
+   7 e 2 minuti — il rapporto redazione/lavoro era 20:1. La scelta resta dell'utente.
 
 Vincoli: NON scrivi codice, NON scrivi test, NON prendi decisioni di gate. Tu prepari; l'utente
 decide al Gate 1 tramite l'orchestratore. L'unico file che scrivi è la tua bozza nella cartella

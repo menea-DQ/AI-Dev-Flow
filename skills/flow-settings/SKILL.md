@@ -43,7 +43,9 @@ senza che l'utente debba editare il JSON a mano.
      `false` (o valorizzare `ticketStatus`) è la forma giusta di una scelta STABILE del progetto:
      se l'utente sta derogando lo stesso passo — o rispondendo sempre la stessa cosa — a ogni
      task, proponigli di fissarlo qui (decisione committata, non deroga ripetuta).
-   - `maxRefine`, `fastPath`, `connectors`, `tokenEconomy`: soglie e opzioni.
+   - `fastPath`: `maxFiles` (file previsti entro cui il fast-path è la proposta di default, default 3),
+     `thresholdLines` (indizio secondario sul diff atteso), `askEachTime`, `autoUnderThreshold`.
+   - `maxRefine`, `connectors`, `tokenEconomy`: soglie e opzioni.
 3. Valida la modifica contro lo schema di `flow.config`. Se una scelta è ambigua, applica la
    Regola del 98% e CHIEDI; non indovinare.
 4. Scrivi SOLO `flow.config.json`. NON toccare mai il core del kit (il plugin), né gli artefatti di
