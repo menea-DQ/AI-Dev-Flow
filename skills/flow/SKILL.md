@@ -54,7 +54,9 @@ Il sequencer dice COSA; il COME delle fasi è questo:
   ribaltare la bozza, prima l'intervista e poi il gate.
   Ad approvazione, la bozza (con gli emendamenti decisi) diventa la spec approvata nello Spec Store:
   è quella che registri con `record-spec --path`. Fast-path: se spec-author lo propone (post-retrieval; BUG: post-riproduzione), chiedi
-  all'utente con AskUserQuestion spiegando cosa salta — niente plan-author (il piano compresso
+  all'utente con AskUserQuestion spiegando cosa salta. Se la proposta MANCA ma il sommario mostra
+  un perimetro micro (file previsti entro `fastPath.maxFiles`, niente schema dati né API pubbliche),
+  valutala TU e proponila comunque: dentro quei limiti il fast-path è il default, non l'eccezione — niente plan-author (il piano compresso
   viene dalla spec, presentato comunque al Gate 2), niente test-author separato (in Fase 3 girano
   i test del playbook), doc-review in linea; i TRE GATE restano tutti. Se accetta:
   `record-override --gate fast-path --reason "<scelta utente>"`.

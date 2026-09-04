@@ -1,6 +1,6 @@
 # AI-Dev Flow - Manuale di progetto
 
-> Documento di riferimento dello standard aziendale AI-Dev Flow, versione kit **0.5.1**.
+> Documento di riferimento dello standard aziendale AI-Dev Flow, versione kit **0.5.2**.
 > Lettore: lo sviluppatore che deve installare il kit su un progetto e lavorarci dentro.
 > Questo manuale è discorsivo per scelta: spiega il perché delle cose, non solo il cosa.
 > La fonte di verità normativa resta il repo (`PROCESS.md`, `INSTALL.md`, skill, hook, codice);
@@ -131,7 +131,10 @@ distinzione che permette di capire *dove* un task è stato lento. Un ritorno a u
 Il comando **`flowState.mjs report`** riassume le durate per passo dal log, annotando i passi che
 contengono fermate umane - e dalla **0.5.1**, grazie all'hook `questionTiming` su AskUserQuestion,
 riporta l'**attesa umana misurata** (coppie domanda→risposta) dentro ogni passo, non stimata:
-si guarda quello prima di ottimizzare alla cieca. Con la telemetria
+si guarda quello prima di ottimizzare alla cieca. Dalla **0.5.2** i confini dei passi usano anche
+i **fatti registrati** (gate approvati, test scritti, verifiche): se l'orchestratore esegue più
+azioni senza richiamare `next`, il report le separa comunque - misurato il contrario: test e
+implementazione fusi dentro un "Piano" da 3h16. Con la telemetria
 abilitata (`flow.config.telemetry.enabled`) le stesse durate partono **via OTLP** alla chiusura del
 task (`close`/`abort`) verso lo stack di `telemetry/`: metriche `ai_dev_flow.*` (durata per passo e
 totali: giri rossi, verifiche, deroghe, fast-path) e un log di riepilogo — così in Grafana i tempi
@@ -733,7 +736,8 @@ kit, non da qui. Cambiandola con `flow-settings`, va riallineata anche la chiave
 |---|---|---|
 | `askEachTime` | `true` | Chiede conferma a ogni task eleggibile. |
 | `autoUnderThreshold` | `false` | Se `true`, sotto soglia il fast-path scatta senza domanda. |
-| `thresholdLines` | `20` | Soglia in righe toccate - applicata in **Fase 1**, a retrieval fatto (in F0 esiste solo la candidatura dai segnali del ticket). |
+| `maxFiles` | `3` | File previsti entro cui (senza schema dati né API pubbliche) il fast-path è la **proposta di default** - il criterio è il costo della redazione, non le righe (dalla 0.5.2). |
+| `thresholdLines` | `20` | Indizio secondario sul diff atteso - applicato in **Fase 1**, a retrieval fatto (in F0 esiste solo la candidatura dai segnali del ticket). |
 
 *Letta da*: spec-author / skill flow (F1).
 

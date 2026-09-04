@@ -3,7 +3,7 @@
 Plugin Claude Code per uno sviluppo software AI-assistito (human-in-the-loop), **abilitabile e
 configurabile per singolo progetto**.
 
-> Versione **0.5.1** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
+> Versione **0.5.2** — beta. Finché siamo sotto `1.0.0` anche piccoli incrementi
 > possono introdurre cambiamenti non retro-compatibili (convenzione semver per le 0.x).
 
 ## Cos'è
@@ -94,6 +94,18 @@ digest** del contenuto — presidio sbagliato per le aree congelate (si rompe a 
 e impone manutenzione a ogni task futuro): al loro posto, test di comportamento o check di
 perimetro. Misurato sul campo: 60-70 casi per task incrementale e una suite cumulativa cresciuta
 di +73 casi in 4 giorni.
+
+Dalla **0.5.2** — misure del terzo giro (10 task, con l'attesa umana finalmente separata: mediana
+21 minuti su 4h49, ~7% — il processo è **machine-bound**) — la **redazione è proporzionale al
+perimetro**: il collo di bottiglia misurato erano spec di 542-818 righe per implementazioni da 7 e
+2 minuti, che moltiplicano piano, test e verifiche a valle. Lo spec-author ha la regola di
+proporzione (poche decine di righe normative per un incremento da 1-2 file; oltre ~10 clausole su
+un perimetro micro = fermarsi e segnalare), e il **fast-path si valuta sul costo della redazione**,
+non sulle righe di diff: file previsti entro `fastPath.maxFiles` (default 3), niente schema dati né
+API pubbliche → il fast-path è la **proposta di default** (era rimasto a 0 usi su 10 task col
+criterio a righe). E il report guadagna fedeltà: i confini dei passi usano anche i **fatti
+registrati** (gate, test scritti, verifiche), così le azioni eseguite senza richiamare `next` non
+si fondono più in un passo unico.
 
 È confezionato come **plugin Claude Code**: il processo, gli artefatti e i template restano agnostici
 nel contenuto; il **plugin** (skill, hook, agenti, connettori) è lo strato adattatore per Claude Code.

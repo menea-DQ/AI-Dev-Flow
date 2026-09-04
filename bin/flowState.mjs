@@ -337,6 +337,32 @@ export const HUMAN_STOP_STEPS = new Set([
 export const QUESTION_ASKED_EVENT = 'fermata umana: domanda posta (AskUserQuestion)';
 export const QUESTION_ANSWERED_EVENT = 'fermata umana: risposta ricevuta';
 
+// Fatti che CHIUDONO un passo, in ordine canonico di fase. Servono a suddividere un intervallo di
+// marcatore quando l'orchestratore ha eseguito più azioni senza richiamare `next` (misurato: test e
+// implementazione assorbiti dentro "F2 · Piano" per 3h16). La suddivisione parte SOLO dal fatto che
+// chiude il passo del marcatore stesso (la prova che il flusso è andato oltre senza `next`) e
+// accetta i fatti successivi solo in ordine canonico crescente: così una verifica incorporata
+// nell'implementazione (hook di fine turno) non viene etichettata come una Fase 3 a sé.
+const STEP_CLOSING_FACTS = [
+  { prefix: 'GATE UMANO approvato: spec', step: 'F1 · Specifica', order: 1 },
+  { prefix: 'GATE UMANO approvato: plan', step: 'F2 · Piano', order: 2 },
+  { prefix: 'test scritti e committati', step: 'F2 · Test (test-author)', order: 3 },
+  { prefix: 'GATE UMANO approvato: diff', step: 'F2 · Implementazione', order: 4 },
+  { prefix: 'verifica test:', step: 'F3 · Qualità', order: 5 },
+  { prefix: 'doc-review:', step: 'F4 · Documentazione', order: 6 },
+  { prefix: 'PR aperta:', step: 'F5 · Consegna (PR)', order: 7 },
+];
+
+function closingFactFor(eventText) {
+  return STEP_CLOSING_FACTS.find((fact) => eventText.startsWith(fact.prefix)) ?? null;
+}
+
+function stepOrderOf(stepName) {
+  // il nome del passo può portare suffissi ("(fast-path)"): si confronta per prefisso.
+  const match = STEP_CLOSING_FACTS.find((fact) => stepName.startsWith(fact.step));
+  return match ? match.order : null;
+}
+
 export function computeStepIntervals(state) {
   const log = state.log ?? [];
   const markers = log.filter((entry) => entry.event.startsWith('sequencer → '));
@@ -353,18 +379,58 @@ export function computeStepIntervals(state) {
     }
   }
   const nowIso = new Date().toISOString();
-  const steps = markers.map((marker, index) => {
+
+  // Intervalli dai marcatori, poi eventuale suddivisione sui fatti di chiusura.
+  const steps = [];
+  markers.forEach((marker, index) => {
     const name = marker.event.slice('sequencer → '.length);
     const from = marker.at;
     const to = index + 1 < markers.length ? markers[index + 1].at : closedAt;
-    const end = to ?? nowIso;
-    const humanWaitMs = waits
-      .filter((wait) => wait.from >= from && wait.from < end)
-      .reduce((total, wait) => total + (new Date(wait.to) - new Date(wait.from)), 0);
-    return { name, from, to, humanStop: HUMAN_STOP_STEPS.has(name), humanWaitMs };
+    const factsInside = log
+      .filter((entry) => entry.at > from && (to === null || entry.at < to))
+      .map((entry) => ({ at: entry.at, fact: closingFactFor(entry.event) }))
+      .filter((entry) => entry.fact !== null);
+    const markerOrder = stepOrderOf(name);
+    const ownIndex = markerOrder === null ? -1 : factsInside.findIndex((entry) => entry.fact.order === markerOrder);
+    if (ownIndex === -1) {
+      steps.push({ name, from, to });
+      return;
+    }
+    // il passo del marcatore si chiude al suo fatto; i fatti successivi (in ordine canonico
+    // crescente) aprono i passi che il flusso ha attraversato senza `next`.
+    const segments = [{ name, from, to: factsInside[ownIndex].at }];
+    let lastOrder = markerOrder;
+    for (const entry of factsInside.slice(ownIndex + 1)) {
+      if (entry.fact.order <= lastOrder) {
+        continue; // fuori sequenza (es. seconda verifica): resta nel segmento corrente
+      }
+      segments.push({ name: entry.fact.step, from: segments[segments.length - 1].to, to: entry.at });
+      lastOrder = entry.fact.order;
+    }
+    segments[segments.length - 1].to = to; // il residuo (bookkeeping) resta nell'ultimo segmento
+    steps.push(...segments);
   });
+
+  // Fusione dei segmenti adiacenti con lo stesso nome (un fatto può chiudere ciò che il marcatore
+  // successivo riapre) e calcolo delle attese per segmento.
+  const merged = [];
+  for (const step of steps) {
+    const previous = merged[merged.length - 1];
+    if (previous && previous.name === step.name) {
+      previous.to = step.to;
+    } else {
+      merged.push({ ...step });
+    }
+  }
+  for (const step of merged) {
+    const end = step.to ?? nowIso;
+    step.humanStop = HUMAN_STOP_STEPS.has(step.name);
+    step.humanWaitMs = waits
+      .filter((wait) => wait.from >= step.from && wait.from < end)
+      .reduce((total, wait) => total + (new Date(wait.to) - new Date(wait.from)), 0);
+  }
   const totalHumanWaitMs = waits.reduce((total, wait) => total + (new Date(wait.to) - new Date(wait.from)), 0);
-  return { steps, startedAt: state.startedAt, closedAt, firstMarkerAt: markers[0]?.at ?? null, totalHumanWaitMs };
+  return { steps: merged, startedAt: state.startedAt, closedAt, firstMarkerAt: markers[0]?.at ?? null, totalHumanWaitMs };
 }
 
 export function formatMinutes(millis) {

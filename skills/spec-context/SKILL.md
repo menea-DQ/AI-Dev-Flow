@@ -27,10 +27,11 @@ Principio di risparmio: il costo maggiore è rileggere tutto. Carica il minimo s
 Se non sei sicuro che un file serva, NON caricarlo: chiedilo nell'intervista invece.
 
 6. FAST-PATH — è QUI (a retrieval fatto, e per i BUG dopo la riproduzione) che si valuta la vera
-   eleggibilità: ora sai quanto codice tocca la modifica. Criteri: modifica circoscritta a un
-   singolo file/area, nessun cambiamento di schema dati, nessun impatto su API pubbliche, basso
-   rischio (soglia righe: flow.config.fastPath.thresholdLines). Se eleggibile, SEGNALALO
-   all'utente spiegando cosa salta e i rischi: la scelta è sua, mai tua.
+   eleggibilità, e il criterio è il COSTO DELLA REDAZIONE, non le righe di diff: file previsti
+   entro flow.config.fastPath.maxFiles (default 3), nessun cambiamento di schema dati, nessun
+   impatto su API pubbliche. Dentro quei limiti il fast-path è la PROPOSTA DI DEFAULT (la soglia
+   righe flow.config.fastPath.thresholdLines resta un indizio secondario): SEGNALALO all'utente
+   spiegando cosa salta e i rischi. La scelta è sua, mai tua.
 
 Output: il set minimo di contesto su cui costruire la specifica (+ eventuale proposta fast-path
 motivata). Nel flusso orchestrato, questo lavoro lo esegue il sub-agent **spec-author**.
